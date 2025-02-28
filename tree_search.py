@@ -14,7 +14,8 @@ class TreeSearchLouvain:
         self.G = G                      # NetworkX图
         self.r = r                      # 相似度阈值
         self.best_state = None          # 最优状态
-        
+        self.global_max = -float('inf') # 全局最优模块度
+
     def _initial_state(self):
         """初始状态：每个节点独立社区"""
         communities = defaultdict(set)
@@ -62,6 +63,9 @@ class TreeSearchLouvain:
         return candidates
 
     def _dfs_search(self, state):
+
+        # TODO:增加上界，剪枝搜索逻辑
+
         """深度优先搜索主函数"""
         if len(state.visited) == len(self.G.nodes):
             # 终止条件：所有节点已处理
@@ -100,6 +104,10 @@ class TreeSearchLouvain:
 
             # 递归搜索
             self._dfs_search(new_state)
+    def _compute_upper_bound(self,state):
+        """计算剩余节点可能带来的最大模块度增益"""
+        # TODO:计算上界
+        pass
 
     def run(self):
         """执行搜索"""

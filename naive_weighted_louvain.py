@@ -22,7 +22,8 @@ class ConstrainedLouvainNX:
         self.G = G.copy()
         self.r = r
         self.check_connectivity = check_connectivity
-        
+        self.global_max = -float('inf')
+
         # 预处理步骤
         self._add_sim_neighbors()
         self._init_communities()
@@ -183,19 +184,15 @@ if __name__ == "__main__":
         3: [5.0, 5.0]
     }
     
-    # 添加节点和属性
     for node in attributes:
         G.add_node(node, attributes=attributes[node])
     
-    # 添加边（带权重）
     G.add_edges_from([(0,1, {'weight':0.8}), 
                      (0,2, {'weight':0.7}),
                      (1,2, {'weight':0.6})])
     
-    # 运行算法
     cl = ConstrainedLouvainNX(G, r=0.95)
     communities = cl.run()
     
-    # 输出结果
     for comm_name, members in communities.items():
         print(f"{comm_name}: {members}")
