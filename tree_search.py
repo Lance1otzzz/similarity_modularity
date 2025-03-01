@@ -104,6 +104,7 @@ class TreeSearchLouvain:
 
             # 递归搜索
             self._dfs_search(new_state)
+
     def _compute_upper_bound(self,state):
         """计算剩余节点可能带来的最大模块度增益"""
         # TODO:计算上界
@@ -129,6 +130,9 @@ if __name__ == "__main__":
                      (1, {'attributes': [0.9,0.1], 'sim_neighbors': {0:0.9, 2:0.85}}),
                      (2, {'attributes': [0.95,0.05], 'sim_neighbors': {0:0.95, 1:0.85}})])
     
+    G.add_edges_from([(0,1, {'weight':0.8}), 
+                     (0,2, {'weight':0.7}),
+                     (1,2, {'weight':0.6})])
     # 运行算法
     searcher = TreeSearchLouvain(G, r=0.85)
     communities = searcher.run()
