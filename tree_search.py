@@ -1,5 +1,6 @@
 import json
 from collections import defaultdict
+
 import mmh3
 import networkx as nx
 import numpy as np
@@ -8,8 +9,8 @@ import numpy as np
 class SearchState:
     def __init__(self, communities, modularity):
         self.communities = communities  # {社区ID: 节点集合}
-        self.modularity = modularity    # 当前模块度值
-        self.visited = set()            # 已处理节点
+        self.modularity = modularity  # 当前模块度值
+        self.visited = set()  # 已处理节点
 
     @property
     def state_hash(self):
@@ -22,19 +23,38 @@ def preprocess_graph(G, r):
     for node in G.nodes():
         sim_neighbors = {}
         node_feat = np.array(G.nodes[node]['features'])
-        for nbr in G.neighbors(node):
+        for nbr in [n for n in G.nodes() if n != node]:
             nbr_feat = np.array(G.nodes[nbr]['features'])
             similarity = np.dot(node_feat, nbr_feat) / (np.linalg.norm(node_feat) * np.linalg.norm(nbr_feat) + 1e-8)
             if similarity >= r:
                 sim_neighbors[nbr] = similarity
         G.nodes[node]['sim_neighbors'] = sim_neighbors
     return G
+
+
+# # 调试输出版本
+# def preprocess_graph(G, r):
+#     for node in G.nodes():
+#         sim_neighbors = {}
+#         node_feat = np.array(G.nodes[node]['features'])
+#         print(f"\n节点 {node} 的特征: {node_feat}")
+#         for nbr in [n for n in G.nodes() if n != node]:
+#             nbr_feat = np.array(G.nodes[nbr]['features'])
+#             similarity = np.dot(node_feat, nbr_feat) / (np.linalg.norm(node_feat) * np.linalg.norm(nbr_feat) + 1e-8)
+#             print(f"  邻居 {nbr} 的相似度: {similarity:.4f} (阈值={r})")
+#             if similarity >= r:
+#                 sim_neighbors[nbr] = similarity
+#         G.nodes[node]['sim_neighbors'] = sim_neighbors
+#         print(f"  保留的相似邻居: {sim_neighbors.keys()}")
+#     return G
+
+
 class TreeSearchLouvain:
     def __init__(self, G, r):
-        self.G = preprocess_graph(G,r)  # NetworkX图
-        self.r = r                      # 相似度阈值
-        self.best_state = None          # 最优状态
-        self.visited_states = set()     # 记录已探索状态
+        self.G = preprocess_graph(G, r)  # NetworkX图
+        self.r = r  # 相似度阈值
+        self.best_state = None  # 最优状态
+        self.visited_states = set()  # 记录已探索状态
 
     def _initial_state(self):
         """初始状态：每个节点独立社区"""
@@ -76,22 +96,34 @@ class TreeSearchLouvain:
 
         # 相似邻居所在社区
         for nbr in self.G.nodes[node]['sim_neighbors']:
-            if nbr in state.visited:
-                comm = next(k for k, v in state.communities.items() if nbr in v)
+            comm = next((k for k, v in state.communities.items() if nbr in v), None)
+            if comm is not None:
                 candidates.add(comm)
         return candidates
 
+    # 调试输出版本
+    # def _generate_candidates(self, state, node):
+    #     candidates = set()
+    #     current_comm = next(k for k, v in state.communities.items() if node in v)
+    #     candidates.add(current_comm)
+    #     for nbr in self.G.nodes[node]['sim_neighbors']:
+    #         comm = next((k for k, v in state.communities.items() if nbr in v), None)
+    #         if comm is not None:
+    #             candidates.add(comm)
+    #     print(f"节点 {node} 的候选社区: {candidates}")  # 添加调试输出
+    #     return candidates
+
     def _dfs_search(self, state):
+        # 如果当前模块度优于已知最优解，更新最优解
+        if not self.best_state or state.modularity > self.best_state.modularity:
+            self.best_state = state
 
-        """深度优先搜索主函数"""
-        if len(state.visited) == len(self.G.nodes):
-            # 终止条件：所有节点已处理
-            if not self.best_state or state.modularity > self.best_state.modularity:
-                self.best_state = state
-            return
+        # 选择未处理节点
+        unvisited_nodes = [n for n in self.G.nodes() if n not in state.visited]
+        if not unvisited_nodes:
+            return  # 所有节点已处理
 
-        # 选择未处理节点（可优化选择顺序）
-        current_node = next(n for n in self.G.nodes() if n not in state.visited)
+        current_node = unvisited_nodes[0]
         state.visited.add(current_node)
 
         # 生成所有可能移动
@@ -105,8 +137,7 @@ class TreeSearchLouvain:
                 new_communities[k] = set(v)
 
             # 移动节点
-            source_comm = next(k for k, v in new_communities.items()
-                               if current_node in v)
+            source_comm = next(k for k, v in new_communities.items() if current_node in v)
             new_communities[source_comm].remove(current_node)
             new_communities[target_comm].add(current_node)
 
