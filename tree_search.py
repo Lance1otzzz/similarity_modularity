@@ -1,7 +1,9 @@
-import copy
+import json
+from collections import defaultdict
+import mmh3
 import networkx as nx
 import numpy as np
-from collections import defaultdict
+
 
 class SearchState:
     def __init__(self, communities, modularity):
@@ -9,12 +11,30 @@ class SearchState:
         self.modularity = modularity    # 当前模块度值
         self.visited = set()            # 已处理节点
 
+    @property
+    def state_hash(self):
+        """使用MurmurHash生成哈希"""
+        sorted_comms = tuple(sorted([tuple(sorted(comm)) for comm in self.communities.values()]))
+        return hex(mmh3.hash(str(sorted_comms))[:16])  # 修改哈希算法
+
+
+def preprocess_graph(G, r):
+    for node in G.nodes():
+        sim_neighbors = {}
+        node_feat = np.array(G.nodes[node]['features'])
+        for nbr in G.neighbors(node):
+            nbr_feat = np.array(G.nodes[nbr]['features'])
+            similarity = np.dot(node_feat, nbr_feat) / (np.linalg.norm(node_feat) * np.linalg.norm(nbr_feat) + 1e-8)
+            if similarity >= r:
+                sim_neighbors[nbr] = similarity
+        G.nodes[node]['sim_neighbors'] = sim_neighbors
+    return G
 class TreeSearchLouvain:
     def __init__(self, G, r):
-        self.G = G                      # NetworkX图
+        self.G = preprocess_graph(G,r)  # NetworkX图
         self.r = r                      # 相似度阈值
         self.best_state = None          # 最优状态
-        self.global_max = -float('inf') # 全局最优模块度
+        self.visited_states = set()     # 记录已探索状态
 
     def _initial_state(self):
         """初始状态：每个节点独立社区"""
@@ -26,11 +46,11 @@ class TreeSearchLouvain:
     def _compute_modularity(self, communities):
         """改进后的模块度计算"""
         m = self.G.size(weight='weight')
-        
+
         # 处理空图或零权重图
         if m <= 1e-10:  # 浮点数精度容错
             return 0.0  # 空图模块度定义为0
-        
+
         q = 0.0
         for comm in communities.values():
             for i in comm:
@@ -42,11 +62,10 @@ class TreeSearchLouvain:
                         q += (a_ij - (k_i * k_j) / (2 * m))
         return q / (2 * m)
 
-
     def _is_valid_move(self, node, target_comm, communities):
         """验证属性约束"""
         return all(self.G.nodes[node]['sim_neighbors'].get(nbr, 0) >= self.r
-                  for nbr in communities[target_comm])
+                   for nbr in communities[target_comm])
 
     def _generate_candidates(self, state, node):
         """生成候选社区集合"""
@@ -54,7 +73,7 @@ class TreeSearchLouvain:
         # 当前社区
         current_comm = next(k for k, v in state.communities.items() if node in v)
         candidates.add(current_comm)
-        
+
         # 相似邻居所在社区
         for nbr in self.G.nodes[node]['sim_neighbors']:
             if nbr in state.visited:
@@ -63,8 +82,6 @@ class TreeSearchLouvain:
         return candidates
 
     def _dfs_search(self, state):
-
-        # TODO:增加上界，剪枝搜索逻辑
 
         """深度优先搜索主函数"""
         if len(state.visited) == len(self.G.nodes):
@@ -86,13 +103,13 @@ class TreeSearchLouvain:
             new_communities = defaultdict(set)
             for k, v in state.communities.items():
                 new_communities[k] = set(v)
-            
+
             # 移动节点
-            source_comm = next(k for k, v in new_communities.items() 
-                              if current_node in v)
+            source_comm = next(k for k, v in new_communities.items()
+                               if current_node in v)
             new_communities[source_comm].remove(current_node)
             new_communities[target_comm].add(current_node)
-            
+
             # 合并空社区
             if not new_communities[source_comm]:
                 del new_communities[source_comm]
@@ -105,11 +122,6 @@ class TreeSearchLouvain:
             # 递归搜索
             self._dfs_search(new_state)
 
-    def _compute_upper_bound(self,state):
-        """计算剩余节点可能带来的最大模块度增益"""
-        # TODO:计算上界
-        pass
-
     def run(self):
         """执行搜索"""
         initial_state = self._initial_state()
@@ -119,21 +131,26 @@ class TreeSearchLouvain:
 
     def _format_result(self):
         """格式化输出结果"""
-        return {f"Community_{i}": members 
-               for i, members in enumerate(self.best_state.communities.values())}
+        return {f"Community_{i}": members
+                for i, members in enumerate(self.best_state.communities.values())}
 
-# 使用示例（需预计算sim_neighbors属性）
-if __name__ == "__main__":
-    # 初始化带属性的图（示例）
+
+def load_graph_from_json(json_path):
+    with open(json_path) as f:
+        data = json.load(f)
+
     G = nx.Graph()
-    G.add_nodes_from([(0, {'attributes': [1,0], 'sim_neighbors': {1:0.9, 2:0.95}}),
-                     (1, {'attributes': [0.9,0.1], 'sim_neighbors': {0:0.9, 2:0.85}}),
-                     (2, {'attributes': [0.95,0.05], 'sim_neighbors': {0:0.95, 1:0.85}})])
-    
-    G.add_edges_from([(0,1, {'weight':0.8}), 
-                     (0,2, {'weight':0.7}),
-                     (1,2, {'weight':0.6})])
-    # 运行算法
+    for node in data['nodes']:
+        G.add_node(node['id'], features=node['features'])
+
+    for edge in data['edges']:
+        G.add_edge(edge['source'], edge['target'], weight=edge.get('weight', 1.0))
+
+    return G
+
+
+if __name__ == "__main__":
+    G = load_graph_from_json('graph_data.json')
     searcher = TreeSearchLouvain(G, r=0.85)
     communities = searcher.run()
     print("最优划分:", communities)
