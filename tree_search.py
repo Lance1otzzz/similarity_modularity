@@ -82,7 +82,7 @@ class TreeSearchLouvain:
                         q += (a_ij - (k_i * k_j) / (2 * m))
         return q / (2 * m)
 
-    
+
     def _is_valid_move(self, node, target_comm, communities):
         """验证属性约束"""
         target_nodes = communities[target_comm]
