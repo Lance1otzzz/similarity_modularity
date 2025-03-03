@@ -2,6 +2,7 @@ import networkx as nx
 import numpy as np
 import random
 from collections import defaultdict
+import json
 
 def cosine_similarity(a, b):
     """计算余弦相似度"""
@@ -38,7 +39,7 @@ class ConstrainedLouvainNX:
         
         # 预计算相似度矩阵
         sim_matrix = np.zeros((n, n))
-        attrs = np.array([self.G.nodes[i]['attributes'] for i in nodes])
+        attrs = np.array([self.G.nodes[i]['features'] for i in nodes])
         norms = np.linalg.norm(attrs, axis=1)
         valid = (norms != 0)
         
@@ -168,29 +169,31 @@ class ConstrainedLouvainNX:
                     new_communities[new_comm] = set(component)
             self.communities = new_communities
 
+        for comm_id in list(self.communities.keys()):
+            if len(self.communities[comm_id]) == 0:
+                del self.communities[comm_id]
+
     def _get_final_communities(self):
         """返回社区划分结果"""
         return {f"Community_{i}": members 
                for i, members in enumerate(self.communities.values())}
 
+def load_graph_from_json(json_path):
+    with open(json_path) as f:
+        data = json.load(f)
+
+    G = nx.Graph()
+    for node in data['nodes']:
+        G.add_node(node['id'], features=node['features'])
+
+    for edge in data['edges']:
+        G.add_edge(edge['source'], edge['target'], weight=edge.get('weight', 1.0))
+
+    return G
+
 # 使用示例
 if __name__ == "__main__":
-    # 创建测试图
-    G = nx.Graph()
-    attributes = {
-        0: [1.0, 2.0],
-        1: [1.1, 2.1],
-        2: [0.9, 1.9],
-        3: [5.0, 5.0]
-    }
-    
-    for node in attributes:
-        G.add_node(node, attributes=attributes[node])
-    
-    G.add_edges_from([(0,1, {'weight':0.8}), 
-                     (0,2, {'weight':0.7}),
-                     (1,2, {'weight':0.6})])
-    
+    G = load_graph_from_json('test.json')
     cl = ConstrainedLouvainNX(G, r=0.95)
     communities = cl.run()
     
