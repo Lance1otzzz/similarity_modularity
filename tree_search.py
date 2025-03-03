@@ -82,10 +82,12 @@ class TreeSearchLouvain:
                         q += (a_ij - (k_i * k_j) / (2 * m))
         return q / (2 * m)
 
+    
     def _is_valid_move(self, node, target_comm, communities):
         """验证属性约束"""
-        return all(self.G.nodes[node]['sim_neighbors'].get(nbr, 0) >= self.r
-                   for nbr in communities[target_comm])
+        target_nodes = communities[target_comm]
+        # 允许目标社区中至少有一个节点是当前节点的相似邻居
+        return any(nbr in self.G.nodes[node]['sim_neighbors'] for nbr in target_nodes)
 
     def _generate_candidates(self, state, node):
         """生成候选社区集合"""
@@ -182,6 +184,6 @@ def load_graph_from_json(json_path):
 
 if __name__ == "__main__":
     G = load_graph_from_json('graph_data.json')
-    searcher = TreeSearchLouvain(G, r=0.85)
+    searcher = TreeSearchLouvain(G, r=0.9)
     communities = searcher.run()
     print("最优划分:", communities)
