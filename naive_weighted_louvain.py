@@ -193,8 +193,8 @@ def load_graph_from_json(json_path):
 
 # 使用示例
 if __name__ == "__main__":
-    G = load_graph_from_json('test.json')
-    cl = ConstrainedLouvainNX(G, r=0.95)
+    G = load_graph_from_json('louvain_test.json')
+    cl = ConstrainedLouvainNX(G, r=0.6)
     communities = cl.run()
     
     for comm_name, members in communities.items():
