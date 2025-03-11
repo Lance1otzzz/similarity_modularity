@@ -22,185 +22,274 @@ class NaiveConstrainedLouvain:
         self.r = r
         self.check_connectivity = check_connectivity
         self.iteration_data = []
-        self.total_time = 0.0  # 新增：总计时器
+        self.total_time = 0.0
 
-        self._add_sim_neighbors()
+        # 预计算数据结构
+        self._precompute_structures()
         self._init_communities()
-        self.m = self.G.size(weight='weight')
 
-    def _add_sim_neighbors(self):
+    def _precompute_structures(self):
+        """预计算相似邻居和度数[^1]"""
         nodes = list(self.G.nodes())
-        n = len(nodes)
-        sim_matrix = np.zeros((n, n))
-        attrs = np.array([self.G.nodes[i]['features'] for i in nodes])
-        norms = np.linalg.norm(attrs, axis=1)
-        valid = (norms != 0)
+        features = np.array([self.G.nodes[n]['features'] for n in nodes])
+        norms = np.linalg.norm(features, axis=1, keepdims=True)
+        features = features / (norms + 1e-8)
 
-        sim_matrix = np.dot(attrs, attrs.T)
-        sim_matrix /= np.outer(norms, norms)
-        sim_matrix[~valid, :] = 0
-        sim_matrix[:, ~valid] = 0
+        # 向量化相似度计算
+        self.sim_matrix = features @ features.T
+        np.fill_diagonal(self.sim_matrix, 0)
 
-        for i, node in enumerate(nodes):
-            sim_neighbors = set()
-            for j in range(n):
-                if i != j and sim_matrix[i, j] >= self.r:
-                    sim_neighbors.add(nodes[j])
-            self.G.nodes[node]['sim_neighbors'] = sim_neighbors
-            self.G.nodes[node]['community'] = None
+        # 存储为字典
+        self.sim_neighbors = {
+            node: set(nodes[j] for j in np.where(self.sim_matrix[i] >= self.r)[0])
+            for i, node in enumerate(nodes)
+        }
+
+        # 预计算节点度数
+        self.degrees = dict(self.G.degree(weight='weight'))
+        self.total_weight = self.G.size(weight='weight')
 
     def _init_communities(self):
-        self.communities = defaultdict(set)
-        for node in self.G.nodes():
-            comm_id = node
-            self.communities[comm_id].add(node)
-            self.G.nodes[node]['community'] = comm_id
+        """初始化社区数据结构[^2]"""
+        self.communities = {n: {'nodes': {n}, 'in_degree': 0, 'total_degree': self.degrees[n]}
+                            for n in self.G.nodes()}
+        self.node2comm = {n: n for n in self.G.nodes()}
 
-    def _compute_modularity(self):
-        """新增：完整模块度计算方法[^2]"""
-        m = self.m
-        q = 0.0
-        for comm in self.communities.values():
-            for node in comm:
-                k_i = self.G.degree(node, weight='weight')
-                for nbr in comm:
-                    if self.G.has_edge(node, nbr):
-                        a_ij = self.G[node][nbr].get('weight', 1)
-                        k_j = self.G.degree(nbr, weight='weight')
-                        q += (a_ij - (k_i * k_j) / (2 * m))
-        return q / (2 * m)
+        # 初始化社区内部边权重
+        for u, v in self.G.edges():
+            if u == v: continue
+            if self.node2comm[u] == self.node2comm[v]:
+                self.communities[self.node2comm[u]]['in_degree'] += self.G[u][v].get('weight', 1.0)
 
-    def _compute_modularity_gain(self, node, target_comm):
-        current_comm = self.G.nodes[node]['community']
-        m = self.m
-        ki = self.G.degree(node, weight='weight')
 
-        sum_in = 0.0
-        sum_tot = 0.0
-        for nbr in self.G.neighbors(node):
-            if self.G.nodes[nbr]['community'] == current_comm:
-                sum_in += self.G[node][nbr].get('weight', 1)
+    def _compute_gain(self, node, target_comm):
+        """修正的模块度增益计算[^4]"""
+        current_comm = self.node2comm[node]
+        ki = self.degrees[node]
 
-        new_sum_in = 0.0
-        new_sum_tot = 0.0
-        for member in self.communities[target_comm]:
-            new_sum_tot += self.G.degree(member, weight='weight')
-            if self.G.has_edge(node, member):
-                new_sum_in += self.G[node][member].get('weight', 1)
+        # 计算与目标社区的连接权重
+        sum_in_new = sum(self.G[node][nbr].get('weight', 1.0)
+                         for nbr in self.G.neighbors(node)
+                         if self.node2comm[nbr] == target_comm)
 
-        delta_q = (new_sum_in - sum_in) / (2 * m) - ki * (new_sum_tot - sum_tot) / (2 * m) ** 2
+        # 当前社区参数
+        in_degree_old = self.communities[current_comm]['in_degree']
+        total_degree_old = self.communities[current_comm]['total_degree']
+
+        # 目标社区参数
+        in_degree_new = self.communities[target_comm]['in_degree']
+        total_degree_new = self.communities[target_comm]['total_degree']
+
+        # 增益公式
+        delta_q = (in_degree_new + sum_in_new) / self.total_weight
+        delta_q -= ((total_degree_new + ki) / (2 * self.total_weight)) ** 2
+        delta_q -= in_degree_new / self.total_weight - (total_degree_new / (2 * self.total_weight)) ** 2
+        delta_q -= (in_degree_old - sum_in_new) / self.total_weight
+        delta_q += ((total_degree_old - ki) / (2 * self.total_weight)) ** 2
         return delta_q
 
+    def _compute_modularity(self):
+        """修正的模块度计算"""
+        q = 0.0
+        m = self.total_weight
+        if m == 0:
+            return 0.0
+
+        for comm in self.communities.values():
+            # 计算 ΣA_ij / (2m)
+            sum_aij = comm['in_degree']
+            # 计算 (Σk_i)^2 / (2m)^2
+            sum_ki_sq = (comm['total_degree'] ** 2)
+            # 社区贡献项
+            q += (sum_aij / (2 * m)) - (sum_ki_sq / ((2 * m) ** 2))
+        return q
+
     def _move_node(self, node, target_comm):
-        old_comm = self.G.nodes[node]['community']
-        self.communities[old_comm].remove(node)
-        self.communities[target_comm].add(node)
-        self.G.nodes[node]['community'] = target_comm
+        """修正的节点移动方法"""
+        current_comm = self.node2comm[node]
+        if current_comm == target_comm:
+            return
 
-    def _is_valid_move(self, node, target_comm):
-        target_members = self.communities[target_comm]
-        return all(member in self.G.nodes[node]['sim_neighbors']
-                   for member in target_members)
+        # 获取节点度数
+        ki = self.degrees[node]
 
-    def run(self, max_iter=10000):
-        """修改：添加完整计时和记录逻辑"""
-        total_start = time.perf_counter()
-        improvement = True
-        iter_count = 0
+        # 计算对原社区的边权影响
+        delta_in_current = 0.0
+        # 计算对新社区的边权影响
+        delta_in_target = 0.0
 
-        while improvement and iter_count < max_iter:
+        # 遍历所有邻居
+        for nbr in self.G.neighbors(node):
+            weight = self.G[node][nbr].get('weight', 1.0)
+            nbr_comm = self.node2comm[nbr]
+
+            if nbr_comm == current_comm:
+                delta_in_current -= weight  # 离开原社区减少内部边
+            elif nbr_comm == target_comm:
+                delta_in_target += weight  # 加入新社区增加内部边
+
+        # 更新原社区参数
+        self.communities[current_comm]['in_degree'] += 2 * delta_in_current  # ×2因为边被双向计算
+        self.communities[current_comm]['total_degree'] -= ki
+
+        # 更新新社区参数
+        self.communities[target_comm]['in_degree'] += 2 * delta_in_target  # ×2因为边被双向计算
+        self.communities[target_comm]['total_degree'] += ki
+
+        # 更新节点所属社区
+        self.communities[current_comm]['nodes'].remove(node)
+        self.communities[target_comm]['nodes'].add(node)
+        self.node2comm[node] = target_comm
+
+    def run(self, max_iter=100, tol=1e-3):
+        """修正的Louvain运行逻辑[^6]"""
+        start_time = time.perf_counter()
+        prev_q = -np.inf
+        stable_count = 0
+
+        for iter_num in range(max_iter):
             iter_start = time.perf_counter()
-            improvement = False
+            moved_nodes = 0
+
             nodes = list(self.G.nodes())
             random.shuffle(nodes)
 
             for node in nodes:
-                current_comm = self.G.nodes[node]['community']
-                candidates = self._get_candidate_comms(node)
+                current_comm = self.node2comm[node]
+                candidates = {self.node2comm[n] for n in self.sim_neighbors[node]}
+                candidates.add(current_comm)
 
-                best_gain = -float('inf')
+                best_gain = -np.inf
                 best_comm = current_comm
 
                 for comm in candidates:
-                    if self._is_valid_move(node, comm):
-                        gain = self._compute_modularity_gain(node, comm)
-                        if gain > best_gain:
-                            best_gain = gain
-                            best_comm = comm
+                    if not self.communities[comm]['nodes'].issubset(self.sim_neighbors[node]):
+                        continue
 
-                if best_comm != current_comm:
+                    gain = self._compute_gain(node, comm)
+                    if gain > best_gain:
+                        best_gain = gain
+                        best_comm = comm
+
+                if best_comm != current_comm and best_gain > 0:
                     self._move_node(node, best_comm)
-                    improvement = True
+                    moved_nodes += 1
 
-            # 记录迭代数据[^3]
+            # 计算当前模块度
+            curr_q = self._compute_modularity()
+            delta_q = curr_q - prev_q
+
+            # 记录迭代数据
             self.iteration_data.append({
+                'iteration': iter_num + 1,
                 'time': time.perf_counter() - iter_start,
-                'modularity': self._compute_modularity()
+                'modularity': curr_q,
+                'moved_nodes': moved_nodes,
+                'num_communities': len([c for c in self.communities.values() if len(c['nodes']) > 0])
             })
-            iter_count += 1
 
-        self.total_time = time.perf_counter() - total_start
+            # 终止条件判断
+            if delta_q < tol:
+                stable_count += 1
+                if stable_count >= 3:  # 连续3次迭代提升小于阈值则停止
+                    break
+            else:
+                stable_count = 0
+
+            prev_q = curr_q
+
+        self.total_time = time.perf_counter() - start_time
         self._post_process()
         self._generate_plot()
         return self._get_final_communities()
 
     def _generate_plot(self):
-        """新增：生成可视化图表"""
+        """增强的可视化分析，新增时间维度"""
         os.makedirs('output', exist_ok=True)
+        iterations = [d['iteration'] for d in self.iteration_data]
 
-        iterations = range(1, len(self.iteration_data) + 1)
-        times = [x['time'] for x in self.iteration_data]
-        mods = [x['modularity'] for x in self.iteration_data]
+        plt.figure(figsize=(20, 10))  # 调整为更大的画布
 
-        plt.figure(figsize=(12, 6))
-        plt.subplot(1, 2, 1)
-        plt.plot(iterations, mods, 'm-^', linewidth=2)
+        # 模块度变化（左上）
+        plt.subplot(2, 2, 1)
+        plt.plot(iterations, [d['modularity'] for d in self.iteration_data], 'b-o')
         plt.xlabel('Iteration', fontsize=12)
         plt.ylabel('Modularity', fontsize=12)
+        plt.title('Modularity Optimization Process', fontsize=14)
         plt.grid(True, linestyle='--', alpha=0.7)
+        plt.ylim(-0.5, 1.0)  # 确保模块度在理论范围内
 
-        plt.subplot(1, 2, 2)
-        plt.bar(iterations, times, color='darkorange')
+        # 时间消耗（右上）
+        plt.subplot(2, 2, 2)
+        plt.bar(iterations, [d['time'] for d in self.iteration_data],
+               color='purple', alpha=0.7)
         plt.xlabel('Iteration', fontsize=12)
         plt.ylabel('Time (seconds)', fontsize=12)
-        plt.grid(True, axis='y', linestyle='--', alpha=0.7)
+        plt.title('Computation Time per Iteration', fontsize=14)
+        plt.grid(True, axis='y', linestyle='--', alpha=0.5)
 
-        plt.suptitle(f'NaiveConstrainedLouvain Performance (Total: {self.total_time:.2f}s)',
-                     fontsize=14)
-        plt.savefig('output/NaiveConstrainedLouvain.png', dpi=300, bbox_inches='tight')
+        # 移动节点数（左下）
+        plt.subplot(2, 2, 3)
+        plt.plot(iterations, [d['moved_nodes'] for d in self.iteration_data],
+                'g--s', markersize=6)
+        plt.xlabel('Iteration', fontsize=12)
+        plt.ylabel('Moved Nodes', fontsize=12)
+        plt.title('Node Movement Dynamics', fontsize=14)
+        plt.grid(True, linestyle='--', alpha=0.5)
+
+        # 社区数量（右下）
+        plt.subplot(2, 2, 4)
+        plt.plot(iterations, [d['num_communities'] for d in self.iteration_data],
+                'r-^', markersize=6)
+        plt.xlabel('Iteration', fontsize=12)
+        plt.ylabel('Number of Communities', fontsize=12)
+        plt.title('Community Structure Evolution', fontsize=14)
+        plt.grid(True, linestyle='--', alpha=0.5)
+
+        plt.suptitle(
+            f'Constrained Louvain Algorithm Analysis\n'
+            f'Total Time: {self.total_time:.2f}s | Final Modularity: {self.iteration_data[-1]["modularity"]:.4f}',
+            fontsize=16, y=1.02
+        )
+        plt.tight_layout()
+        plt.savefig('output/constrained_louvain_analysis.png', dpi=300, bbox_inches='tight')
         plt.close()
 
     def _post_process(self):
-        for comm_id in list(self.communities.keys()):
-            if len(self.communities[comm_id]) == 1:
-                node = next(iter(self.communities[comm_id]))
-                for nbr in self.G.nodes[node]['sim_neighbors']:
-                    target_comm = self.G.nodes[nbr]['community']
-                    if self._is_valid_move(node, target_comm):
-                        self._move_node(node, target_comm)
-                        break
+        """后处理合并小社区[^8]"""
+        communities = list(self.communities.values())
+        avg_size = np.mean([len(c['nodes']) for c in communities])
 
-        if self.check_connectivity:
-            new_communities = defaultdict(set)
-            for comm_id, members in self.communities.items():
-                subgraph = self.G.subgraph(members)
-                for component in nx.connected_components(subgraph):
-                    new_comm = tuple(sorted(component))
-                    new_communities[new_comm] = set(component)
-            self.communities = new_communities
+        for comm in communities:
+            if len(comm['nodes']) < 0.5 * avg_size:
+                best_sim = -1
+                best_target = None
 
-    def _get_candidate_comms(self, node):
-        """获取候选社区集合"""
-        candidates = set()
-        candidates.add(self.G.nodes[node]['community'])
-        for nbr in self.G.nodes[node]['sim_neighbors']:
-            candidates.add(self.G.nodes[nbr]['community'])
-        return candidates
+                for node in comm['nodes']:
+                    for nbr in self.G.neighbors(node):
+                        target_comm = self.node2comm[nbr]
+                        if target_comm == comm['nodes']:
+                            continue
 
+                        sim = np.mean([self.sim_matrix[list(self.G.nodes()).index(node)]
+                                       [list(self.G.nodes()).index(nbr)]
+                                       for nbr in self.communities[target_comm]['nodes']])
+                        if sim > best_sim:
+                            best_sim = sim
+                        best_target = target_comm
+
+                        if best_sim >= self.r and best_target is not None:
+                            self._merge_communities(comm['nodes'], best_target)
+
+    def _merge_communities(self, nodes, target_comm):
+        """合并社区辅助方法"""
+        for node in nodes:
+            self._move_node(node, target_comm)
 
     def _get_final_communities(self):
-        return {f"Community_{i}": members
-                for i, members in enumerate(self.communities.values())}
+        return {f"Community_{i}": c['nodes']
+                for i, c in enumerate(self.communities.values())
+                if len(c['nodes']) > 0}
 
 
 def load_graph_from_json(json_path):

@@ -4,12 +4,11 @@ import random
 import time
 import os
 import matplotlib.pyplot as plt
-from collections import defaultdict, deque
-import json
+from collections import defaultdict
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
+import json
 from testfile import TESTFILE
-
 
 
 class ConstrainedLeiden:
@@ -20,8 +19,9 @@ class ConstrainedLeiden:
         self.check_connectivity = check_connectivity
         self.resolution = 1.0
         self.max_levels = 5
-        self.iteration_data = []  # 新增：迭代数据记录[^1]
-        self.total_time = 0.0  # 新增：总计时器
+        self.iteration_data = []
+        self.moved_nodes_history = []
+        self.total_time = 0.0
         self._precompute_similarity()
         self._init_communities()
         self.m = self.G.size(weight='weight')
@@ -72,7 +72,6 @@ class ConstrainedLeiden:
         return refined_partition
 
     def _compute_modularity(self, partition):
-        """新增：完整模块度计算方法[^2]"""
         m = self.G.size(weight='weight')
         q = 0.0
         for comm in partition.values():
@@ -111,6 +110,7 @@ class ConstrainedLeiden:
 
     def _merge_communities(self, partition, level):
         improved = True
+        moved_nodes = 0
         while improved:
             improved = False
             nodes = list(partition.keys())
@@ -139,26 +139,28 @@ class ConstrainedLeiden:
                         best_delta = delta_q
                         best_target = target_comm
                 if best_target is not None:
+                    moved_nodes += len(partition[comm_id])
                     partition[best_target].update(partition[comm_id])
                     del partition[comm_id]
                     improved = True
-        return partition
+        return partition, moved_nodes
 
     def run(self, max_iter=10):
-        """修改：添加完整计时和记录逻辑"""
         total_start = time.perf_counter()
         partition = self.communities.copy()
 
         for level in range(self.max_levels):
             iter_start = time.perf_counter()
+            moved_nodes = 0
 
             refined = self._refine_partition(partition)
-            optimized = self._merge_communities(refined, level)
+            optimized, iter_moved = self._merge_communities(refined, level)
+            moved_nodes += iter_moved
 
-            # 记录迭代数据[^3]
             self.iteration_data.append({
                 'time': time.perf_counter() - iter_start,
-                'modularity': self._compute_modularity(optimized)
+                'modularity': self._compute_modularity(optimized),
+                'moved_nodes': moved_nodes
             })
 
             if len(optimized) < len(refined):
@@ -173,32 +175,46 @@ class ConstrainedLeiden:
 
         self.total_time = time.perf_counter() - total_start
         self._post_process(partition)
-        self._generate_plot()  # 新增：生成图表
+        self._generate_plot()
         return self._format_result(partition)
 
     def _generate_plot(self):
-        """新增：生成可视化图表"""
         os.makedirs('output', exist_ok=True)
-
         iterations = range(1, len(self.iteration_data) + 1)
         times = [x['time'] for x in self.iteration_data]
         mods = [x['modularity'] for x in self.iteration_data]
+        moved_nodes = [x['moved_nodes'] for x in self.iteration_data]
 
-        plt.figure(figsize=(12, 6))
-        plt.subplot(1, 2, 1)
+        plt.figure(figsize=(18, 6))
+
+        # Modularity Plot
+        plt.subplot(1, 3, 1)
         plt.plot(iterations, mods, 'g-s', linewidth=2)
         plt.xlabel('Iteration', fontsize=12)
         plt.ylabel('Modularity', fontsize=12)
         plt.grid(True, linestyle='--', alpha=0.7)
+        plt.title('Modularity Evolution')
 
-        plt.subplot(1, 2, 2)
+        # Time Plot
+        plt.subplot(1, 3, 2)
         plt.bar(iterations, times, color='purple')
         plt.xlabel('Iteration', fontsize=12)
         plt.ylabel('Time (seconds)', fontsize=12)
         plt.grid(True, axis='y', linestyle='--', alpha=0.7)
+        plt.title('Time per Iteration')
 
-        plt.suptitle(f'ConstrainedLeiden Performance (Total: {self.total_time:.2f}s)',
-                     fontsize=14)
+        # Moved Nodes Plot
+        plt.subplot(1, 3, 3)
+        plt.plot(iterations, moved_nodes, 'b-o', linewidth=2)
+        plt.xlabel('Iteration', fontsize=12)
+        plt.ylabel('Moved Nodes', fontsize=12)
+        plt.grid(True, linestyle='--', alpha=0.7)
+        plt.title('Node Movement Tracking')
+
+        plt.suptitle(
+            f'ConstrainedLeiden Performance (Total Moved: {sum(moved_nodes)} nodes)\nTotal Time: {self.total_time:.2f}s',
+            fontsize=14, y=1.05)
+        plt.tight_layout()
         plt.savefig('output/ConstrainedLeiden.png', dpi=300, bbox_inches='tight')
         plt.close()
 
@@ -237,22 +253,21 @@ def load_graph_from_json(json_path):
         data = json.load(f)
     G = nx.Graph()
     for node in data['nodes']:
-        G.add_node(node['id'], features=node['features'])
+        features = node.get('features', [0.0] * 10)  # 默认10维特征
+        G.add_node(node['id'], features=features)
     for edge in data['edges']:
         G.add_edge(edge['source'], edge['target'], weight=edge.get('weight', 1.0))
     return G
 
 
 if __name__ == "__main__":
+    # 使用示例（修改TESTFILE为你的json文件路径）
     G = load_graph_from_json(TESTFILE)
     searcher = ConstrainedLeiden(G, r=0.8)
     communities = searcher.run()
 
-    # print("\n最终社区划分:")
-    # for comm_id, members in communities.items():
-    #     print(f"{comm_id}: 包含{len(members)}个节点")
-
     print(f"\n总运行时间: {searcher.total_time:.2f}秒")
     print(f"迭代次数: {len(searcher.iteration_data)}次")
     print(f"最终模块度: {searcher.iteration_data[-1]['modularity']:.4f}")
+    print(f"总移动节点数: {sum(x['moved_nodes'] for x in searcher.iteration_data)}")
     print("可视化图表已保存至 output/ConstrainedLeiden.png")
