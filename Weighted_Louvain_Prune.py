@@ -8,6 +8,7 @@ from collections import defaultdict
 import json
 from testfile import TESTFILE
 
+
 def cosine_similarity(a, b):
     norm_a = np.linalg.norm(a)
     norm_b = np.linalg.norm(b)
@@ -16,12 +17,12 @@ def cosine_similarity(a, b):
     return np.dot(a, b) / (norm_a * norm_b)
 
 
-class NaiveConstrainedLouvain:
+class ConstrainedLouvainPrune:
     def __init__(self, G, r=0.9, check_connectivity=False):
         self.G = G.copy()
         self.r = r
         self.check_connectivity = check_connectivity
-        self.iteration_data = []
+        self.iteration_data = []  # 新增：迭代数据记录[^1]
         self.total_time = 0.0  # 新增：总计时器
 
         self._add_sim_neighbors()
@@ -102,7 +103,7 @@ class NaiveConstrainedLouvain:
         return all(member in self.G.nodes[node]['sim_neighbors']
                    for member in target_members)
 
-    def run(self, max_iter=10000):
+    def run(self, max_iter=100):
         """修改：添加完整计时和记录逻辑"""
         total_start = time.perf_counter()
         improvement = True
@@ -154,20 +155,20 @@ class NaiveConstrainedLouvain:
 
         plt.figure(figsize=(12, 6))
         plt.subplot(1, 2, 1)
-        plt.plot(iterations, mods, 'm-^', linewidth=2)
+        plt.plot(iterations, mods, 'r-d', linewidth=2)
         plt.xlabel('Iteration', fontsize=12)
         plt.ylabel('Modularity', fontsize=12)
         plt.grid(True, linestyle='--', alpha=0.7)
 
         plt.subplot(1, 2, 2)
-        plt.bar(iterations, times, color='darkorange')
+        plt.bar(iterations, times, color='teal')
         plt.xlabel('Iteration', fontsize=12)
         plt.ylabel('Time (seconds)', fontsize=12)
         plt.grid(True, axis='y', linestyle='--', alpha=0.7)
 
-        plt.suptitle(f'NaiveConstrainedLouvain Performance (Total: {self.total_time:.2f}s)',
+        plt.suptitle(f'ConstrainedLouvainPrune Performance (Total: {self.total_time:.2f}s)',
                      fontsize=14)
-        plt.savefig('output/NaiveConstrainedLouvain.png', dpi=300, bbox_inches='tight')
+        plt.savefig('output/ConstrainedLouvainPrune.png', dpi=300, bbox_inches='tight')
         plt.close()
 
     def _post_process(self):
@@ -188,7 +189,6 @@ class NaiveConstrainedLouvain:
                     new_comm = tuple(sorted(component))
                     new_communities[new_comm] = set(component)
             self.communities = new_communities
-
     def _get_candidate_comms(self, node):
         """获取候选社区集合"""
         candidates = set()
@@ -196,8 +196,6 @@ class NaiveConstrainedLouvain:
         for nbr in self.G.nodes[node]['sim_neighbors']:
             candidates.add(self.G.nodes[nbr]['community'])
         return candidates
-
-
     def _get_final_communities(self):
         return {f"Community_{i}": members
                 for i, members in enumerate(self.communities.values())}
@@ -216,7 +214,7 @@ def load_graph_from_json(json_path):
 
 if __name__ == "__main__":
     G = load_graph_from_json(TESTFILE)
-    cl = NaiveConstrainedLouvain(G, r=0.8)
+    cl = ConstrainedLouvainPrune(G, r=0.8)
     communities = cl.run()
 
     # print("\n最终社区划分:")
@@ -226,5 +224,4 @@ if __name__ == "__main__":
     print(f"\n总运行时间: {cl.total_time:.2f}秒")
     print(f"迭代次数: {len(cl.iteration_data)}次")
     print(f"最终模块度: {cl.iteration_data[-1]['modularity']:.4f}")
-    print("可视化图表已保存至 output/NaiveConstrainedLouvain.png")
-
+    print("可视化图表已保存至 output/ConstrainedLouvainPrune.png")
