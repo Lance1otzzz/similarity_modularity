@@ -1,6 +1,9 @@
 *.json
-.idea
+*.idea
 *.tar.gz
 *.log
 Sinanet-master
 *.png
+!/cpp/test
+!/cpp/dataset/
+!/cpp/cmake-build-debug/

@@ -308,9 +308,9 @@ if __name__ == "__main__":
     cl = NaiveConstrainedLouvain(G, r=0.8)
     communities = cl.run()
 
-    # print("\n最终社区划分:")
-    # for comm_name, members in communities.items():
-    #     print(f"{comm_name}: {len(members)}节点")
+    print("\n最终社区划分:")
+    for comm_name, members in communities.items():
+        print(f"{comm_name}: {len(members)}节点")
 
     print(f"\n总运行时间: {cl.total_time:.2f}秒")
     print(f"迭代次数: {len(cl.iteration_data)}次")

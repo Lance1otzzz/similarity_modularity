@@ -11,6 +11,8 @@ import json
 from testfile import TESTFILE
 
 
+
+
 class ConstrainedLeiden:
     def __init__(self, G, r=0.9, beta=0.01, check_connectivity=True):
         self.G = G.copy()
@@ -145,7 +147,7 @@ class ConstrainedLeiden:
                     improved = True
         return partition, moved_nodes
 
-    def run(self, max_iter=10):
+    def run(self):
         total_start = time.perf_counter()
         partition = self.communities.copy()
 
@@ -156,12 +158,12 @@ class ConstrainedLeiden:
             refined = self._refine_partition(partition)
             optimized, iter_moved = self._merge_communities(refined, level)
             moved_nodes += iter_moved
-
-            self.iteration_data.append({
-                'time': time.perf_counter() - iter_start,
-                'modularity': self._compute_modularity(optimized),
-                'moved_nodes': moved_nodes
-            })
+            #
+            # self.iteration_data.append({
+            #     'time': time.perf_counter() - iter_start,
+            #     'modularity': self._compute_modularity(optimized),
+            #     'moved_nodes': moved_nodes
+            # })
 
             if len(optimized) < len(refined):
                 self.G = self._aggregate_network(optimized)
@@ -174,8 +176,8 @@ class ConstrainedLeiden:
                 break
 
         self.total_time = time.perf_counter() - total_start
-        self._post_process(partition)
-        self._generate_plot()
+        # self._post_process(partition)
+        # self._generate_plot()
         return self._format_result(partition)
 
     def _generate_plot(self):
@@ -265,6 +267,11 @@ if __name__ == "__main__":
     G = load_graph_from_json(TESTFILE)
     searcher = ConstrainedLeiden(G, r=0.8)
     communities = searcher.run()
+
+    print("\n最终社区划分:")
+    for comm_name, members in communities.items():
+        print(f"{comm_name}: {len(members)}节点")
+
 
     print(f"\n总运行时间: {searcher.total_time:.2f}秒")
     print(f"迭代次数: {len(searcher.iteration_data)}次")
