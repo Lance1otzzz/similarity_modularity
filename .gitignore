@@ -6,5 +6,5 @@
 Sinanet-master
 *.png
 /cpp/test
-/cpp/dataset/
-/cpp/cmake-build-debug/
+/cpp/dataset/*
+!/cpp/dataset/simple/

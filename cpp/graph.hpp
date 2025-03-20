@@ -100,4 +100,23 @@ struct Graph {
 		readEdges(base + "edges.txt");
 	}
 
+	void printGraph(){
+		std::cout << "Loaded " << n << " nodes and " << m << " edges." << std::endl;
+
+		std::cout<<"nodes:!!!!\n";
+		for (auto &nd:nodes) 
+		{
+			std::cout<<"id: "<<nd.id<<'\n'<<"attr: ";
+			for (auto &att:nd.attributes) std::cout<<att<<' ';
+			std::cout<<std::endl;
+		}
+		std::cout<<"edges:!!!!\n";
+		for (int i=0;i<n;i++)
+		{
+			std::cout<<"id: "<<i<<'\n';
+			for (auto &e:edges[i]) std::cout<<e.u<<' '<<e.v<<'\n';
+			std::cout<<std::endl;
+		}
+	}
+
 }; //Graph

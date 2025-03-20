@@ -4,7 +4,8 @@
 
 int main() {
     Graph graph;
-    graph.loadGraph("dataset/SinaNet");
+    //graph.loadGraph("dataset/SinaNet");
+	graph.loadGraph("dataset/simple");
 
     if (!graph.nodes.empty()) {
         std::cout << "First node attributes: ";
@@ -14,7 +15,6 @@ int main() {
         std::cout << std::endl;
     }
 
-    std::cout << "Loaded " << graph.n << " nodes and "
-              << graph.m << " edges." << std::endl;
+	graph.printGraph();
     return 0;
 }
