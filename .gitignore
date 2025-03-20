@@ -2,8 +2,9 @@
 *.idea
 *.tar.gz
 *.log
+*.exe
 Sinanet-master
 *.png
-!/cpp/test
-!/cpp/dataset/
-!/cpp/cmake-build-debug/
+/cpp/test
+/cpp/dataset/
+/cpp/cmake-build-debug/
