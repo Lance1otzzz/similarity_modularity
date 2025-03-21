@@ -38,7 +38,7 @@ struct Graph {
 		std::ifstream file(filename.c_str());
 		if (!file.is_open()) {
 			std::cerr << "Error: Failed to open node file " << filename << std::endl;
-			return;
+			throw -1;
 		}
 		std::string line;
 		int line_num = 0;  // 0-based line counter
@@ -66,7 +66,7 @@ struct Graph {
 		std::ifstream file(filename.c_str());
 		if (!file.is_open()) {
 			std::cerr << "Error: Failed to open edge file " << filename << std::endl;
-			return;
+			throw -1;
 		}
 		std::string line;
 		while (std::getline(file, line)) {
