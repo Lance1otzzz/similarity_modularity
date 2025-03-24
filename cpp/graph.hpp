@@ -6,6 +6,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <unordered_map>
 
 struct Graph {
 	int n=0,m=0;
@@ -119,4 +120,28 @@ struct Graph {
 		}
 	}
 
+	void checkGraph()
+	{
+		for (int i=0;i<n;i++)
+		{
+			std::unordered_map<int,bool> ma;
+			for (auto x:edges[i])
+			{
+				if (x.u==x.v)
+				{
+					std::cerr<<"Self Cycle Exists!!!"<<std::endl;
+					std::cerr<<x.u<<" -> "<<x.v<<std::endl;
+					throw -1;
+				}
+				if (ma[x.v]) 
+				{
+					std::cerr<<"Multiple Edge Exists!!!"<<std::endl;
+					std::cerr<<x.u<<" -> "<<x.v<<std::endl;
+					throw -1;
+				}
+				ma[x.v]=true;
+			}
+		}
+		std::cerr<<"No problem in graph check."<<std::endl;
+	}
 }; //Graph
