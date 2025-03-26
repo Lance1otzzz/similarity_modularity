@@ -1,24 +1,5 @@
-#pragma once
-#include <string>
-
-const double eps=1e-8;
-
-// Ensure folder path ends with separator
-std::string ensureFolderSeparator(const std::string &folder) {
-    if (folder.empty()) return "./";
-    char last = folder.back();
-    if (last != '/' && last != '\\') {
-#ifdef _WIN32
-        return folder + "\\";
-#else
-        return folder + "/";
-#endif
-    }
-    return folder;
-}
-
-double sqr(const double &x) { return x*x; }
-
+#include <bits/stdc++.h>
+const double eps=1e-6;
 struct Matrix
 {
 	int n,m;
@@ -47,7 +28,7 @@ struct Matrix
 		}
 	}
 	*/
-	Matrix(int y,int z) //x do not work, y*z matrix
+	Matrix(int y,int z)
 	{
 		n=y;m=z;
 		a.resize(n);
@@ -85,7 +66,7 @@ struct Matrix
 			std::cout<<std::endl;
 		}
 	}
-	Matrix transposition()
+	Matrix transposition()//转置
 	{
 		Matrix res(m,n);
 		for (int i=0;i<m;i++)
@@ -98,14 +79,11 @@ struct Matrix
 	// the answer is saved in the n-th column (a[i=0...n-1][m-1])
 	bool gauss() //if no answer return false, else true
 	{
-		if (m!=n+1)
-		{
-			std::cerr<<"gauss warning: no solution or no unique solution"<<std::endl;
-		}
 		for (int i=0;i<n;i++) //do for every row
 		{
 			int r=i; //which row to do
 			for (int j=i+1;j<n;j++) if (std::abs(a[j][i])>std::abs(a[r][i])) r=j;
+//std::cerr<<a[r][i]<<std::endl;
 			if (std::abs(a[r][i])<eps) {return false;}
 			if (r!=i) for (int j=0;j<m;j++) std::swap(a[r][j],a[i][j]);
 			for (int j=m-1;j>=i;j--)
@@ -119,3 +97,19 @@ struct Matrix
 		return true;
 	}
 };
+using namespace std;
+int main()
+{
+	int n;
+	cin>>n;
+	Matrix g(n,n+1);
+	for (int i=0;i<n;i++) 
+		for (int j=0;j<=n;j++) cin>>g.a[i][j];
+	if (!g.gauss()) cout<<"No Solution"<<endl;
+	else
+	{
+		//for (int i=0;i<n;i++) cout<<fixed<<setprecision(2)<<g.a[i][n]<<endl;
+		for (int i=0;i<n;i++) cout<<"x"<<i+1<<"="<<fixed<<setprecision(2)<<g.a[i][n]<<endl;
+	}
+	return 0;
+}
