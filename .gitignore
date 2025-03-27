@@ -8,3 +8,5 @@ Sinanet-master
 /cpp/test
 /cpp/dataset/*
 !/cpp/dataset/simple/
+!/cpp/dataset/SinaNet/
+!/cpp/dataset/download.py
