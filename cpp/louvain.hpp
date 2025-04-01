@@ -2,6 +2,7 @@
 
 #include "graph.hpp"
 #include <vector>
+#include <algorithm>
 
 double calculateModularity(const Graph& g, const std::vector<int>& communityAssignments) {
     double modularity = 0.0;
@@ -9,16 +10,14 @@ double calculateModularity(const Graph& g, const std::vector<int>& communityAssi
     int numCommunities = *std::max_element(communityAssignments.begin(), communityAssignments.end()) + 1;
     
     // Initialize vectors for community weights and degrees
-    std::vector<double> communityWeights(numCommunities, 0.0);
-    std::vector<double> communityDegrees(numCommunities, 0.0);
+    std::vector<double> communityWeights(numCommunities, 0.0),communityDegrees(numCommunities, 0.0);
 
     // Calculate community degrees and weights
     for (int u = 0; u < g.n; ++u) {
         for (const Edge& edge : g.edges[u]) {
             int v = edge.v;
-            if (communityAssignments[u] == communityAssignments[v]) {
+            if (communityAssignments[u] == communityAssignments[v])
                 communityWeights[communityAssignments[u]] += 1;
-            }
         }
         communityDegrees[communityAssignments[u]] += g.edges[u].size();
     }
@@ -37,6 +36,7 @@ double calculateModularity(const Graph& g, const std::vector<int>& communityAssi
 }
 
 void louvain(Graph &g, double r) {
+	double totalModularity=0;
     std::vector<int> communityAssignments(g.n);  // stores the community of each node
     for (int i=0;i<g.n;++i) communityAssignments[i]=i; // Initialize: each node is its own community
 	
@@ -55,7 +55,7 @@ void louvain(Graph &g, double r) {
 
             // Try to move the node to a neighboring community
 			std::unordered_map<int,double> communityGain; // Stores modularity gain for each community. Note that some communities may not be connected
-			for (auto &from:community)
+			for (auto &from:community[u])
 			{
 				for (const Edge& edge:g.edges[from]) 
 				{
@@ -75,7 +75,7 @@ void louvain(Graph &g, double r) {
 					for (auto nodeu:community[u])
 					{
 						for (auto nodev:community[c.first]) 
-							if (calcDis(nodeu,nodev)>r) 
+							if (calcDis(g.nodes[nodeu],g.nodes[nodev])>r) 
 							{
 								sim=false;
 								break;
@@ -84,8 +84,9 @@ void louvain(Graph &g, double r) {
 					}
 					if (sim)
 					{
-						bestModularity=communityGain[c];
-						bestCommunity=c;
+						bestModularity=communityGain[c.first];
+						bestCommunity=c.first;
+						totalModularity+=bestModularity;
 					}
                 }
             }
@@ -109,35 +110,12 @@ void louvain(Graph &g, double r) {
 			if (!community[i].empty()) 
 			{
 				community[numComNew]=std::move(community[i]);
+				idToNewid[i]=numComNew;
 				numComNew++;
 			}
 		}
 		community.resize(numComNew);
-
-        //int numCommunities = *std::max_element(communityAssignments.begin(), communityAssignments.end()) + 1;
-        std::vector<int> communityMap(numCommunities, -1);
-        std::vector<Node> newNodes(numCommunities);
-        std::vector<std::vector<Edge>> newEdges(numCommunities);
-
-        for (int i = 0; i < g.n; ++i) {
-            int community = communityAssignments[i];
-            if (communityMap[community] == -1) 
-			{
-                communityMap[community] = newNodes.size();
-                newNodes.push_back(g.nodes[i]);
-            }
-        }
-
-        for (int i = 0; i < g.n; ++i) {
-            int community = communityAssignments[i];
-            for (const Edge& edge : g.edges[i]) 
-			{
-                int neighborCommunity = communityAssignments[edge.v];
-                if (community != neighborCommunity)
-                    newEdges[communityMap[community]].push_back(Edge(communityMap[community], communityMap[neighborCommunity]));
-            }
-        }
-
-        // Now, the graph is restructured, and we perform another optimization step if there was an improvement
+		for (int i=0;i<g.n;i++) communityAssignments[i]=idToNewid[communityAssignments[i]];
     }
+	std::cout<<"modularity="<<totalModularity<<std::endl;
 }

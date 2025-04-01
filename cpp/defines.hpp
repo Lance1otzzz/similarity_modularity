@@ -1,5 +1,14 @@
 #pragma once
 #include <string>
+#include <vector>
+#include <iostream>
+#include <chrono>
+
+inline std::chrono::high_resolution_clock::time_point timeNow(){return std::chrono::high_resolution_clock::now();}
+inline double timeElapsed(std::chrono::high_resolution_clock::time_point start, std::chrono::high_resolution_clock::time_point end)
+{
+    return std::chrono::duration<double>(end - start).count();
+}
 
 const double eps=1e-8;
 
