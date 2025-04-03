@@ -10,7 +10,8 @@ using namespace std;
 // a similarity score, how much will similarity radius increase
 void heur(Graph &g, double r)
 {
-
+	// score is from 
+	//
 }
 
 // ./main 1
