@@ -6,6 +6,7 @@
 Sinanet-master
 *.png
 /cpp/test
+/cpp/main
 /cpp/dataset/*
 !/cpp/dataset/simple/
 !/cpp/dataset/SinaNet/
