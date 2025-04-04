@@ -4,49 +4,7 @@
 #include <vector>
 #include <algorithm>
 
-double calculateModularity(const Graph& g, const std::vector<int>& communityAssignments) {
-    double modularity = 0.0;
-    double totalWeight = g.m; // Total number of edges
-    int numCommunities = *std::max_element(communityAssignments.begin(), communityAssignments.end()) + 1;
-    
-    // Initialize vectors for community weights and degrees
-    std::vector<double> communityWeights(numCommunities, 0.0),communityDegrees(numCommunities, 0.0);
-
-    // Calculate community degrees and weights
-    for (int u = 0; u < g.n; ++u) {
-        for (const Edge& edge : g.edges[u]) {
-            int v = edge.v;
-            if (communityAssignments[u] == communityAssignments[v])
-                communityWeights[communityAssignments[u]] += 1;
-        }
-        communityDegrees[communityAssignments[u]] += g.edges[u].size();
-    }
-
-    // Compute modularity
-    for (int u = 0; u < g.n; ++u) {
-        for (const Edge& edge : g.edges[u]) {
-            int v = edge.v;
-            if (communityAssignments[u] == communityAssignments[v]) {
-                modularity += 1 - (communityDegrees[communityAssignments[u]] * communityDegrees[communityAssignments[v]]) / (2 * totalWeight);
-            }
-        }
-    }
-
-    return modularity / (2 * totalWeight);
-}
-
-double deltaQ(int u, int targetCommunity, const Graph& g, const std::vector<int>& communityAssignments, const std::vector<int>& communityDegrees) 
-{
-    int ki = g.edges[u].size();
-    int ki_in = 0;
-    for (auto& edge : g.edges[u]) 
-        if (communityAssignments[edge.v] == targetCommunity) ki_in += 1;
-    int tot = communityDegrees[targetCommunity];
-    double m2 = 2.0 * g.m;
-    return (ki_in - (ki * tot) / m2) / m2;
-}
-
-void louvain(Graph &g, double r) {
+void louvain(Graph<Node> &g, double r) {
 	double totalModularity=0;
     std::vector<int> communityAssignments(g.n);  // stores the community of each node
     for (int i=0;i<g.n;++i) communityAssignments[i]=i; // Initialize: each node is its own community

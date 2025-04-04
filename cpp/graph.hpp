@@ -8,6 +8,7 @@
 #include <sstream>
 #include <unordered_map>
 #include <cmath>
+#include <concepts>
 
 // Node structure with generated ID and original attributes
 struct Node {
@@ -117,11 +118,18 @@ struct Edge { // 0-based index
 };
 
 
+template<typename NodeType>
+concept NodeIsNode=std::is_same_v<NodeType,Node>;
+
+template<typename NodeType>
+concept NodeIsHyper=std::is_same_v<NodeType,std::vector<int>>;
+
+template<typename NodeType>
 struct Graph {
 	int n=0,m=0,attnum=0;
 
-	std::vector<Node> nodes;
-	std::vector<std::vector<Edge>> edges;
+	std::vector<NodeType> nodes;
+	std::vector<std::vector<Edge>> edges; // if future Edge has weight
 
 	Graph(){}
 	Graph(const Graph &other) {
@@ -132,8 +140,9 @@ struct Graph {
 	}
 	~Graph(){}
 
-	void readNodes(const std::string &filename) {
-		std::ifstream file(filename.c_str());
+	void readNodes(const std::string &filename) requires NodeIsNode<NodeType>
+	{
+		std::ifstream file(filename);
 		if (!file.is_open()) {
 			std::cerr << "Error: Failed to open node file " << filename << std::endl;
 			throw -1;
@@ -167,7 +176,8 @@ struct Graph {
 		file.close();
 	}
 
-	void readEdges(const std::string &filename, const double &r) {
+	void readEdges(const std::string &filename, const double &r) requires NodeIsNode<NodeType>
+	{
 		std::ifstream file(filename.c_str());
 		if (!file.is_open()) 
 		{
@@ -202,7 +212,8 @@ struct Graph {
 	}
 
 	// Load graph data from files
-	void loadGraph(const std::string &folder, const double &r) {
+	void loadGraph(const std::string &folder, const double &r) requires NodeIsNode<NodeType>
+	{
 		nodes.clear();
 		edges.clear();
 		n=0;m=0;
@@ -212,8 +223,9 @@ struct Graph {
 		readEdges(base + "edges.txt",r);
 	}
 
-	void printGraph(){
-		std::cout << "Loaded " << n << " nodes and " << m << " edges." << std::endl;
+	void printGraph() requires NodeIsNode<NodeType>
+	{
+		std::cout << "There are " << n << " nodes and " << m << " edges." << std::endl;
 
 		std::cout<<"nodes:!!!!\n";
 		for (auto &nd:nodes) 
@@ -231,7 +243,7 @@ struct Graph {
 		}
 	}
 
-	void checkGraph()
+	void checkGraph() requires NodeIsNode<NodeType>
 	{
 		for (int i=0;i<n;i++)
 		{
@@ -254,5 +266,24 @@ struct Graph {
 			}
 		}
 		std::cerr<<"No problem in graph check."<<std::endl;
+	}
+
+	// louvain hypernode
+	void printGraph() requires NodeIsHyper<NodeType>
+	{
+		std::cout<<"hypernodes:!!!!\n";
+		for (auto &nd:nodes) 
+		{
+			std::cout<<"id: "<<nd.id<<'\n'<<"nodes: ";
+			for (auto &id:nd) std::cout<<id<<' ';
+			std::cout<<std::endl;
+		}
+		std::cout<<"edges:!!!!\n";
+		for (int i=0;i<n;i++)
+		{
+			std::cout<<"id: "<<i<<'\n';
+			for (auto &e:edges[i]) std::cout<<e.u<<' '<<e.v<<'\n';
+			std::cout<<std::endl;
+		}
 	}
 }; //Graph

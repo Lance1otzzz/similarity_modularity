@@ -8,7 +8,7 @@ using namespace std;
 // maximize modularity, at the same time every node pair in a same community has similarity less than r
 // a modularity score, how much will modularity increase
 // a similarity score, how much will similarity radius increase
-void heur(Graph &g, double r)
+void heur(Graph<Node> &g, double r)
 {
 	// score is from 
 	//
@@ -35,7 +35,7 @@ int main(int argc, char** argv)
 	}
 	int algorithm=atoi(argv[1]);
 	cout<<"algorithm: "<<algorithm<<endl;
-	Graph g;
+	Graph<Node> g;
 	double r=atoi(argv[3]);
 	auto startLoadingGraph=timeNow();
 	g.loadGraph(argv[2],r);
