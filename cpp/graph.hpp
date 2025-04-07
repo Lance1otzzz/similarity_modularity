@@ -223,16 +223,16 @@ struct Graph
 	void addedge(const int &u,const int &v)
 	{
 		m++;
-		edges[u].push_back(Edge(u,v,1));
-		edges[v].push_back(Edge(v,u,1));
+		edges[u].emplace_back(u,v,1);
+		edges[v].emplace_back(v,u,1);
 		degree[u]++;
 		degree[v]++;
 	}
 	void addedge(const int &u,const int &v,const int &w)
 	{
 		m++;
-		edges[u].push_back(Edge(u,v,w));
-		edges[v].push_back(Edge(v,u,w));
+		edges[u].emplace_back(u,v,w);
+		edges[v].emplace_back(v,u,w);
 		degree[u]+=w;
 		degree[v]+=w;
 	}
@@ -258,7 +258,11 @@ struct Graph
 							 << ") in line: " << line << std::endl;
 					throw std::invalid_argument("invalid edge");
 				}
-				if (calcDis(nodes[u],nodes[v])>r) continue;
+				if (calcDis(nodes[u],nodes[v])>r) 
+				{
+					m++; // edges not meet the requirement still counts m
+					continue;
+				}
 				addedge(u,v);
 			}
 			else 

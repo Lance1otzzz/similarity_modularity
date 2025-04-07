@@ -92,19 +92,25 @@ void louvain(Graph<Node> &g, double r)
 		std::vector<std::vector<int>> newNode;
 
 		std::vector<int> idToNewid(hg.n);
-		int numComNew=0;
+		int numNew=0;
 		for (int i=0;i<community.size();i++) //every community
 		{
-			for (int hnode:community[i]) //every hypernode
+			if (!community[i].empty())
 			{
-				idToNewid[hnode]=numComNew;
-				for (auto x:hg.nodes[hnode]) newNode[numComNew].push_back(x);
-				numComNew++;
+				std::vector<int> merged;
+				for (int hnode:community[i]) //every hypernode
+				{
+					idToNewid[hnode]=numNew;
+					merged.insert(merged.end(),hg.nodes[hnode].begin(),hg.nodes[hnode].end());
+				}
+				newNode.push_back(std::move(merged));
+				numNew++;
 			}
 		}
+		newNode.resize(numNew);
 
 		// initialize community, communityAssignments & Hypernode
-		Graph<std::vector<int>> newhg(numComNew);
+		Graph<std::vector<int>> newhg(numNew);
 		std::unordered_map<std::pair<int,int>,int,pair_hash> toAdd;
 		for (int u=0;u<hg.n;u++)
 		{
@@ -112,16 +118,17 @@ void louvain(Graph<Node> &g, double r)
 			for (auto e:hg.edges[u]) 
 			{
 				int vv=idToNewid[e.v];
-				if (uu!=vv&&toAdd.count(std::make_pair(uu,vv))==0)
+				auto t=std::make_pair(uu,vv);
+				if (uu!=vv&&toAdd.count(t)==0)
 				{
-					if (uu<vv) toAdd[std::make_pair(uu,vv)]++;
-					else toAdd[std::make_pair(vv,uu)]++;
+					if (uu<vv) toAdd[t]++;
+					else toAdd[t]++;
 				}
 			}
 		}
 		for (auto x:toAdd) newhg.addedge(x.first.first,x.first.second,x.second);
-		community.resize(numComNew);
-		for (int i=0;i<numComNew;i++) 
+		community.resize(numNew);
+		for (int i=0;i<numNew;i++) 
 		{
 			community[i].clear();
 			community[i].insert(i);
