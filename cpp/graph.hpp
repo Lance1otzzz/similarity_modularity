@@ -113,8 +113,9 @@ Hypersphere calcHypersphere(std::vector<Node> points)
 }
 
 struct Edge { // 0-based index
-	int u, v;
-	Edge(int u_, int v_) : u(u_), v(v_) {}
+	int u, v, w;
+	Edge(int u_,int v_):u(u_),v(v_),w(1){}
+	Edge(int u_,int v_,int w_):u(u_),v(v_),w(w_){}
 };
 
 
@@ -124,32 +125,74 @@ concept NodeIsNode=std::is_same_v<NodeType,Node>;
 template<typename NodeType>
 concept NodeIsHyper=std::is_same_v<NodeType,std::vector<int>>;
 
+template<typename NodeType, typename OtherType>
+concept SameType=std::is_same_v<NodeType,OtherType>;
+
 template<typename NodeType>
-struct Graph {
+struct Graph 
+{
 	int n=0,m=0,attnum=0;
 
 	std::vector<NodeType> nodes;
 	std::vector<std::vector<Edge>> edges; // if future Edge has weight
+	std::vector<int> degree;
 
-	Graph(){}
-	Graph(const Graph &other) {
+	Graph() { n=0;m=0;attnum=0; }
+	
+	Graph(const int &num)
+	{
+		n=num;
+		edges.resize(n);
+		degree.resize(n);
+		nodes.resize(n);
+	}
+	
+	template<typename OtherType>
+	Graph(const Graph<OtherType> &other) requires SameType<NodeType,OtherType>
+	{
 		n=other.n;
 		m=other.m;
+		attnum=other.attnum;
 		nodes=other.nodes;
 		edges=other.edges;
+		degree=other.degree;
 	}
+
+	template<typename OtherType>
+	Graph(Graph<OtherType> &&other) requires SameType<NodeType,OtherType>
+	{
+		n=other.n;m=other.m;attnum=other.attnum;
+		nodes=std::move(other.nodes);
+		edges=std::move(other.edges);
+		degree=std::move(other.degree);
+	}
+
+	template<typename OtherType>
+	Graph(const Graph<OtherType> &other) requires (NodeIsHyper<NodeType>&&NodeIsNode<OtherType>)
+	{
+		n=other.n;
+		m=other.m;
+		attnum=0;
+		nodes.resize(n);
+		degree.resize(n);
+		for (int i=0;i<n;i++) nodes[i].push_back(i);
+		edges=other.edges;
+	}
+
 	~Graph(){}
 
 	void readNodes(const std::string &filename) requires NodeIsNode<NodeType>
 	{
 		std::ifstream file(filename);
-		if (!file.is_open()) {
+		if (!file.is_open()) 
+		{
 			std::cerr << "Error: Failed to open node file " << filename << std::endl;
 			throw -1;
 		}
 		std::string line;
 		int line_num = 0;  // 0-based line counter
-		while (std::getline(file, line)) {
+		while (std::getline(file, line)) 
+		{
 			std::istringstream iss(line);
 			Node node;
 			node.id = line_num;
@@ -173,7 +216,25 @@ struct Graph {
 		}
 		n=line_num;
 		edges.resize(n);
+		degree.resize(n);
 		file.close();
+	}
+
+	void addedge(const int &u,const int &v)
+	{
+		m++;
+		edges[u].push_back(Edge(u,v,1));
+		edges[v].push_back(Edge(v,u,1));
+		degree[u]++;
+		degree[v]++;
+	}
+	void addedge(const int &u,const int &v,const int &w)
+	{
+		m++;
+		edges[u].push_back(Edge(u,v,w));
+		edges[v].push_back(Edge(v,u,w));
+		degree[u]+=w;
+		degree[v]+=w;
 	}
 
 	void readEdges(const std::string &filename, const double &r) requires NodeIsNode<NodeType>
@@ -187,7 +248,6 @@ struct Graph {
 		std::string line;
 		while (std::getline(file, line)) 
 		{
-			m++;
 			std::istringstream iss(line);
 			int u, v;
 			if (iss >> u >> v) 
@@ -199,8 +259,7 @@ struct Graph {
 					throw std::invalid_argument("invalid edge");
 				}
 				if (calcDis(nodes[u],nodes[v])>r) continue;
-				edges[u].push_back(Edge(u,v));
-				edges[v].push_back(Edge(v,u));
+				addedge(u,v);
 			}
 			else 
 			{
@@ -287,3 +346,22 @@ struct Graph {
 		}
 	}
 }; //Graph
+
+double calcModularity(Graph<Node> &g, std::vector<std::vector<int>> &community)
+{
+	double res=0;
+	std::vector<int> color(g.n);
+	for (int i=0;i<community.size();i++)
+		for (auto x:community[i]) color[x]=i;
+	
+	double mm=g.m*2;
+	for (int u=0;u<g.n;u++)
+	{
+		int cu=color[u];
+		for (auto &e:g.edges[u])
+			if (cu==color[e.v]) 
+				res+=e.w-g.degree[u]*g.degree[e.v]/mm;
+	}
+
+	return res/mm;
+}

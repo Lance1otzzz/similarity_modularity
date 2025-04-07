@@ -1,90 +1,135 @@
 #pragma once
 
 #include "graph.hpp"
+#include "defines.hpp"
 #include <vector>
 #include <algorithm>
+#include <unordered_map>
+#include <unordered_set>
 
-void louvain(Graph<Node> &g, double r) {
-	double totalModularity=0;
-    std::vector<int> communityAssignments(g.n);  // stores the community of each node
-    for (int i=0;i<g.n;++i) communityAssignments[i]=i; // Initialize: each node is its own community
+void louvain(Graph<Node> &g, double r) 
+{
+	double mm=g.m*2;
+
+    std::vector<int> communityAssignments(g.n);  // stores the community of each hypernode
+    for (int i=0;i<g.n;++i) communityAssignments[i]=i; // Initialize: each hypernode is its own community
 	
-	std::vector<std::vector<int>> community(g.n); // the community contains which nodes
-	for (int i=0;i<g.n;i++) community[i].push_back(i);
+	std::vector<std::unordered_set<int>> community(g.n); // the community contains which hypernodes
+	for (int i=0;i<g.n;i++) community[i].insert(i);
+
+	Graph<std::vector<int>> hg(g); //hypernode graph
 
     bool improvement=true;
     while (improvement) 
 	{
+		std::vector<int> communityDegree(hg.n);
         improvement=false;
         // Phase 1: Optimize modularity by moving nodes
-        for (int u=0;u<community.size();++u) // The u-th community
+		bool imp=true; // imp for phase 1
+		while (imp)
 		{
-            double bestModularity=0;// if not move
-            int bestCommunity=communityAssignments[u];
-
-            // Try to move the node to a neighboring community
-			std::unordered_map<int,double> communityGain; // Stores modularity gain for each community. Note that some communities may not be connected
-			for (auto &from:community[u])
+			imp=false;
+			for (int u=0;u<hg.n;++u) // The u-th hypernode
 			{
-				for (const Edge& edge:g.edges[from]) 
+				double bestModularity=0;// if not move
+				int cu=communityAssignments[u];
+				int bestCommunity=cu;
+				
+				// Try to move the node to a neighboring community
+				std::unordered_map<int,double> degreeGain;
+				for (const Edge& edge:hg.edges[u]) 
 				{
-					int v=communityAssignments[edge.v];
-					if (u==v) continue;
-					// Calculate modularity gain if u moves to the community of v
-					communityGain[v] += 1 - (community[u].size() * community[v].size()) / (2 * g.m);
+					int cv=communityAssignments[edge.v];
+					degreeGain[cv]+=edge.w;
+				}
+
+				// Find the community that gives the best modularity gain
+				double k_iin=degreeGain[cu];
+				double secondElement=k_iin-hg.degree[u]*(communityDegree[cu]-hg.degree[u])/mm;
+				for (auto &c:degreeGain) //id,gain
+				{
+					double delta_Q=((c.second-hg.degree[u]*communityDegree[c.first]/mm)-secondElement)/mm;
+					if (delta_Q>bestModularity) 
+					{
+						bool sim=true;
+						for (auto uu:hg.nodes[u]) //uu: every node in the hypernode u
+						{
+							for (auto hnodev:community[c.first]) //every hypernode in the community
+							{
+								for (auto vv:hg.nodes[hnodev]) if (calcDis(g.nodes[uu],g.nodes[vv])>r) 
+								{
+									sim=false;
+									break;
+								}
+								if (!sim) break;
+							}
+							if (!sim) break;
+						}
+						if (sim)
+						{
+							bestModularity=delta_Q;
+							bestCommunity=c.first;
+						}
+					}
+				}
+
+				// If moving to a new community improves the modularity, assign the best community to node u
+				if (bestCommunity != communityAssignments[u]) 
+				{
+					community[communityAssignments[u]].erase(u);
+					communityDegree[cu]-=2*degreeGain[cu];
+					communityAssignments[u] = bestCommunity;
+					community[bestCommunity].insert(u);
+					communityDegree[bestCommunity]+=2*degreeGain[bestCommunity];
+					imp=true;
+					improvement = true;
 				}
 			}
-
-            // Find the community that gives the best modularity gain
-			for (auto &c:communityGain) //id,gain
-			{
-                if (c.second>bestModularity) 
-				{
-					bool sim=true;
-					for (auto nodeu:community[u])
-					{
-						for (auto nodev:community[c.first]) 
-							if (calcDis(g.nodes[nodeu],g.nodes[nodev])>r) 
-							{
-								sim=false;
-								break;
-							}
-						if (!sim) break;
-					}
-					if (sim)
-					{
-						bestModularity=communityGain[c.first];
-						bestCommunity=c.first;
-						totalModularity+=bestModularity;
-					}
-                }
-            }
-
-            // If moving to a new community improves the modularity, assign the best community to node u
-            if (bestCommunity != communityAssignments[u]) 
-			{
-				for (auto &node:community[u]) communityAssignments[node] = bestCommunity;
-				for (auto &node:community[u]) community[bestCommunity].push_back(node);
-				community[u].clear();
-                improvement = true;
-            }
         }
 
-        // Phase 2: Create a new graph where each community is a node
+        // Phase 2: Create a new graph
 
-		std::vector<int> idToNewid(community.size());
+		std::vector<std::vector<int>> newNode;
+
+		std::vector<int> idToNewid(hg.n);
 		int numComNew=0;
-		for (int i=0;i<community.size();i++) 
+		for (int i=0;i<community.size();i++) //every community
 		{
-			if (!community[i].empty()) 
+			for (int hnode:community[i]) //every hypernode
 			{
-				community[numComNew]=std::move(community[i]);
-				idToNewid[i]=numComNew;
+				idToNewid[hnode]=numComNew;
+				for (auto x:hg.nodes[hnode]) newNode[numComNew].push_back(x);
 				numComNew++;
 			}
 		}
+
+		// initialize community, communityAssignments & Hypernode
+		Graph<std::vector<int>> newhg(numComNew);
+		std::unordered_map<std::pair<int,int>,int,pair_hash> toAdd;
+		for (int u=0;u<hg.n;u++)
+		{
+			int uu=idToNewid[u];
+			for (auto e:hg.edges[u]) 
+			{
+				int vv=idToNewid[e.v];
+				if (uu!=vv&&toAdd.count(std::make_pair(uu,vv))==0)
+				{
+					if (uu<vv) toAdd[std::make_pair(uu,vv)]++;
+					else toAdd[std::make_pair(vv,uu)]++;
+				}
+			}
+		}
+		for (auto x:toAdd) newhg.addedge(x.first.first,x.first.second,x.second);
 		community.resize(numComNew);
-		for (int i=0;i<g.n;i++) communityAssignments[i]=idToNewid[communityAssignments[i]];
-    }
-	std::cout<<"modularity="<<totalModularity<<std::endl;
+		for (int i=0;i<numComNew;i++) 
+		{
+			community[i].clear();
+			community[i].insert(i);
+			communityAssignments[i]=i;
+		}
+		newhg.nodes=std::move(newNode);
+		hg=std::move(newhg);
+	}
+
+	std::cout<<"Modularity="<<calcModularity(g,hg.nodes)<<std::endl;
 }

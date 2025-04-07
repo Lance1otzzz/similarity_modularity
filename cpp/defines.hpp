@@ -12,6 +12,17 @@ inline double timeElapsed(std::chrono::high_resolution_clock::time_point start, 
 
 const double eps=1e-8;
 
+
+struct pair_hash 
+{
+    std::size_t operator()(const std::pair<int, int>& p) const 
+	{
+		std::size_t h1 = std::hash<int>()(p.first);
+        std::size_t h2 = std::hash<int>()(p.second);
+        return h1 ^ (h2 * 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
+    }
+};
+
 // Ensure folder path ends with separator
 std::string ensureFolderSeparator(const std::string &folder) {
     if (folder.empty()) return "./";
