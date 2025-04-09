@@ -351,7 +351,7 @@ struct Graph
 	}
 }; //Graph
 
-double calcModularity(Graph<Node> &g, std::vector<std::vector<int>> &community)
+inline double calcModularity(const Graph<Node> &g, const std::vector<std::vector<int>> &community)
 {
 	double res=0;
 	std::vector<int> color(g.n);

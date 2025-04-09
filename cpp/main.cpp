@@ -1,6 +1,7 @@
 #include "graph.hpp"
 #include "defines.hpp"
 #include "louvain.hpp"
+#include "leiden.hpp"
 #include <iostream>
 #include <chrono>
 using namespace std;
@@ -52,6 +53,15 @@ int main(int argc, char** argv)
 		louvain(g,r);
 		auto endLouvain=timeNow();
 		cout<<"Louvain total time: "<<timeElapsed(startLouvain,endLouvain)<<endl;
+	}
+	else if (algorithm==11)
+	{
+		cout<<"start Leiden"<<endl;
+		auto startLeiden=timeNow();
+		ConstrainedLeiden leiden_solver(g, r);
+		leiden_solver.run();
+		auto endLeiden=timeNow();
+		cout<<"Leiden total time: "<<timeElapsed(startLeiden,endLeiden)<<endl;
 	}
 	return 0;
 }
