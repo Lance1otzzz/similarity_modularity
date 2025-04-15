@@ -243,9 +243,6 @@ private:
         std::map<int, double> neighbor_community_weights;
         calculate_neighbor_weights(u, neighbor_community_weights);
 
-        double best_modularity_gain = 0.0;
-        int best_community_id = current_community_id;
-
         // Check if current community ID is valid
         size_t curr_comm_size_t = static_cast<size_t>(current_community_id);
         if (curr_comm_size_t >= communities_.size() || communities_[curr_comm_size_t].hypernodes.empty()) {
@@ -258,44 +255,64 @@ private:
         double k_u_in = neighbor_community_weights[current_community_id];
         double current_community_total_degree = communities_[curr_comm_size_t].total_degree_weight;
 
+    // 存储满足条件的社区及其模块度增益
+    std::map<int, double> eligible_communities_with_gains;
+    double total_exp_gain = 0.0;
+
         // Evaluate each neighboring community
-        for (const auto& [target_community_id, k_u_target] : neighbor_community_weights) {
-            if (target_community_id == current_community_id) continue;
+    for (const auto& [target_community_id, k_u_target] : neighbor_community_weights) {
+        if (target_community_id == current_community_id) continue;
 
-            // Ensure target community exists
-            size_t target_comm_size_t = static_cast<size_t>(target_community_id);
-            if (target_comm_size_t >= communities_.size() || communities_[target_comm_size_t].hypernodes.empty()) {
-                continue;
-            }
+        // Ensure target community exists
+        size_t target_comm_size_t = static_cast<size_t>(target_community_id);
+        if (target_comm_size_t >= communities_.size() || communities_[target_comm_size_t].hypernodes.empty()) {
+            continue;
+        }
 
-            double target_community_total_degree = communities_[target_comm_size_t].total_degree_weight;
+        double target_community_total_degree = communities_[target_comm_size_t].total_degree_weight;
 
             // Calculate modularity gain
             double delta_Q = (k_u_target - (u_degree * target_community_total_degree) / total_edge_weight_) -
                              (k_u_in - (u_degree * (current_community_total_degree - u_degree)) / total_edge_weight_);
             delta_Q /= total_edge_weight_;
 
-            // If gain is positive and distance constraint is satisfied, this is a candidate move
-            if (delta_Q > best_modularity_gain) {
-                if (check_distance_constraint(u, target_community_id)) {
-                    best_modularity_gain = delta_Q;
-                    best_community_id = target_community_id;
-                }
-            }
+         // If gain is positive and distance constraint is satisfied, this is a candidate move
+        if (delta_Q >= 0 && check_distance_constraint(u, target_community_id)) {
+            eligible_communities_with_gains[target_community_id] = delta_Q;
+            total_exp_gain += std::exp(0.5 * delta_Q);
         }
+    }
 
-        // If a better community was found, move the node
-        if (best_community_id != current_community_id) {
-            size_t best_comm_size_t = static_cast<size_t>(best_community_id);
-            if (best_comm_size_t >= communities_.size()) {
-                std::cerr << "Error: Attempting move to invalid community ID " << best_community_id << std::endl;
-                return false;
-            }
-            move_node(u, current_community_id, best_community_id);
-            return true;
-        }
+    // 没有找到合适的社区，节点保持在当前社区
+    if (eligible_communities_with_gains.empty()) {
         return false;
     }
+
+    // 概率性选择社区
+    double random_value = std::uniform_real_distribution<double>(0.0, total_exp_gain)(random_generator_);
+    double cumulative = 0.0;
+    int selected_community_id = current_community_id; // 默认保持在当前社区
+
+    for (const auto& [community_id, gain] : eligible_communities_with_gains) {
+        cumulative += std::exp(0.5 * gain);
+        if (random_value <= cumulative) {
+            selected_community_id = community_id;
+            break;
+        }
+    }
+
+    // 如果选择的社区与当前不同，则移动节点
+    if (selected_community_id != current_community_id) {
+        size_t selected_comm_size_t = static_cast<size_t>(selected_community_id);
+        if (selected_comm_size_t >= communities_.size()) {
+            std::cerr << "Error: Attempting move to invalid community ID " << selected_community_id << std::endl;
+            return false;
+        }
+        move_node(u, current_community_id, selected_community_id);
+        return true;
+    }
+    return false;
+}
 
     /**
      * @brief Calculates weights between a node and all communities it's connected to.
@@ -535,22 +552,23 @@ private:
                 calculate_internal_neighbor_weights(u, nodes_in_community,
                                                    internal_assignment, internal_neighbor_weights);
 
-                double best_internal_gain = 0.0;
-                size_t best_internal_id = current_internal_id;
+            // Calculate weights for current subcommunity
+            double k_u_in_internal = internal_neighbor_weights[current_internal_id];
 
-                // Calculate gain for staying in current subcommunity
-                double k_u_in_internal = internal_neighbor_weights[current_internal_id];
-
-                double current_internal_total_degree = 0;
-                if (internal_sub_communities.count(current_internal_id)) {
-                    for (size_t node_in_sub : internal_sub_communities[current_internal_id]) {
-                        current_internal_total_degree += hypergraph_->degree[node_in_sub];
-                    }
+            double current_internal_total_degree = 0;
+            if (internal_sub_communities.count(current_internal_id)) {
+                for (size_t node_in_sub : internal_sub_communities[current_internal_id]) {
+                    current_internal_total_degree += hypergraph_->degree[node_in_sub];
                 }
+            }
 
-                // Evaluate each neighboring subcommunity
-                for (const auto& [target_internal_id, k_u_target_internal] : internal_neighbor_weights) {
-                    if (target_internal_id == current_internal_id) continue;
+            // Store eligible subcommunities and their modularity gains
+            std::map<size_t, double> eligible_subcommunities_with_gains;
+            double total_exp_gain_internal = 0.0;
+
+            // Evaluate each neighboring subcommunity
+            for (const auto& [target_internal_id, k_u_target_internal] : internal_neighbor_weights) {
+                if (target_internal_id == current_internal_id) continue;
 
                     // Calculate target subcommunity's total degree
                     double target_internal_total_degree = 0;
@@ -567,24 +585,40 @@ private:
                                      (k_u_in_internal - (u_degree * (current_internal_total_degree - u_degree)) / total_edge_weight_);
                     delta_Q /= total_edge_weight_;
 
-                    // If gain is positive and distance constraint is satisfied, this is a candidate move
-                    if (delta_Q > best_internal_gain) {
-                        if (check_distance_constraint_within_set(u, target_internal_id, internal_sub_communities)) {
-                            best_internal_gain = delta_Q;
-                            best_internal_id = target_internal_id;
-                        }
-                    }
+                // If gain is non-negative and distance constraint is satisfied, add to eligible subcommunities
+                if (delta_Q >= 0 && check_distance_constraint_within_set(u, target_internal_id, internal_sub_communities)) {
+                    eligible_subcommunities_with_gains[target_internal_id] = delta_Q;
+                    total_exp_gain_internal += std::exp(0.5 * delta_Q);
                 }
+            }
 
-                // If a better subcommunity was found, move the node
-                if (best_internal_id != current_internal_id) {
-                    if (internal_sub_communities.count(current_internal_id) &&
-                        internal_sub_communities.count(best_internal_id)) {
+            // If no eligible subcommunity found, keep node in current subcommunity
+            if (eligible_subcommunities_with_gains.empty()) {
+                continue;
+            }
 
-                        // Move node between subcommunities
-                        internal_sub_communities[current_internal_id].erase(u);
-                        internal_sub_communities[best_internal_id].insert(u);
-                        internal_assignment[u] = best_internal_id;
+            // Probabilistic selection of subcommunity
+            double random_value = std::uniform_real_distribution<double>(0.0, total_exp_gain_internal)(random_generator_);
+            double cumulative = 0.0;
+            size_t selected_internal_id = current_internal_id; // Default: stay in current subcommunity
+
+            for (const auto& [subcommunity_id, gain] : eligible_subcommunities_with_gains) {
+                cumulative += std::exp(0.5 * gain);
+                if (random_value <= cumulative) {
+                    selected_internal_id = subcommunity_id;
+                    break;
+                }
+            }
+
+            // If a different subcommunity was selected, move the node
+            if (selected_internal_id != current_internal_id) {
+                if (internal_sub_communities.count(current_internal_id) &&
+                    internal_sub_communities.count(selected_internal_id)) {
+
+                    // Move node between subcommunities
+                    internal_sub_communities[current_internal_id].erase(u);
+                    internal_sub_communities[selected_internal_id].insert(u);
+                    internal_assignment[u] = selected_internal_id;
 
                         // Remove empty subcommunities
                         if (internal_sub_communities[current_internal_id].empty()) {
