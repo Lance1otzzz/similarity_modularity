@@ -7,8 +7,8 @@
 #include <string>
 #include <sstream>
 #include <unordered_map>
+#include <unordered_set>
 #include <cmath>
-#include <concepts>
 
 // Node structure with generated ID and original attributes
 struct Node {
@@ -16,21 +16,12 @@ struct Node {
 	std::vector<double> attributes; // Contains ALL values from input line
 	// maybe some other attributes
 	Node(){}
-	Node(const int &d)
+	Node(const int &d):id(0)
 	{
-		id=0;
 		attributes.resize(d);
 	}
-	Node(const int &ID,const std::vector<double> &A)
-	{
-		id=ID;
-		attributes=A;
-	}
-	Node(const int &ID,std::vector<double> &&A)
-	{
-		id=ID;
-		attributes=std::move(A);
-	}
+	Node(const int &ID,const std::vector<double> &A):id(ID),attributes(A) {}
+	Node(const int &ID,std::vector<double> &&A):id(ID),attributes(std::move(A)){}
 	void printNode()
 	{
 		std::cout<<"Node id="<<id<<'\n';
@@ -118,106 +109,39 @@ struct Edge { // 0-based index
 	Edge(int u_,int v_,int w_):u(u_),v(v_),w(w_){}
 };
 
-
 template<typename NodeType>
-concept NodeIsNode=std::is_same_v<NodeType,Node>;
-
-template<typename NodeType>
-concept NodeIsHyper=std::is_same_v<NodeType,std::vector<int>>;
-
-template<typename NodeType, typename OtherType>
-concept SameType=std::is_same_v<NodeType,OtherType>;
-
-template<typename NodeType>
-struct Graph 
+struct GraphBase
 {
-	int n=0,m=0,attnum=0;
-
+	int n=0,m=0;
 	std::vector<NodeType> nodes;
 	std::vector<std::vector<Edge>> edges; // if future Edge has weight
 	std::vector<int> degree;
+	GraphBase():n(0),m(0){}
 
-	Graph() { n=0;m=0;attnum=0; }
-	
-	Graph(const int &num)
-	{
-		n=num;
-		edges.resize(n);
-		degree.resize(n);
-		nodes.resize(n);
-	}
-	
-	template<typename OtherType>
-	Graph(const Graph<OtherType> &other) requires SameType<NodeType,OtherType>
+	GraphBase(const GraphBase &other):n(other.n),m(other.m),nodes(other.nodes),edges(other.edges),degree(other.degree){}
+
+	GraphBase(GraphBase &&other):n(other.n),m(other.m),nodes(std::move(other.nodes)),edges(std::move(other.edges)),degree(std::move(other.degree)){}
+
+	explicit GraphBase(int num):n(num),nodes(n),edges(n),degree(n){}
+
+	GraphBase& operator=(const GraphBase &other)
 	{
 		n=other.n;
 		m=other.m;
-		attnum=other.attnum;
 		nodes=other.nodes;
 		edges=other.edges;
 		degree=other.degree;
+		return *this;
 	}
 
-	template<typename OtherType>
-	Graph(Graph<OtherType> &&other) requires SameType<NodeType,OtherType>
-	{
-		n=other.n;m=other.m;attnum=other.attnum;
-		nodes=std::move(other.nodes);
-		edges=std::move(other.edges);
-		degree=std::move(other.degree);
-	}
-
-	template<typename OtherType>
-	Graph(const Graph<OtherType> &other) requires (NodeIsHyper<NodeType>&&NodeIsNode<OtherType>)
+	GraphBase& operator=(GraphBase &&other)
 	{
 		n=other.n;
 		m=other.m;
-		attnum=0;
-		nodes.resize(n);
-		degree.resize(n);
-		for (int i=0;i<n;i++) nodes[i].push_back(i);
-		edges=other.edges;
-	}
-
-	~Graph(){}
-
-	void readNodes(const std::string &filename) requires NodeIsNode<NodeType>
-	{
-		std::ifstream file(filename);
-		if (!file.is_open()) 
-		{
-			std::cerr << "Error: Failed to open node file " << filename << std::endl;
-			throw -1;
-		}
-		std::string line;
-		int line_num = 0;  // 0-based line counter
-		while (std::getline(file, line)) 
-		{
-			std::istringstream iss(line);
-			Node node;
-			node.id = line_num;
-			// 读取所有数值作为属性
-			double value;
-			while (iss >> value) {
-				node.attributes.push_back(value);
-			}
-			if (node.attributes.empty()) {
-				std::cerr << "Warning: No attributes at line " << line_num << std::endl;
-				throw -1;
-			}
-			if (attnum==0) attnum=node.attributes.size();
-			else if (attnum!=node.attributes.size())
-			{
-				std::cerr<<"nodes have different attribute dimensions"<<std::endl;
-				throw -1;
-			}
-			nodes.push_back(node);
-			line_num++;
-		}
-		n=line_num;
-		edges.resize(n);
-		degree.resize(n);
-		file.close();
+		nodes=std::move(other.nodes);
+		edges=std::move(other.edges);
+		degree=std::move(other.degree);
+		return *this;
 	}
 
 	void addedge(const int &u,const int &v)
@@ -236,8 +160,61 @@ struct Graph
 		degree[u]+=w;
 		degree[v]+=w;
 	}
+};
 
-	void readEdges(const std::string &filename, const double &r) requires NodeIsNode<NodeType>
+template<typename NodeType>
+struct Graph:public GraphBase<NodeType>{};
+
+template<>
+struct Graph<Node>:public GraphBase<Node>
+{
+	int attnum=0;
+	using GraphBase::GraphBase;
+	Graph(const Graph<Node> &other):GraphBase<Node>(other),attnum(other.attnum){}
+
+	Graph(Graph<Node> &&other):GraphBase<Node>(std::move(other)),attnum(other.attnum){}
+
+	~Graph(){}
+
+	void readNodes(const std::string &filename)
+	{
+		std::ifstream file(filename);
+		if (!file.is_open()) 
+		{
+			std::cerr << "Error: Failed to open node file " << filename << std::endl;
+			throw std::invalid_argument("file error");
+		}
+		std::string line;
+		int line_num = 0;  // 0-based line counter
+		while (std::getline(file, line)) 
+		{
+			std::istringstream iss(line);
+			Node node;
+			node.id = line_num;
+			// 读取所有数值作为属性
+			double value;
+			while (iss >> value) {
+				node.attributes.push_back(value);
+			}
+			if (node.attributes.empty()) {
+				std::cerr << "Warning: No attributes at line " << line_num << std::endl;
+				throw std::invalid_argument("no node attributes");
+			}
+			if (attnum==0) attnum=node.attributes.size();
+			else if (attnum!=node.attributes.size())
+			{
+				std::cerr<<"nodes have different attribute dimensions"<<std::endl;
+				throw std::invalid_argument("attribute dimension inconsistent");
+			}
+			nodes.push_back(node);
+			line_num++;
+		}
+		n=line_num;
+		edges.resize(n);
+		degree.resize(n);
+		file.close();
+	}
+	void readEdges(const std::string &filename, const double &r)
 	{
 		std::ifstream file(filename.c_str());
 		if (!file.is_open()) 
@@ -258,11 +235,8 @@ struct Graph
 							 << ") in line: " << line << std::endl;
 					throw std::invalid_argument("invalid edge");
 				}
-				if (calcDis(nodes[u],nodes[v])>r) 
-				{
-					m++; // edges not meet the requirement still counts m
-					continue;
-				}
+				if (calcDis(nodes[u],nodes[v])>r) continue; // edges not meet the requirement dont counts m
+				m++; 
 				addedge(u,v);
 			}
 			else 
@@ -275,7 +249,7 @@ struct Graph
 	}
 
 	// Load graph data from files
-	void loadGraph(const std::string &folder, const double &r) requires NodeIsNode<NodeType>
+	void loadGraph(const std::string &folder, const double &r) 
 	{
 		nodes.clear();
 		edges.clear();
@@ -286,7 +260,7 @@ struct Graph
 		readEdges(base + "edges.txt",r);
 	}
 
-	void printGraph() requires NodeIsNode<NodeType>
+	void printGraph() 
 	{
 		std::cout << "There are " << n << " nodes and " << m << " edges." << std::endl;
 
@@ -306,39 +280,76 @@ struct Graph
 		}
 	}
 
-	void checkGraph() requires NodeIsNode<NodeType>
+	void checkGraph() 
 	{
 		for (int i=0;i<n;i++)
 		{
-			std::unordered_map<int,bool> ma;
+			std::unordered_set<int> s;
 			for (auto x:edges[i])
 			{
 				if (x.u==x.v)
 				{
 					std::cerr<<"Self Cycle Exists!!!"<<std::endl;
 					std::cerr<<x.u<<" -> "<<x.v<<std::endl;
-					throw -1;
+					throw std::runtime_error("Self Cycle detected");
 				}
-				if (ma[x.v]) 
+				if (s.count(x.v)) 
 				{
 					std::cerr<<"Multiple Edge Exists!!!"<<std::endl;
 					std::cerr<<x.u<<" -> "<<x.v<<std::endl;
-					throw -1;
+					throw std::runtime_error("Multiple edge detected");
 				}
-				ma[x.v]=true;
+				s.insert(x.v);
 			}
 		}
 		std::cerr<<"No problem in graph check."<<std::endl;
 	}
+};
 
-	// louvain hypernode
-	void printGraph() requires NodeIsHyper<NodeType>
+template<>
+struct Graph<std::vector<int>>:public GraphBase<std::vector<int>>
+{
+	using GraphBase::GraphBase;
+	std::vector<int> degreeSum;
+	Graph(const Graph<Node> &other):GraphBase<std::vector<int>>()
+	{
+		n=other.n;
+		m=other.m;
+		degree.resize(n);
+		nodes.resize(n);
+		edges=other.edges;
+		degreeSum=other.degree;
+		for (int i=0;i<n;i++) nodes[i].push_back(i);
+	}
+	Graph(const Graph<std::vector<int>> &other):GraphBase<std::vector<int>>(other),degreeSum(other.degreeSum){}
+
+	Graph(Graph<std::vector<int>> &&other):GraphBase<std::vector<int>>(std::move(other)),degreeSum(std::move(other.degreeSum)){}
+	
+	explicit Graph(int num):GraphBase::GraphBase(num),degreeSum(num){}
+
+	~Graph(){}
+
+	Graph<std::vector<int>>& operator=(const Graph<std::vector<int>> &other)
+	{
+		GraphBase::operator=(other);
+		degreeSum=other.degreeSum;
+		return *this;
+	}
+
+	Graph<std::vector<int>>& operator=(Graph<std::vector<int>> &&other)
+	{
+		GraphBase::operator=(other);
+		degreeSum=std::move(other.degreeSum);
+		return *this;
+	}
+
+	void printGraph()
 	{
 		std::cout<<"hypernodes:!!!!\n";
-		for (auto &nd:nodes) 
+		for (int i=0;i<nodes.size();i++)
 		{
-			std::cout<<"id: "<<nd.id<<'\n'<<"nodes: ";
-			for (auto &id:nd) std::cout<<id<<' ';
+			std::cout<<"id: "<<i<<'\n'<<"nodes: ";
+			for (auto &id:nodes[i]) std::cout<<id<<' ';
 			std::cout<<std::endl;
 		}
 		std::cout<<"edges:!!!!\n";
@@ -358,13 +369,13 @@ inline double calcModularity(const Graph<Node> &g, const std::vector<std::vector
 	for (int i=0;i<community.size();i++)
 		for (auto x:community[i]) color[x]=i;
 	
-	double mm=g.m*2;
+	int mm=g.m*2;
 	for (int u=0;u<g.n;u++)
 	{
 		int cu=color[u];
 		for (auto &e:g.edges[u])
-			if (cu==color[e.v]) 
-				res+=e.w-g.degree[u]*g.degree[e.v]/mm;
+			if (cu==color[e.v])
+				res+=e.w-(double)g.degree[u]*g.degree[e.v]/mm;
 	}
 
 	return res/mm;

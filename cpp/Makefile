@@ -1,13 +1,13 @@
 CC=g++
 #CC=clang++
 CFLAGS = -O3 -Wall -Wno-sign-compare -Wextra -static-libstdc++ -std=c++20
-DEBUGFLAGS = -Og -g -Wall -Wno-sign-compare -static-libstdc++ -std=c++20
+DEBUGFLAGS = -g -Wall -Wno-sign-compare -static-libstdc++ -std=c++20
 
 # 定义数据集路径和参数
 DATASET = ./dataset/cora
 RESOLUTION = 20
 
-all: main.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp
+all: main.cpp graph.hpp defines.hpp louvain.hpp
 	$(CC) main.cpp $(CFLAGS) -o main
 
 test: test.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp
