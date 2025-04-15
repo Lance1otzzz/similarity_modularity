@@ -1,7 +1,7 @@
 #pragma once
 
-#include "graph.hpp" // Assume Graph structure (Graph<Node>, Graph<std::vector<int>>)
-#include "defines.hpp" // Assume Node, Edge definitions
+#include "graph.hpp"
+#include "defines.hpp"
 #include <vector>
 #include <numeric>
 #include <random>
@@ -9,176 +9,167 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <map>
-#include <set> // <<--- 确保包含 <set>
+#include <set>
 #include <iostream>
 #include <memory>
-#include <stdexcept> // For std::runtime_error
-#include <limits>  // For potential future use or checks
-
-// --- Forward Declarations ---
-// double calcDis(const Node& node1, const Node& node2); // Assumed defined elsewhere
-// double calcModularity(const Graph<Node>& original_g, const std::vector<std::vector<int>>& final_communities); // Assumed defined elsewhere
+#include <stdexcept>
+#include <limits>
 
 // --- Helper Structures ---
 struct CommunityInfo {
-    std::unordered_set<int> hypernodes;
+    std::unordered_set<size_t> hypernodes;
     double total_degree_weight = 0.0;
 };
 
-// --- Constrained Leiden Algorithm Class ---
+/**
+ * @brief Constrained Leiden algorithm for community detection with distance constraints.
+ *
+ * Implements the Leiden algorithm with distance constraints for community detection in graphs.
+ * The algorithm has three main phases:
+ * 1. Local Moving - Move nodes to neighboring communities to optimize modularity
+ * 2. Refinement - Split communities into well-connected subcommunities
+ * 3. Aggregation - Create a coarser graph where each node represents a community
+ */
 class ConstrainedLeiden {
 public:
     /**
      * @brief Constructor for the Constrained Leiden algorithm.
      * @param graph_input Reference to the original graph with node data for distance calculation.
-     * @param distance_threshold The distance constraint threshold.
+     * @param distance_threshold The maximum distance allowed between nodes in the same community.
      */
-    // ***** FIXED CONSTRUCTOR DECLARATION/DEFINITION *****
     ConstrainedLeiden(const Graph<Node>& graph_input, double distance_threshold)
-        : original_g_ref_(graph_input), // Initialize const reference member
-          r_(distance_threshold),       // Initialize distance threshold
-          mm_(graph_input.m * 2.0),     // Initialize mm_ using the input graph
-          rng_(std::random_device{}())  // Initialize random number generator
+        : original_graph_(graph_input),
+          distance_threshold_(distance_threshold),
+          total_edge_weight_(graph_input.m * 2.0),
+          random_generator_(std::random_device{}())
     {
-        if (original_g_ref_.n == 0) {
+        if (original_graph_.n == 0) {
             throw std::runtime_error("Input graph cannot be empty.");
         }
         // Initial hypergraph is the original graph (one node per hypernode)
-        hg_ = std::make_unique<Graph<std::vector<int>>>(original_g_ref_);
+        hypergraph_ = std::make_unique<Graph<std::vector<int>>>(original_graph_);
+        std::cout << "Initialized with " << original_graph_.n << " nodes and distance threshold "
+                  << distance_threshold_ << std::endl;
     }
 
-    // Disable copy and move constructors/assignments for simplicity if not needed
+    // Disable copy and move operations
     ConstrainedLeiden(const ConstrainedLeiden&) = delete;
     ConstrainedLeiden& operator=(const ConstrainedLeiden&) = delete;
     ConstrainedLeiden(ConstrainedLeiden&&) = delete;
     ConstrainedLeiden& operator=(ConstrainedLeiden&&) = delete;
 
-
     /**
-     * @brief Runs the constrained Leiden algorithm. Calculates and prints final modularity at the end.
+     * @brief Runs the constrained Leiden algorithm.
+     * Executes the algorithm until no further improvement can be made.
      */
     void run() {
-        if (!hg_ || original_g_ref_.n == 0) { // Also check original graph emptiness
-             std::cout << "Algorithm cannot run on an empty or uninitialized graph." << std::endl;
+        if (!hypergraph_ || original_graph_.n == 0) {
+            std::cout << "Algorithm cannot run on an empty or uninitialized graph." << std::endl;
             return;
         }
 
         initialize_partition();
 
         bool improvement = true;
-        int level = 0;
+        size_t level = 0;
 
         // --- Main Iteration Loop ---
         while (improvement) {
             std::cout << "--- Starting Level " << level << " ---" << std::endl;
-            std::cout << "Current number of hypernodes: " << hg_->n << std::endl;
+            std::cout << "Current number of hypernodes: " << hypergraph_->n << std::endl;
 
             improvement = false; // Assume no improvement in this pass
 
             // --- Phase 1: Local Moving (with Distance Constraint) ---
             bool local_moves_made = run_local_moving_phase();
-            std::cout << "Local moving phase completed. Moves made: " << (local_moves_made ? "Yes" : "No") << std::endl;
+            std::cout << "Local moving phase completed. Moves made: "
+                      << (local_moves_made ? "Yes" : "No") << std::endl;
 
             // --- Phase 2: Partition Refinement (Leiden Specific) ---
-            std::vector<int> refined_assignments = communityAssignments_; // Start with Phase 1 result
+            std::vector<int> refined_assignments = community_assignments_; // Start with Phase 1 result
             bool refinement_changed_partition = false;
+
             if (local_moves_made) {
-                refined_assignments = run_refinement_phase(communityAssignments_);
-                 std::cout << "Refinement phase completed." << std::endl;
-                 // Check if refinement actually changed the assignments
-                 if(refined_assignments != communityAssignments_) {
-                     refinement_changed_partition = true;
-                     // Update the main assignment vector for the aggregation phase
-                     communityAssignments_ = refined_assignments;
-                 }
+                refined_assignments = run_refinement_phase(community_assignments_);
+                std::cout << "Refinement phase completed." << std::endl;
+
+                // Check if refinement actually changed the assignments
+                if (refined_assignments != community_assignments_) {
+                    refinement_changed_partition = true;
+                    // Update the main assignment vector for the aggregation phase
+                    community_assignments_ = refined_assignments;
+                    // Rebuild communities_ structure based on new assignments
+                    update_communities_from_assignments(community_assignments_);
+                }
             }
 
             // --- Phase 3: Aggregation ---
             // Aggregation happens if local moves were made OR refinement changed the partition
             if (local_moves_made || refinement_changed_partition) {
-                // Aggregation uses the most up-to-date assignments (communityAssignments_)
-                bool aggregation_occurred = run_aggregation_phase(communityAssignments_);
+                // Aggregation uses the most up-to-date assignments
+                bool aggregation_occurred = run_aggregation_phase(community_assignments_);
+
                 if (aggregation_occurred) {
                     improvement = true; // Continue to the next level if aggregation happened
                     level++;
-                     std::cout << "Aggregation phase completed. Graph structure updated." << std::endl;
+                    std::cout << "Aggregation phase completed. Graph structure updated." << std::endl;
                 } else {
                     improvement = false; // Stop if aggregation didn't reduce nodes
-                     std::cout << "Aggregation did not reduce nodes. Halting." << std::endl;
+                    std::cout << "Aggregation did not reduce nodes. Halting." << std::endl;
                 }
             } else {
-                improvement = false; // Stop if no local moves were made and refinement didn't change partition
-                 std::cout << "No changes in local moving or refinement. Halting." << std::endl;
+                improvement = false; // Stop if no changes were made
+                std::cout << "No changes in local moving or refinement. Halting." << std::endl;
             }
         } // End while(improvement)
 
         std::cout << "--- Constrained Leiden Algorithm Finished ---" << std::endl;
 
-        // --- Calculate and Print Final Modularity ---
-        if (hg_) { // Ensure the final hypergraph exists
-            std::cout << "Final number of communities: " << hg_->n << std::endl;
+        // Calculate and print final modularity
+        output_final_results();
+    }
 
-            // Assuming calcModularity is defined elsewhere and takes:
-            // const Graph<Node>& original_graph
-            // const std::vector<std::vector<int>>& partition (where each inner vector holds original node IDs)
-            try {
-                // The final partition is stored in the nodes of the final hypergraph hg_
-                const std::vector<std::vector<int>>& final_partition = hg_->nodes;
-
-                // Check if the partition is not obviously invalid (e.g., empty graph resulted in empty partition)
-                if (!original_g_ref_.nodes.empty() && !final_partition.empty()) {
-                     // Call the external function to calculate modularity
-                     double final_modularity = calcModularity(original_g_ref_, final_partition);
-                     std::cout << "Final Modularity = " << final_modularity << std::endl;
-                } else if (original_g_ref_.nodes.empty()) {
-                     std::cout << "Modularity calculation skipped: Original graph was empty." << std::endl;
-                } else {
-                     std::cout << "Modularity calculation skipped: Final partition is empty." << std::endl;
-                }
-
-            } catch (const std::exception& e) {
-                // Catch potential errors during modularity calculation
-                std::cerr << "Error during final modularity calculation: " << e.what() << std::endl;
-            } catch (...) {
-                std::cerr << "An unknown error occurred during final modularity calculation." << std::endl;
-            }
-        } else {
-            std::cout << "Final hypergraph is null, cannot calculate modularity." << std::endl;
-        }
-    } // End run()
-
-
+    /**
+     * @brief Returns the final partition of nodes into communities.
+     * @return Vector of vectors, where each inner vector contains nodes in one community.
+     */
     const std::vector<std::vector<int>>& get_partition() const {
-        if (hg_) {
-            return hg_->nodes;
+        if (hypergraph_) {
+            return hypergraph_->nodes;
         }
         static const std::vector<std::vector<int>> empty_partition;
         return empty_partition;
     }
 
 private:
-    const Graph<Node>& original_g_ref_;
-    double r_;
-    double mm_;
-    std::unique_ptr<Graph<std::vector<int>>> hg_;
-    std::vector<int> communityAssignments_;
-    std::vector<CommunityInfo> communities_; // Represents the state *before* refinement in a level
-    std::mt19937 rng_;
+    const Graph<Node>& original_graph_;       // Original graph (constant reference)
+    double distance_threshold_;               // Maximum allowed distance between nodes in same community
+    double total_edge_weight_;                // Total edge weight (2 * m for undirected graph)
+    std::unique_ptr<Graph<std::vector<int>>> hypergraph_;  // Current level's hypergraph
+    std::vector<int> community_assignments_;  // Maps each node to its community ID
+    std::vector<CommunityInfo> communities_;  // Information about each community
+    std::mt19937 random_generator_;           // Random number generator for shuffling
 
+    /**
+     * @brief Initializes the partition with each node in its own community.
+     */
     void initialize_partition() {
-        int n = hg_->n;
-        communityAssignments_.resize(n);
-        std::iota(communityAssignments_.begin(), communityAssignments_.end(), 0);
+        size_t n = hypergraph_->n;
+        community_assignments_.resize(n);
+        std::iota(community_assignments_.begin(), community_assignments_.end(), 0);
 
         communities_.assign(n, CommunityInfo{});
-        for (int i = 0; i < n; ++i) {
+        for (size_t i = 0; i < n; ++i) {
             communities_[i].hypernodes.insert(i);
-            communities_[i].total_degree_weight = hg_->degree[i];
+            communities_[i].total_degree_weight = hypergraph_->degree[i];
         }
-         std::cout << "Initial partition created with " << n << " communities." << std::endl;
+        std::cout << "Initial partition created with " << n << " communities." << std::endl;
     }
 
-    // Helper to rebuild the 'communities_' structure based on an assignment vector
+    /**
+     * @brief Updates the communities_ structure based on the given assignment vector.
+     * @param assignments Vector mapping each node to its community ID.
+     */
     void update_communities_from_assignments(const std::vector<int>& assignments) {
         // Find the maximum community ID present in the assignments
         int max_id = 0;
@@ -186,50 +177,49 @@ private:
             max_id = *std::max_element(assignments.begin(), assignments.end());
         }
 
-        communities_.assign(max_id + 1, CommunityInfo{}); // Resize and clear communities
+        // Resize and clear communities
+        communities_.assign(static_cast<size_t>(max_id) + 1, CommunityInfo{});
 
-        for (size_t node_idx = 0; node_idx < assignments.size(); ++node_idx) { // Use size_t for loop
+        for (size_t node_idx = 0; node_idx < assignments.size(); ++node_idx) {
             int community_id = assignments[node_idx];
-            if (community_id >= 0) { // Ensure valid community ID
-                 // Ensure communities_ vector is large enough (should be, but safety check)
-                 if (static_cast<size_t>(community_id) >= communities_.size()) {
-                     communities_.resize(community_id + 1);
-                 }
-                communities_[community_id].hypernodes.insert(static_cast<int>(node_idx));
-                communities_[community_id].total_degree_weight += hg_->degree[node_idx];
+            if (community_id >= 0) {
+                size_t comm_id_size_t = static_cast<size_t>(community_id);
+                if (comm_id_size_t >= communities_.size()) {
+                    communities_.resize(comm_id_size_t + 1);
+                }
+                communities_[comm_id_size_t].hypernodes.insert(node_idx);
+                communities_[comm_id_size_t].total_degree_weight += hypergraph_->degree[node_idx];
             } else {
-                 std::cerr << "Warning: Node " << node_idx << " has invalid community assignment " << community_id << std::endl;
+                std::cerr << "Warning: Node " << node_idx << " has invalid community assignment "
+                          << community_id << std::endl;
             }
         }
-        // Clean up potentially empty community slots if needed, though assign clears them
-        communities_.erase(std::remove_if(communities_.begin(), communities_.end(),
-                                       [](const CommunityInfo& c){ return c.hypernodes.empty(); }),
-                           communities_.end());
 
-        // After cleaning, the community IDs in 'assignments' might not correspond
-        // directly to indices in 'communities_'. Aggregation needs the assignment vector.
-        // Let's simplify: Aggregation will use the refined_assignments directly.
-        // We only need to update 'communities_' state *if* local moving runs again
-        // on the same level (which it doesn't in the current structure).
-        // So, this function might only be needed if the structure changes.
-        // For now, let's rely on refined_assignments being passed to aggregation.
-        // We *do* need to update communityAssignments_ though.
-        communityAssignments_ = assignments;
+        // Remove empty communities
+        communities_.erase(
+            std::remove_if(communities_.begin(), communities_.end(),
+                          [](const CommunityInfo& c){ return c.hypernodes.empty(); }),
+            communities_.end()
+        );
     }
 
-
+    /**
+     * @brief Runs the local moving phase of the algorithm.
+     * @return true if any node was moved to a different community, false otherwise.
+     */
     bool run_local_moving_phase() {
         bool overall_improvement = false;
         bool local_improvement = true;
 
         while (local_improvement) {
             local_improvement = false;
-            // ***** FIX: Use size_t for loop counter *****
-            std::vector<int> node_order(hg_->n);
-            std::iota(node_order.begin(), node_order.end(), 0);
-            std::shuffle(node_order.begin(), node_order.end(), rng_);
 
-            for (int u : node_order) {
+            // Create a random node order for this iteration
+            std::vector<size_t> node_order(hypergraph_->n);
+            std::iota(node_order.begin(), node_order.end(), 0);
+            std::shuffle(node_order.begin(), node_order.end(), random_generator_);
+
+            for (size_t u : node_order) {
                 if (try_move_node(u)) {
                     local_improvement = true;
                     overall_improvement = true;
@@ -239,55 +229,53 @@ private:
         return overall_improvement;
     }
 
-    bool try_move_node(int u) {
-        int current_community_id = communityAssignments_[u];
-        double u_degree = hg_->degree[u];
+    /**
+     * @brief Tries to move a node to a new community that improves modularity.
+     * @param u The node to try moving.
+     * @return true if the node was moved, false otherwise.
+     */
+    bool try_move_node(size_t u) {
+        // Get current community and node properties
+        int current_community_id = community_assignments_[u];
+        double u_degree = hypergraph_->degree[u];
 
+        // Calculate weights to neighboring communities
         std::map<int, double> neighbor_community_weights;
         calculate_neighbor_weights(u, neighbor_community_weights);
 
         double best_modularity_gain = 0.0;
         int best_community_id = current_community_id;
 
-        // Check if current_community_id is valid before accessing communities_
-        if (static_cast<size_t>(current_community_id) >= communities_.size() || communities_[current_community_id].hypernodes.empty()) {
-             // This might happen if communities structure is out of sync after refinement/aggregation
-             // Let's try to find the community info based on assignment directly if needed,
-             // or re-calculate necessary info. For now, assume communities_ is valid for Phase 1.
-             // A robust fix might involve passing community info explicitly or rebuilding it.
-             if (communities_.empty() && hg_->n > 0) { // Initial state before first move?
-                 // This shouldn't happen if initialize_partition ran correctly.
-                 std::cerr << "Error: communities_ structure seems invalid in try_move_node for node " << u << std::endl;
-                 return false;
-             }
-             // If it's not empty, maybe the ID is just out of bounds?
-             // Let's recalculate the current community's degree sum on the fly if needed.
-             // This indicates a potential logic issue elsewhere if communities_ becomes invalid.
+        // Check if current community ID is valid
+        size_t curr_comm_size_t = static_cast<size_t>(current_community_id);
+        if (curr_comm_size_t >= communities_.size() || communities_[curr_comm_size_t].hypernodes.empty()) {
+            std::cerr << "Error: Invalid current community ID " << current_community_id
+                      << " for node " << u << std::endl;
+            return false;
         }
 
-
+        // Calculate gain for staying in current community
         double k_u_in = neighbor_community_weights[current_community_id];
-        double current_community_total_degree = communities_[current_community_id].total_degree_weight;
+        double current_community_total_degree = communities_[curr_comm_size_t].total_degree_weight;
 
-        for (const auto& pair : neighbor_community_weights) {
-            int target_community_id = pair.first;
+        // Evaluate each neighboring community
+        for (const auto& [target_community_id, k_u_target] : neighbor_community_weights) {
             if (target_community_id == current_community_id) continue;
 
-            // Ensure target community exists and get its degree
-            if (static_cast<size_t>(target_community_id) >= communities_.size() || communities_[target_community_id].hypernodes.empty()) {
-                 // If target doesn't exist in current 'communities_' structure, skip it.
-                 // This could happen if 'communities_' wasn't updated correctly after splits.
-                 continue;
+            // Ensure target community exists
+            size_t target_comm_size_t = static_cast<size_t>(target_community_id);
+            if (target_comm_size_t >= communities_.size() || communities_[target_comm_size_t].hypernodes.empty()) {
+                continue;
             }
 
+            double target_community_total_degree = communities_[target_comm_size_t].total_degree_weight;
 
-            double k_u_target = pair.second;
-            double target_community_total_degree = communities_[target_community_id].total_degree_weight;
+            // Calculate modularity gain
+            double delta_Q = (k_u_target - (u_degree * target_community_total_degree) / total_edge_weight_) -
+                             (k_u_in - (u_degree * (current_community_total_degree - u_degree)) / total_edge_weight_);
+            delta_Q /= total_edge_weight_;
 
-            double delta_Q = (k_u_target - (u_degree * target_community_total_degree) / mm_) -
-                             (k_u_in - (u_degree * (current_community_total_degree - u_degree)) / mm_);
-            delta_Q /= mm_;
-
+            // If gain is positive and distance constraint is satisfied, this is a candidate move
             if (delta_Q > best_modularity_gain) {
                 if (check_distance_constraint(u, target_community_id)) {
                     best_modularity_gain = delta_Q;
@@ -296,239 +284,290 @@ private:
             }
         }
 
+        // If a better community was found, move the node
         if (best_community_id != current_community_id) {
-            // Ensure target community exists before moving
-             if (static_cast<size_t>(best_community_id) >= communities_.size()) {
-                 std::cerr << "Error: Attempting move to invalid community ID " << best_community_id << std::endl;
-                 return false; // Don't perform the move
-             }
+            size_t best_comm_size_t = static_cast<size_t>(best_community_id);
+            if (best_comm_size_t >= communities_.size()) {
+                std::cerr << "Error: Attempting move to invalid community ID " << best_community_id << std::endl;
+                return false;
+            }
             move_node(u, current_community_id, best_community_id);
             return true;
         }
         return false;
     }
 
-    void calculate_neighbor_weights(int u, std::map<int, double>& neighbor_weights) {
-         neighbor_weights.clear();
-         if (static_cast<size_t>(communityAssignments_[u]) >= communities_.size()) {
-              // Handle cases where assignment might be temporarily invalid?
-              // Or ensure communities_ is always large enough.
-              // For now, assume valid assignment.
-         }
-         neighbor_weights[communityAssignments_[u]] = 0.0;
+    /**
+     * @brief Calculates weights between a node and all communities it's connected to.
+     * @param u The node to calculate weights for.
+     * @param neighbor_weights Map to store community ID -> weight pairs.
+     */
+    void calculate_neighbor_weights(size_t u, std::map<int, double>& neighbor_weights) {
+        neighbor_weights.clear();
 
-        // ***** FIX: Use range-based for loop or correct index type *****
-        for (const Edge& edge : hg_->edges[u]) {
-            int neighbor_node_v = edge.v;
-            // Ensure neighbor assignment is valid before using
-            if (static_cast<size_t>(neighbor_node_v) < communityAssignments_.size()) {
-                 int neighbor_community_id = communityAssignments_[neighbor_node_v];
-                 neighbor_weights[neighbor_community_id] += edge.w;
-            } else {
-                 std::cerr << "Warning: Neighbor node " << neighbor_node_v << " index out of bounds for assignments." << std::endl;
+        // Initialize weight to current community
+        int comm_id = community_assignments_[u];
+        neighbor_weights[comm_id] = 0.0;
+
+        // Add weights from all edges
+        if (u < hypergraph_->edges.size()) {
+            for (const Edge& edge : hypergraph_->edges[u]) {
+                size_t neighbor_node_v = static_cast<size_t>(edge.v);
+                if (neighbor_node_v < community_assignments_.size()) {
+                    int neighbor_community_id = community_assignments_[neighbor_node_v];
+                    neighbor_weights[neighbor_community_id] += edge.w;
+                } else {
+                    std::cerr << "Warning: Neighbor node " << neighbor_node_v
+                              << " index out of bounds for assignments." << std::endl;
+                }
             }
+        } else {
+            std::cerr << "Warning: Node " << u << " index out of bounds for edges." << std::endl;
         }
     }
 
+    /**
+     * @brief Checks if a node satisfies distance constraints with all nodes in a target community.
+     * @param u The node to check.
+     * @param target_community_id The ID of the target community.
+     * @return true if all distance constraints are satisfied, false otherwise.
+     */
+    bool check_distance_constraint(size_t u, int target_community_id) {
+        size_t target_comm_size_t = static_cast<size_t>(target_community_id);
 
-    bool check_distance_constraint(int u, int target_community_id) {
-        // Ensure target community ID is valid before accessing communities_
-        if (static_cast<size_t>(target_community_id) >= communities_.size() || communities_[target_community_id].hypernodes.empty()) {
-            // If the target community doesn't exist in our current info,
-            // we can't check constraints against it. Treat as constraint satisfied?
-            // Or should this indicate an error? Let's assume it means no nodes to check against.
-            return true; // Moving to an empty or invalid community (in terms of current info)
+        // Check if target community exists
+        if (target_comm_size_t >= communities_.size() || communities_[target_comm_size_t].hypernodes.empty()) {
+            return true; // No constraint check needed for empty communities
         }
 
-        const std::vector<int>& u_original_nodes = hg_->nodes[u];
+        // Get original nodes contained in hypernode u
+        if (u >= hypergraph_->nodes.size()) {
+            std::cerr << "Warning: Invalid hypernode index " << u
+                      << " in check_distance_constraint." << std::endl;
+            return false;
+        }
+        const std::vector<int>& u_original_nodes = hypergraph_->nodes[u];
 
-        for (int target_hypernode_v_idx : communities_[target_community_id].hypernodes) {
-             // Ensure target hypernode index is valid before accessing hg_->nodes
-             if (static_cast<size_t>(target_hypernode_v_idx) >= hg_->nodes.size()) {
-                  std::cerr << "Warning: Invalid hypernode index " << target_hypernode_v_idx << " found in community " << target_community_id << std::endl;
-                  continue; // Skip this invalid hypernode
-             }
-            const std::vector<int>& v_original_nodes = hg_->nodes[target_hypernode_v_idx];
+        // Check distance constraints against all nodes in target community
+        for (size_t target_hypernode_v : communities_[target_comm_size_t].hypernodes) {
+            if (target_hypernode_v >= hypergraph_->nodes.size()) {
+                std::cerr << "Warning: Invalid hypernode index " << target_hypernode_v
+                          << " found in community " << target_community_id << std::endl;
+                continue;
+            }
 
-            // ***** FIX: Use size_t for loop indices *****
+            const std::vector<int>& v_original_nodes = hypergraph_->nodes[target_hypernode_v];
+
+            // Check all pairs of original nodes
             for (size_t i = 0; i < u_original_nodes.size(); ++i) {
-                 int uu_original_idx = u_original_nodes[i];
-                 // Ensure original node index is valid before accessing original_g_ref_
-                 if (static_cast<size_t>(uu_original_idx) >= original_g_ref_.nodes.size()) {
-                      std::cerr << "Warning: Invalid original node index " << uu_original_idx << " in hypernode " << u << std::endl;
-                      continue; // Skip this invalid original node
-                 }
+                int uu_original_idx = u_original_nodes[i];
+                if (static_cast<size_t>(uu_original_idx) >= original_graph_.nodes.size()) {
+                    continue; // Skip invalid original node
+                }
 
                 for (size_t j = 0; j < v_original_nodes.size(); ++j) {
-                     int vv_original_idx = v_original_nodes[j];
-                     if (static_cast<size_t>(vv_original_idx) >= original_g_ref_.nodes.size()) {
-                          std::cerr << "Warning: Invalid original node index " << vv_original_idx << " in hypernode " << target_hypernode_v_idx << std::endl;
-                          continue; // Skip this invalid original node
-                     }
+                    int vv_original_idx = v_original_nodes[j];
+                    if (static_cast<size_t>(vv_original_idx) >= original_graph_.nodes.size()) {
+                        continue; // Skip invalid original node
+                    }
 
-                    if (calcDis(original_g_ref_.nodes[uu_original_idx], original_g_ref_.nodes[vv_original_idx]) > r_) {
+                    // If any pair is too far apart, constraint is violated
+                    if (calcDis(original_graph_.nodes[uu_original_idx],
+                               original_graph_.nodes[vv_original_idx]) > distance_threshold_) {
                         return false;
                     }
                 }
             }
         }
-        return true;
+        return true; // All pairs satisfy distance constraint
     }
 
-    void move_node(int u, int old_community_id, int new_community_id) {
-        // Ensure IDs are valid before modifying communities_
-        if (static_cast<size_t>(old_community_id) >= communities_.size() || static_cast<size_t>(new_community_id) >= communities_.size()) {
-             std::cerr << "Error: Invalid community ID during move operation. Old: " << old_community_id << ", New: " << new_community_id << std::endl;
-             return; // Abort move
+    /**
+     * @brief Moves a node from one community to another.
+     * @param u The node to move.
+     * @param old_community_id The node's current community.
+     * @param new_community_id The node's target community.
+     */
+    void move_node(size_t u, int old_community_id, int new_community_id) {
+        size_t old_comm_size_t = static_cast<size_t>(old_community_id);
+        size_t new_comm_size_t = static_cast<size_t>(new_community_id);
+
+        // Ensure IDs are valid
+        if (old_comm_size_t >= communities_.size() || new_comm_size_t >= communities_.size()) {
+            std::cerr << "Error: Invalid community ID during move operation. Old: "
+                      << old_community_id << ", New: " << new_community_id << std::endl;
+            return;
         }
 
-        double u_degree = hg_->degree[u];
+        double u_degree = hypergraph_->degree[u];
 
-        communities_[old_community_id].hypernodes.erase(u);
-        communities_[old_community_id].total_degree_weight -= u_degree;
+        // Remove from old community
+        communities_[old_comm_size_t].hypernodes.erase(u);
+        communities_[old_comm_size_t].total_degree_weight -= u_degree;
 
-        communities_[new_community_id].hypernodes.insert(u);
-        communities_[new_community_id].total_degree_weight += u_degree;
+        // Add to new community
+        communities_[new_comm_size_t].hypernodes.insert(u);
+        communities_[new_comm_size_t].total_degree_weight += u_degree;
 
-        communityAssignments_[u] = new_community_id;
+        // Update assignment
+        community_assignments_[u] = new_community_id;
     }
 
-
+    /**
+     * @brief Runs the refinement phase of the algorithm.
+     * @param current_assignments Current community assignments.
+     * @return New community assignments after refinement.
+     */
     std::vector<int> run_refinement_phase(const std::vector<int>& current_assignments) {
         std::cout << "    Starting Refinement Phase..." << std::endl;
 
-        int n = hg_->n;
-        std::vector<int> refined_assignments = current_assignments; // Start with current state
+        size_t n = hypergraph_->n;
+        std::vector<int> refined_assignments = current_assignments;
+
+        // Find maximum current community ID
         int max_current_id = 0;
         if (!current_assignments.empty()) {
             max_current_id = *std::max_element(current_assignments.begin(), current_assignments.end());
         }
         int next_new_community_id = max_current_id + 1;
 
-        std::map<int, std::vector<int>> nodes_by_community;
-        // ***** FIX: Use size_t for loop counter *****
-        for (size_t i = 0; i < current_assignments.size(); ++i) {
-             if (static_cast<int>(i) >= n) break; // Safety break if assignments size mismatch
-            nodes_by_community[current_assignments[i]].push_back(static_cast<int>(i));
+        // Group nodes by community
+        std::map<int, std::vector<size_t>> nodes_by_community;
+        for (size_t i = 0; i < current_assignments.size() && i < n; ++i) {
+            nodes_by_community[current_assignments[i]].push_back(i);
         }
 
         bool refinement_made_changes = false;
 
-        for (auto const& [community_id, nodes_in_community] : nodes_by_community) {
+        // Process each community
+        for (const auto& [community_id, nodes_in_community] : nodes_by_community) {
             if (nodes_in_community.size() <= 1) {
-                continue;
+                continue; // Skip singleton communities
             }
 
-            std::vector<std::vector<int>> resulting_sub_communities =
+            // Try to split this community
+            std::vector<std::vector<size_t>> resulting_sub_communities =
                 refine_community_internally(nodes_in_community);
 
             if (resulting_sub_communities.size() > 1) { // Split occurred
                 refinement_made_changes = true;
-                 std::cout << "    Community " << community_id << " split into " << resulting_sub_communities.size() << " sub-communities." << std::endl;
+                std::cout << "    Community " << community_id << " split into "
+                          << resulting_sub_communities.size() << " sub-communities." << std::endl;
 
+                // Find the largest sub-community
                 size_t largest_sub_idx = 0;
-                // ***** FIX: Use size_t for loop counter *****
                 for (size_t i = 1; i < resulting_sub_communities.size(); ++i) {
-                    if (resulting_sub_communities[i].size() > resulting_sub_communities[largest_sub_idx].size()) {
+                    if (resulting_sub_communities[i].size() >
+                        resulting_sub_communities[largest_sub_idx].size()) {
                         largest_sub_idx = i;
                     }
                 }
 
-                // ***** FIX: Use size_t for loop counter *****
+                // Update assignments - largest keeps original ID, others get new IDs
                 for (size_t i = 0; i < resulting_sub_communities.size(); ++i) {
                     int assigned_global_id;
                     if (i == largest_sub_idx) {
-                        assigned_global_id = community_id;
+                        assigned_global_id = community_id; // Keep original ID for largest
                     } else {
-                        assigned_global_id = next_new_community_id++;
+                        assigned_global_id = next_new_community_id++; // New ID for others
                     }
-                    for (int node_idx : resulting_sub_communities[i]) {
-                        // Ensure node_idx is within bounds before assigning
-                        if (static_cast<size_t>(node_idx) < refined_assignments.size()) {
-                             refined_assignments[node_idx] = assigned_global_id;
+
+                    for (size_t node_idx : resulting_sub_communities[i]) {
+                        if (node_idx < refined_assignments.size()) {
+                            refined_assignments[node_idx] = assigned_global_id;
                         } else {
-                             std::cerr << "Warning: Node index " << node_idx << " out of bounds during refinement assignment." << std::endl;
+                            std::cerr << "Warning: Node index " << node_idx
+                                      << " out of bounds during refinement assignment." << std::endl;
                         }
                     }
                 }
             }
-            // No else needed: if not split, assignments remain unchanged from current_assignments
         }
 
         if (refinement_made_changes) {
-             std::cout << "    Refinement Phase completed. Changes were made. Total communities now potentially: " << next_new_community_id << std::endl;
+            std::cout << "    Refinement Phase completed. Changes were made. Total communities now potentially: "
+                      << next_new_community_id << std::endl;
         } else {
-             std::cout << "    Refinement Phase completed. No communities were split." << std::endl;
+            std::cout << "    Refinement Phase completed. No communities were split." << std::endl;
         }
+
         return refined_assignments;
     }
 
-
-    std::vector<std::vector<int>> refine_community_internally(const std::vector<int>& nodes_in_community) {
-        size_t num_internal_nodes = nodes_in_community.size(); // Use size_t
+    /**
+     * @brief Attempts to refine a single community by splitting it into well-connected subcommunities.
+     * @param nodes_in_community Vector of nodes in the community to refine.
+     * @return Vector of subcommunities (each containing node indices).
+     */
+    std::vector<std::vector<size_t>> refine_community_internally(
+        const std::vector<size_t>& nodes_in_community)
+    {
+        size_t num_internal_nodes = nodes_in_community.size();
         if (num_internal_nodes <= 1) {
-            return {nodes_in_community};
+            return {nodes_in_community}; // Can't split a singleton
         }
 
-        std::unordered_map<int, int> internal_assignment;
-        // ***** FIX: std::set usage requires template arguments or correct header *****
-        // Ensure <set> is included. The usage std::set<int> should be correct.
-        std::map<int, std::set<int>> internal_sub_communities;
+        // Initialize internal state - each node in its own subcommunity
+        std::unordered_map<size_t, size_t> internal_assignment;
+        std::map<size_t, std::set<size_t>> internal_sub_communities;
 
-        for (int node_idx : nodes_in_community) {
+        for (size_t node_idx : nodes_in_community) {
             internal_assignment[node_idx] = node_idx;
             internal_sub_communities[node_idx] = {node_idx};
         }
 
+        // Try local moves within this community
         bool internal_local_improvement = true;
         while (internal_local_improvement) {
             internal_local_improvement = false;
 
-            std::vector<int> internal_node_order = nodes_in_community;
-            std::shuffle(internal_node_order.begin(), internal_node_order.end(), rng_);
+            // Create random node order
+            std::vector<size_t> internal_node_order = nodes_in_community;
+            std::shuffle(internal_node_order.begin(), internal_node_order.end(), random_generator_);
 
-            for (int u : internal_node_order) {
-                int current_internal_id = internal_assignment[u];
-                double u_degree = hg_->degree[u];
+            // Try moving each node
+            for (size_t u : internal_node_order) {
+                size_t current_internal_id = internal_assignment[u];
+                double u_degree = hypergraph_->degree[u];
 
-                std::map<int, double> internal_neighbor_weights;
-                calculate_internal_neighbor_weights(u, nodes_in_community, internal_assignment, internal_neighbor_weights);
+                // Calculate weights to neighboring subcommunities
+                std::map<size_t, double> internal_neighbor_weights;
+                calculate_internal_neighbor_weights(u, nodes_in_community,
+                                                   internal_assignment, internal_neighbor_weights);
 
                 double best_internal_gain = 0.0;
-                int best_internal_id = current_internal_id;
+                size_t best_internal_id = current_internal_id;
 
+                // Calculate gain for staying in current subcommunity
                 double k_u_in_internal = internal_neighbor_weights[current_internal_id];
 
                 double current_internal_total_degree = 0;
-                 // Check if current_internal_id exists before accessing
-                 if (internal_sub_communities.count(current_internal_id)) {
-                     for(int node_in_sub : internal_sub_communities[current_internal_id]){
-                         current_internal_total_degree += hg_->degree[node_in_sub];
-                     }
-                 }
+                if (internal_sub_communities.count(current_internal_id)) {
+                    for (size_t node_in_sub : internal_sub_communities[current_internal_id]) {
+                        current_internal_total_degree += hypergraph_->degree[node_in_sub];
+                    }
+                }
 
-
-                for (const auto& pair : internal_neighbor_weights) {
-                    int target_internal_id = pair.first;
+                // Evaluate each neighboring subcommunity
+                for (const auto& [target_internal_id, k_u_target_internal] : internal_neighbor_weights) {
                     if (target_internal_id == current_internal_id) continue;
 
-                    double k_u_target_internal = pair.second;
+                    // Calculate target subcommunity's total degree
+                    double target_internal_total_degree = 0;
+                    if (internal_sub_communities.count(target_internal_id)) {
+                        for (size_t node_in_sub : internal_sub_communities[target_internal_id]) {
+                            target_internal_total_degree += hypergraph_->degree[node_in_sub];
+                        }
+                    } else {
+                        continue; // Skip if target doesn't exist
+                    }
 
-                     double target_internal_total_degree = 0;
-                     // Check if target_internal_id exists before accessing
-                     if (internal_sub_communities.count(target_internal_id)) {
-                         for(int node_in_sub : internal_sub_communities[target_internal_id]){
-                             target_internal_total_degree += hg_->degree[node_in_sub];
-                         }
-                     } else {
-                         continue; // Skip if target doesn't exist (e.g., became empty)
-                     }
+                    // Calculate modularity gain
+                    double delta_Q = (k_u_target_internal - (u_degree * target_internal_total_degree) / total_edge_weight_) -
+                                     (k_u_in_internal - (u_degree * (current_internal_total_degree - u_degree)) / total_edge_weight_);
+                    delta_Q /= total_edge_weight_;
 
-
-                    double delta_Q = (k_u_target_internal - (u_degree * target_internal_total_degree) / mm_) -
-                                     (k_u_in_internal - (u_degree * (current_internal_total_degree - u_degree)) / mm_);
-                    delta_Q /= mm_;
-
+                    // If gain is positive and distance constraint is satisfied, this is a candidate move
                     if (delta_Q > best_internal_gain) {
                         if (check_distance_constraint_within_set(u, target_internal_id, internal_sub_communities)) {
                             best_internal_gain = delta_Q;
@@ -537,102 +576,132 @@ private:
                     }
                 }
 
+                // If a better subcommunity was found, move the node
                 if (best_internal_id != current_internal_id) {
-                    // Check if current and best IDs still exist before modifying
-                    if (internal_sub_communities.count(current_internal_id) && internal_sub_communities.count(best_internal_id)) {
+                    if (internal_sub_communities.count(current_internal_id) &&
+                        internal_sub_communities.count(best_internal_id)) {
+
+                        // Move node between subcommunities
                         internal_sub_communities[current_internal_id].erase(u);
                         internal_sub_communities[best_internal_id].insert(u);
                         internal_assignment[u] = best_internal_id;
 
+                        // Remove empty subcommunities
                         if (internal_sub_communities[current_internal_id].empty()) {
                             internal_sub_communities.erase(current_internal_id);
                         }
+
                         internal_local_improvement = true;
                     }
                 }
             }
         }
 
-        std::vector<std::vector<int>> result_sub_partitions;
-        for (const auto& pair : internal_sub_communities) {
-            if (!pair.second.empty()) {
-                result_sub_partitions.emplace_back(pair.second.begin(), pair.second.end());
+        // Convert map of subcommunities to vector of vectors
+        std::vector<std::vector<size_t>> result_sub_partitions;
+        for (const auto& [subcomm_id, nodes] : internal_sub_communities) {
+            if (!nodes.empty()) {
+                result_sub_partitions.emplace_back(nodes.begin(), nodes.end());
             }
         }
+
         return result_sub_partitions;
     }
 
-
-    void calculate_internal_neighbor_weights(int u,
-                                             const std::vector<int>& nodes_in_community,
-                                             const std::unordered_map<int, int>& internal_assignment,
-                                             std::map<int, double>& internal_neighbor_weights)
+    /**
+     * @brief Calculates weights between a node and subcommunities within a community.
+     * @param u The node to calculate weights for.
+     * @param nodes_in_community All nodes in the community.
+     * @param internal_assignment Map of node ID to subcommunity ID.
+     * @param internal_neighbor_weights Output map of subcommunity ID to weight.
+     */
+    void calculate_internal_neighbor_weights(
+        size_t u,
+        const std::vector<size_t>& nodes_in_community,
+        const std::unordered_map<size_t, size_t>& internal_assignment,
+        std::map<size_t, double>& internal_neighbor_weights)
     {
         internal_neighbor_weights.clear();
-        // Check if u exists in assignment before accessing
-        if (internal_assignment.count(u)) {
-            internal_neighbor_weights[internal_assignment.at(u)] = 0.0;
+
+        // Initialize weight to current subcommunity
+        auto it = internal_assignment.find(u);
+        if (it != internal_assignment.end()) {
+            internal_neighbor_weights[it->second] = 0.0;
         } else {
-             std::cerr << "Warning: Node " << u << " not found in internal assignment during weight calculation." << std::endl;
-             return; // Cannot proceed
+            std::cerr << "Warning: Node " << u << " not found in internal assignment during weight calculation." << std::endl;
+            return;
         }
 
+        // Create set for fast lookup
+        std::unordered_set<size_t> community_nodes_set(nodes_in_community.begin(), nodes_in_community.end());
 
-        std::unordered_set<int> community_nodes_set(nodes_in_community.begin(), nodes_in_community.end());
-
-        for (const Edge& edge : hg_->edges[u]) {
-            int v = edge.v;
-            if (community_nodes_set.count(v)) {
-                // Check if v exists in assignment before accessing
-                if (internal_assignment.count(v)) {
-                    int v_internal_id = internal_assignment.at(v);
-                    internal_neighbor_weights[v_internal_id] += edge.w;
-                } else {
-                     std::cerr << "Warning: Neighbor node " << v << " not found in internal assignment." << std::endl;
+        // Add weights from all edges to nodes in the same community
+        if (u < hypergraph_->edges.size()) {
+            for (const Edge& edge : hypergraph_->edges[u]) {
+                size_t v = static_cast<size_t>(edge.v);
+                if (community_nodes_set.count(v)) {
+                    auto v_it = internal_assignment.find(v);
+                    if (v_it != internal_assignment.end()) {
+                        internal_neighbor_weights[v_it->second] += edge.w;
+                    } else {
+                        std::cerr << "Warning: Neighbor node " << v << " not found in internal assignment." << std::endl;
+                    }
                 }
             }
         }
     }
 
-
-    bool check_distance_constraint_within_set(int u,
-                                              int target_internal_id,
-                                              const std::map<int, std::set<int>>& internal_sub_communities)
+    /**
+     * @brief Checks if a node satisfies distance constraints with nodes in a subcommunity.
+     * @param u The node to check.
+     * @param target_internal_id The ID of the target subcommunity.
+     * @param internal_sub_communities Map of subcommunity ID to set of nodes.
+     * @return true if all constraints are satisfied, false otherwise.
+     */
+    bool check_distance_constraint_within_set(
+        size_t u,
+        size_t target_internal_id,
+        const std::map<size_t, std::set<size_t>>& internal_sub_communities)
     {
         auto it = internal_sub_communities.find(target_internal_id);
         if (it == internal_sub_communities.end() || it->second.empty()) {
-            return true;
+            return true; // No constraints to check
         }
-        // ***** FIX: std::set usage requires template arguments or correct header *****
-        // Ensure <set> is included. The usage std::set<int> should be correct.
-        const std::set<int>& nodes_in_target_sub = it->second;
+
+        const std::set<size_t>& nodes_in_target_sub = it->second;
 
         // Ensure u index is valid
-        if (static_cast<size_t>(u) >= hg_->nodes.size()) {
-             std::cerr << "Warning: Invalid node index u=" << u << " in check_distance_constraint_within_set." << std::endl;
-             return false; // Cannot check constraints
+        if (u >= hypergraph_->nodes.size()) {
+            std::cerr << "Warning: Invalid node index u=" << u
+                      << " in check_distance_constraint_within_set." << std::endl;
+            return false;
         }
-        const std::vector<int>& u_original_nodes = hg_->nodes[u];
 
-        for (int v : nodes_in_target_sub) {
-             if (u == v) continue;
-             // Ensure v index is valid
-             if (static_cast<size_t>(v) >= hg_->nodes.size()) {
-                  std::cerr << "Warning: Invalid node index v=" << v << " in check_distance_constraint_within_set." << std::endl;
-                  continue; // Skip this node
-             }
-            const std::vector<int>& v_original_nodes = hg_->nodes[v];
+        const std::vector<int>& u_original_nodes = hypergraph_->nodes[u];
 
-            // ***** FIX: Use size_t for loop indices *****
+        // Check all pairs of original nodes
+        for (size_t v : nodes_in_target_sub) {
+            if (u == v) continue; // Skip self
+
+            if (v >= hypergraph_->nodes.size()) {
+                std::cerr << "Warning: Invalid node index v=" << v
+                          << " in check_distance_constraint_within_set." << std::endl;
+                continue;
+            }
+
+            const std::vector<int>& v_original_nodes = hypergraph_->nodes[v];
+
             for (size_t i = 0; i < u_original_nodes.size(); ++i) {
-                 int uu_original_idx = u_original_nodes[i];
-                 if (static_cast<size_t>(uu_original_idx) >= original_g_ref_.nodes.size()) continue; // Skip invalid index
+                int uu_original_idx = u_original_nodes[i];
+                if (static_cast<size_t>(uu_original_idx) >= original_graph_.nodes.size()) continue;
 
                 for (size_t j = 0; j < v_original_nodes.size(); ++j) {
-                     int vv_original_idx = v_original_nodes[j];
-                     if (static_cast<size_t>(vv_original_idx) >= original_g_ref_.nodes.size()) continue; // Skip invalid index
+                    int vv_original_idx = v_original_nodes[j];
+                    if (static_cast<size_t>(vv_original_idx) >= original_graph_.nodes.size()) continue;
 
-                    if (calcDis(original_g_ref_.nodes[uu_original_idx], original_g_ref_.nodes[vv_original_idx]) > r_) {
+                    // Check distance constraint
+                    if (calcDis(original_graph_.nodes[uu_original_idx],
+                               original_graph_.nodes[vv_original_idx]) > distance_threshold_) {
                         return false;
                     }
                 }
@@ -641,79 +710,125 @@ private:
         return true;
     }
 
-
+    /**
+     * @brief Runs the aggregation phase to create a coarser graph.
+     * @param refined_assignments Community assignments after refinement.
+     * @return true if aggregation reduced the number of nodes, false otherwise.
+     */
     bool run_aggregation_phase(const std::vector<int>& refined_assignments) {
-        int old_num_nodes = hg_->n;
-        std::map<int, int> community_to_new_node_id;
+        size_t old_num_nodes = hypergraph_->n;
+
+        // Map communities to new node IDs
+        std::map<int, size_t> community_to_new_node_id;
         std::vector<std::vector<int>> new_hypernode_contents;
-        std::vector<int> old_node_to_new_node(old_num_nodes, -1); // Initialize with -1
-        int next_new_node_id = 0;
+        std::vector<int> old_node_to_new_node(old_num_nodes, -1);
+        size_t next_new_node_id = 0;
 
-        // ***** FIX: Use size_t for loop counter *****
-        for (size_t old_node_idx = 0; old_node_idx < refined_assignments.size(); ++old_node_idx) {
-             if (static_cast<int>(old_node_idx) >= old_num_nodes) break; // Safety break
-
+        // Group original nodes by community
+        for (size_t old_node_idx = 0; old_node_idx < refined_assignments.size() && old_node_idx < old_num_nodes; ++old_node_idx) {
             int community_id = refined_assignments[old_node_idx];
-            if (community_id < 0) continue; // Skip nodes with invalid assignment
+            if (community_id < 0) continue; // Skip invalid assignments
 
-            int current_old_node_idx = static_cast<int>(old_node_idx); // Cast back to int for map keys etc.
-
+            // Create new hypernode for this community if needed
             if (community_to_new_node_id.find(community_id) == community_to_new_node_id.end()) {
-                int new_id = next_new_node_id++;
-                community_to_new_node_id[community_id] = new_id;
+                community_to_new_node_id[community_id] = next_new_node_id++;
                 new_hypernode_contents.emplace_back();
             }
-            int new_id = community_to_new_node_id[community_id];
-            old_node_to_new_node[current_old_node_idx] = new_id;
 
-            // Check bounds before accessing hg_->nodes
-            if (static_cast<size_t>(current_old_node_idx) < hg_->nodes.size()) {
-                 new_hypernode_contents[new_id].insert(new_hypernode_contents[new_id].end(),
-                                                       hg_->nodes[current_old_node_idx].begin(),
-                                                       hg_->nodes[current_old_node_idx].end());
+            size_t new_id = community_to_new_node_id[community_id];
+            old_node_to_new_node[old_node_idx] = static_cast<int>(new_id);
+
+            // Add original nodes from this hypernode to the new hypernode
+            if (old_node_idx < hypergraph_->nodes.size()) {
+                new_hypernode_contents[new_id].insert(
+                    new_hypernode_contents[new_id].end(),
+                    hypergraph_->nodes[old_node_idx].begin(),
+                    hypergraph_->nodes[old_node_idx].end()
+                );
             } else {
-                 std::cerr << "Warning: Node index " << current_old_node_idx << " out of bounds during aggregation." << std::endl;
+                std::cerr << "Warning: Node index " << old_node_idx
+                          << " out of bounds during aggregation." << std::endl;
             }
         }
 
-        int num_new_nodes = next_new_node_id;
+        size_t num_new_nodes = next_new_node_id;
 
+        // If no reduction in nodes, stop aggregation
         if (num_new_nodes >= old_num_nodes) {
             return false;
         }
 
-        auto new_hg = std::make_unique<Graph<std::vector<int>>>(num_new_nodes);
+        // Create new hypergraph
+        auto new_hg = std::make_unique<Graph<std::vector<int>>>(static_cast<int>(new_hypernode_contents.size()));
         new_hg->nodes = std::move(new_hypernode_contents);
 
-        std::map<std::pair<int, int>, double> edge_weights_agg;
-        // ***** FIX: Use size_t for loop counter *****
-        for (int u = 0; u < old_num_nodes; ++u) {
-             if (old_node_to_new_node[u] == -1) continue; // Skip nodes not mapped
-            int new_u = old_node_to_new_node[u];
 
-            // Check bounds before accessing hg_->edges
-            if (static_cast<size_t>(u) < hg_->edges.size()) {
-                 for (const Edge& edge : hg_->edges[u]) {
-                     int v = edge.v;
-                     // Check bounds and mapping for v
-                     if (static_cast<size_t>(v) < old_node_to_new_node.size() && old_node_to_new_node[v] != -1) {
-                         int new_v = old_node_to_new_node[v];
-                         if (new_u != new_v) {
-                             std::pair<int, int> edge_pair = std::minmax(new_u, new_v);
-                             edge_weights_agg[edge_pair] += edge.w;
-                         }
-                     }
-                 }
+        // Aggregate edges between new hypernodes
+        std::map<std::pair<size_t, size_t>, double> edge_weights_agg;
+
+        for (size_t u = 0; u < old_num_nodes; ++u) {
+            if (old_node_to_new_node[u] == -1) continue; // Skip unmapped nodes
+
+            size_t new_u = static_cast<size_t>(old_node_to_new_node[u]);
+
+            if (u < hypergraph_->edges.size()) {
+                for (const Edge& edge : hypergraph_->edges[u]) {
+                    size_t v = static_cast<size_t>(edge.v);
+
+                    if (v < old_node_to_new_node.size() && old_node_to_new_node[v] != -1) {
+                        size_t new_v = static_cast<size_t>(old_node_to_new_node[v]);
+
+                        if (new_u != new_v) {
+                            // Create edge between new hypernodes
+                            std::pair<size_t, size_t> edge_pair = std::minmax(new_u, new_v);
+                            edge_weights_agg[edge_pair] += edge.w;
+                        }
+                    }
+                }
             }
         }
-        for(const auto& pair : edge_weights_agg){
-            new_hg->addedge(pair.first.first, pair.first.second, pair.second);
+
+        // Add edges to new hypergraph
+        for (const auto& [edge_pair, weight] : edge_weights_agg) {
+            new_hg->addedge(static_cast<int>(edge_pair.first),
+                           static_cast<int>(edge_pair.second),static_cast<int>(weight));
         }
 
-        hg_ = std::move(new_hg);
-        initialize_partition(); // Re-initialize state for the new graph level
+        // Replace old hypergraph with new one
+        hypergraph_ = std::move(new_hg);
+
+        // Re-initialize state for the new graph level
+        initialize_partition();
 
         return true;
     }
 
-}; // End class ConstrainedLeiden
+    /**
+     * @brief Calculates and outputs the final results of the algorithm.
+     */
+    void output_final_results() {
+        if (hypergraph_) {
+            std::cout << "Final number of communities: " << hypergraph_->n << std::endl;
+
+            try {
+                const std::vector<std::vector<int>>& final_partition = hypergraph_->nodes;
+
+                if (!original_graph_.nodes.empty() && !final_partition.empty()) {
+                    // Calculate modularity using external function
+                    double final_modularity = calcModularity(original_graph_, final_partition);
+                    std::cout << "Final Modularity = " << final_modularity << std::endl;
+                } else if (original_graph_.nodes.empty()) {
+                    std::cout << "Modularity calculation skipped: Original graph was empty." << std::endl;
+                } else {
+                    std::cout << "Modularity calculation skipped: Final partition is empty." << std::endl;
+                }
+            } catch (const std::exception& e) {
+                std::cerr << "Error during final modularity calculation: " << e.what() << std::endl;
+            } catch (...) {
+                std::cerr << "An unknown error occurred during final modularity calculation." << std::endl;
+            }
+        } else {
+            std::cout << "Final hypergraph is null, cannot calculate modularity." << std::endl;
+        }
+    }
+};
