@@ -22,8 +22,9 @@ void louvain(Graph<Node> &g, double r)
     bool improvement=true;
     while (improvement) 
 	{
-		std::vector<int> communityDegree(hg.n);
+		std::vector<int> communityDegreeSum(hg.degreeSum); // The degree sum of every node in community (not just degree of hypernodes)
         improvement=false;
+
         // Phase 1: Optimize modularity by moving nodes
 		bool imp=true; // imp for phase 1
 		while (imp)
@@ -36,19 +37,20 @@ void louvain(Graph<Node> &g, double r)
 				int bestCommunity=cu;
 				
 				// Try to move the node to a neighboring community
-				std::unordered_map<int,double> degreeGain;
+				std::unordered_map<int,int> uToCom;
+				int uDegreeSum=hg.degree[u];// just normal degree
 				for (const Edge& edge:hg.edges[u]) 
 				{
 					int cv=communityAssignments[edge.v];
-					degreeGain[cv]+=edge.w;
+					uToCom[cv]+=edge.w;
 				}
 
 				// Find the community that gives the best modularity gain
-				double k_iin=degreeGain[cu];
-				double secondElement=k_iin-hg.degree[u]*(communityDegree[cu]-hg.degree[u])/mm;
-				for (auto &c:degreeGain) //id,gain
+				//double delta_Q_remove=-2*uToCom[cu]/mm-uDegreeSum*communityDegreeSum[cu]*2-sqr(uDegreeSum/mm);
+				for (auto &c:uToCom) //id,value
 				{
-					double delta_Q=((c.second-hg.degree[u]*communityDegree[c.first]/mm)-secondElement)/mm;
+					double delta_Q=(uToCom[c.first]-uDegreeSum*communityDegreeSum[c.first]/mm)/mm;
+					//double delta_Q=delta_Q_remove+delta_Q_add;
 					if (delta_Q>bestModularity) 
 					{
 						bool sim=true;
@@ -77,10 +79,10 @@ void louvain(Graph<Node> &g, double r)
 				if (bestCommunity != communityAssignments[u]) 
 				{
 					community[communityAssignments[u]].erase(u);
-					communityDegree[cu]-=2*degreeGain[cu];
-					communityAssignments[u] = bestCommunity;
+					communityDegreeSum[cu]-=hg.degreeSum[u];
+					communityAssignments[u]=bestCommunity;
 					community[bestCommunity].insert(u);
-					communityDegree[bestCommunity]+=2*degreeGain[bestCommunity];
+					communityDegreeSum[bestCommunity]+=hg.degreeSum[u];
 					imp=true;
 					improvement = true;
 				}
@@ -107,7 +109,6 @@ void louvain(Graph<Node> &g, double r)
 				numNew++;
 			}
 		}
-		newNode.resize(numNew);
 
 		// initialize community, communityAssignments & Hypernode
 		Graph<std::vector<int>> newhg(numNew);
@@ -115,19 +116,20 @@ void louvain(Graph<Node> &g, double r)
 		for (int u=0;u<hg.n;u++)
 		{
 			int uu=idToNewid[u];
+			newhg.degreeSum[uu]+=hg.degreeSum[u];
 			for (auto e:hg.edges[u]) 
 			{
 				int vv=idToNewid[e.v];
-				auto t=std::make_pair(uu,vv);
-				if (uu!=vv&&toAdd.count(t)==0)
+				if (uu!=vv)
 				{
-					if (uu<vv) toAdd[t]++;
-					else toAdd[t]++;
+					if (uu<vv) toAdd[std::make_pair(uu,vv)]+=e.w;
+					else toAdd[std::make_pair(vv,uu)]+=e.w;
 				}
 			}
 		}
 		for (auto x:toAdd) newhg.addedge(x.first.first,x.first.second,x.second);
 		community.resize(numNew);
+		communityAssignments.resize(numNew);
 		for (int i=0;i<numNew;i++) 
 		{
 			community[i].clear();
