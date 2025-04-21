@@ -21,6 +21,15 @@ struct CommunityInfo {
     double total_degree_weight = 0.0;
 };
 
+// 用于对距离缓存的哈希函数
+struct PairHash {
+    std::size_t operator()(const std::pair<int, int>& p) const {
+        auto h1 = std::hash<int>{}(p.first);
+        auto h2 = std::hash<int>{}(p.second);
+        return h1 ^ (h2 << 1);
+    }
+};
+
 /**
  * @brief Constrained Leiden algorithm for community detection with distance constraints.
  *
@@ -149,6 +158,22 @@ private:
     std::vector<int> community_assignments_;  // Maps each node to its community ID
     std::vector<CommunityInfo> communities_;  // Information about each community
     std::mt19937 random_generator_;           // Random number generator for shuffling
+    std::unordered_map<std::pair<int, int>, double, PairHash> distance_cache_; // 距离缓存
+
+    /**
+     * @brief 获取缓存的距离，如果不存在则计算并缓存
+     */
+    double get_cached_distance(int node1, int node2) {
+        auto key = std::minmax(node1, node2);
+        auto it = distance_cache_.find(key);
+        if (it != distance_cache_.end()) {
+            return it->second;
+        }
+
+        double dist = calcDis(original_graph_.nodes[node1], original_graph_.nodes[node2]);
+        distance_cache_[key] = dist;
+        return dist;
+    }
 
     /**
      * @brief Initializes the partition with each node in its own community.
@@ -183,7 +208,7 @@ private:
         for (size_t node_idx = 0; node_idx < assignments.size(); ++node_idx) {
             int community_id = assignments[node_idx];
             if (community_id >= 0) {
-                size_t comm_id_size_t = static_cast<size_t>(community_id);
+                auto comm_id_size_t = static_cast<size_t>(community_id);
                 if (comm_id_size_t >= communities_.size()) {
                     communities_.resize(comm_id_size_t + 1);
                 }
@@ -210,8 +235,11 @@ private:
     bool run_local_moving_phase() {
         bool overall_improvement = false;
         bool local_improvement = true;
+        int iteration = 0;
+        int max_iterations = 10; // 限制最大迭代次数
 
-        while (local_improvement) {
+        while (local_improvement && iteration < max_iterations) {
+            std::cout << "Local moving iteration " << iteration << " in progress..." << std::endl;
             local_improvement = false;
 
             // Create a random node order for this iteration
@@ -219,12 +247,22 @@ private:
             std::iota(node_order.begin(), node_order.end(), 0);
             std::shuffle(node_order.begin(), node_order.end(), random_generator_);
 
+            int processed = 0;
             for (size_t u : node_order) {
+                if (processed % 500 == 0) {
+                    std::cout << "  Processed " << processed << "/" << node_order.size()
+                              << " nodes in local moving phase." << std::endl;
+                }
+                processed++;
+
                 if (try_move_node(u)) {
                     local_improvement = true;
                     overall_improvement = true;
                 }
             }
+
+            iteration++;
+            std::cout << "Local moving iteration " << iteration << " completed." << std::endl;
         }
         return overall_improvement;
     }
@@ -243,11 +281,8 @@ private:
         std::map<int, double> neighbor_community_weights;
         calculate_neighbor_weights(u, neighbor_community_weights);
 
-        double best_modularity_gain = 0.0;
-        int best_community_id = current_community_id;
-
         // Check if current community ID is valid
-        size_t curr_comm_size_t = static_cast<size_t>(current_community_id);
+        auto curr_comm_size_t = static_cast<size_t>(current_community_id);
         if (curr_comm_size_t >= communities_.size() || communities_[curr_comm_size_t].hypernodes.empty()) {
             std::cerr << "Error: Invalid current community ID " << current_community_id
                       << " for node " << u << std::endl;
@@ -258,12 +293,16 @@ private:
         double k_u_in = neighbor_community_weights[current_community_id];
         double current_community_total_degree = communities_[curr_comm_size_t].total_degree_weight;
 
+        // 计算候选社区及其权重
+        std::vector<std::pair<int, double>> candidates; // (community_id, weight)
+        double total_weight = 0.0;
+
         // Evaluate each neighboring community
         for (const auto& [target_community_id, k_u_target] : neighbor_community_weights) {
             if (target_community_id == current_community_id) continue;
 
             // Ensure target community exists
-            size_t target_comm_size_t = static_cast<size_t>(target_community_id);
+            auto target_comm_size_t = static_cast<size_t>(target_community_id);
             if (target_comm_size_t >= communities_.size() || communities_[target_comm_size_t].hypernodes.empty()) {
                 continue;
             }
@@ -272,26 +311,45 @@ private:
 
             // Calculate modularity gain
             double delta_Q = (k_u_target - (u_degree * target_community_total_degree) / total_edge_weight_) -
-                             (k_u_in - (u_degree * (current_community_total_degree - u_degree)) / total_edge_weight_);
+                            (k_u_in - (u_degree * (current_community_total_degree - u_degree)) / total_edge_weight_);
             delta_Q /= total_edge_weight_;
 
-            // If gain is positive and distance constraint is satisfied, this is a candidate move
-            if (delta_Q > best_modularity_gain) {
-                if (check_distance_constraint(u, target_community_id)) {
-                    best_modularity_gain = delta_Q;
-                    best_community_id = target_community_id;
-                }
+            // 如果增益非负，添加为候选社区
+            if (delta_Q >= 0) {
+                double weight = exp(0.5 * delta_Q); // 使用论文中的公式
+                candidates.emplace_back(target_community_id, weight);
+                total_weight += weight;
             }
         }
 
-        // If a better community was found, move the node
-        if (best_community_id != current_community_id) {
-            size_t best_comm_size_t = static_cast<size_t>(best_community_id);
-            if (best_comm_size_t >= communities_.size()) {
-                std::cerr << "Error: Attempting move to invalid community ID " << best_community_id << std::endl;
+        // 没有候选社区
+        if (candidates.empty()) {
+            return false;
+        }
+
+        // 基于权重随机选择一个社区
+        std::uniform_real_distribution<double> distribution(0.0, total_weight);
+        double r = distribution(random_generator_);
+        double cumulative_weight = 0.0;
+        int selected_community_id = current_community_id;
+
+        for (const auto& [community_id, weight] : candidates) {
+            cumulative_weight += weight;
+            if (r <= cumulative_weight) {
+                selected_community_id = community_id;
+                break;
+            }
+        }
+
+        // 仅对选中的社区检查距离约束
+        if (selected_community_id != current_community_id &&
+            check_distance_constraint(u, selected_community_id)) {
+            auto selected_comm_size_t = static_cast<size_t>(selected_community_id);
+            if (selected_comm_size_t >= communities_.size()) {
+                std::cerr << "Error: Attempting move to invalid community ID " << selected_community_id << std::endl;
                 return false;
             }
-            move_node(u, current_community_id, best_community_id);
+            move_node(u, current_community_id, selected_community_id);
             return true;
         }
         return false;
@@ -312,7 +370,7 @@ private:
         // Add weights from all edges
         if (u < hypergraph_->edges.size()) {
             for (const Edge& edge : hypergraph_->edges[u]) {
-                size_t neighbor_node_v = static_cast<size_t>(edge.v);
+                auto neighbor_node_v = static_cast<size_t>(edge.v);
                 if (neighbor_node_v < community_assignments_.size()) {
                     int neighbor_community_id = community_assignments_[neighbor_node_v];
                     neighbor_weights[neighbor_community_id] += edge.w;
@@ -333,7 +391,7 @@ private:
      * @return true if all distance constraints are satisfied, false otherwise.
      */
     bool check_distance_constraint(size_t u, int target_community_id) {
-        size_t target_comm_size_t = static_cast<size_t>(target_community_id);
+        auto target_comm_size_t = static_cast<size_t>(target_community_id);
 
         // Check if target community exists
         if (target_comm_size_t >= communities_.size() || communities_[target_comm_size_t].hypernodes.empty()) {
@@ -359,21 +417,18 @@ private:
             const std::vector<int>& v_original_nodes = hypergraph_->nodes[target_hypernode_v];
 
             // Check all pairs of original nodes
-            for (size_t i = 0; i < u_original_nodes.size(); ++i) {
-                int uu_original_idx = u_original_nodes[i];
+            for (int uu_original_idx : u_original_nodes) {
                 if (static_cast<size_t>(uu_original_idx) >= original_graph_.nodes.size()) {
                     continue; // Skip invalid original node
                 }
 
-                for (size_t j = 0; j < v_original_nodes.size(); ++j) {
-                    int vv_original_idx = v_original_nodes[j];
+                for (int vv_original_idx : v_original_nodes) {
                     if (static_cast<size_t>(vv_original_idx) >= original_graph_.nodes.size()) {
                         continue; // Skip invalid original node
                     }
 
-                    // If any pair is too far apart, constraint is violated
-                    if (calcDis(original_graph_.nodes[uu_original_idx],
-                               original_graph_.nodes[vv_original_idx]) > distance_threshold_) {
+                    // 使用缓存距离计算
+                    if (get_cached_distance(uu_original_idx, vv_original_idx) > distance_threshold_) {
                         return false;
                     }
                 }
@@ -389,8 +444,8 @@ private:
      * @param new_community_id The node's target community.
      */
     void move_node(size_t u, int old_community_id, int new_community_id) {
-        size_t old_comm_size_t = static_cast<size_t>(old_community_id);
-        size_t new_comm_size_t = static_cast<size_t>(new_community_id);
+        auto old_comm_size_t = static_cast<size_t>(old_community_id);
+        auto new_comm_size_t = static_cast<size_t>(new_community_id);
 
         // Ensure IDs are valid
         if (old_comm_size_t >= communities_.size() || new_comm_size_t >= communities_.size()) {
@@ -438,9 +493,16 @@ private:
         }
 
         bool refinement_made_changes = false;
+        int progress = 0;
+        int total_communities = nodes_by_community.size();
 
         // Process each community
         for (const auto& [community_id, nodes_in_community] : nodes_by_community) {
+            if (progress % 100 == 0 || progress == total_communities - 1) {
+                std::cout << "    Refining community " << progress + 1 << "/" << total_communities << std::endl;
+            }
+            progress++;
+
             if (nodes_in_community.size() <= 1) {
                 continue; // Skip singleton communities
             }
@@ -518,7 +580,10 @@ private:
 
         // Try local moves within this community
         bool internal_local_improvement = true;
-        while (internal_local_improvement) {
+        int iteration = 0;
+        int max_iterations = 10; // 限制最大迭代次数
+
+        while (internal_local_improvement && iteration < max_iterations) {
             internal_local_improvement = false;
 
             // Create random node order
@@ -533,10 +598,11 @@ private:
                 // Calculate weights to neighboring subcommunities
                 std::map<size_t, double> internal_neighbor_weights;
                 calculate_internal_neighbor_weights(u, nodes_in_community,
-                                                   internal_assignment, internal_neighbor_weights);
+                                                  internal_assignment, internal_neighbor_weights);
 
-                double best_internal_gain = 0.0;
-                size_t best_internal_id = current_internal_id;
+                // 计算候选子社区及其权重
+                std::vector<std::pair<size_t, double>> internal_candidates;
+                double total_internal_weight = 0.0;
 
                 // Calculate gain for staying in current subcommunity
                 double k_u_in_internal = internal_neighbor_weights[current_internal_id];
@@ -564,27 +630,47 @@ private:
 
                     // Calculate modularity gain
                     double delta_Q = (k_u_target_internal - (u_degree * target_internal_total_degree) / total_edge_weight_) -
-                                     (k_u_in_internal - (u_degree * (current_internal_total_degree - u_degree)) / total_edge_weight_);
+                                    (k_u_in_internal - (u_degree * (current_internal_total_degree - u_degree)) / total_edge_weight_);
                     delta_Q /= total_edge_weight_;
 
-                    // If gain is positive and distance constraint is satisfied, this is a candidate move
-                    if (delta_Q > best_internal_gain) {
-                        if (check_distance_constraint_within_set(u, target_internal_id, internal_sub_communities)) {
-                            best_internal_gain = delta_Q;
-                            best_internal_id = target_internal_id;
-                        }
+                    // 如果增益非负，添加为候选
+                    if (delta_Q >= 0) {
+                        double weight = exp(0.5 * delta_Q);
+                        internal_candidates.emplace_back(target_internal_id, weight);
+                        total_internal_weight += weight;
                     }
                 }
 
-                // If a better subcommunity was found, move the node
-                if (best_internal_id != current_internal_id) {
+                // 没有候选子社区
+                if (internal_candidates.empty()) {
+                    continue;
+                }
+
+                // 基于权重随机选择一个子社区
+                std::uniform_real_distribution<double> distribution(0.0, total_internal_weight);
+                double r = distribution(random_generator_);
+                double cumulative_weight = 0.0;
+                size_t selected_internal_id = current_internal_id;
+
+                for (const auto& [sub_id, weight] : internal_candidates) {
+                    cumulative_weight += weight;
+                    if (r <= cumulative_weight) {
+                        selected_internal_id = sub_id;
+                        break;
+                    }
+                }
+
+                // 只对选中的子社区检查距离约束
+                if (selected_internal_id != current_internal_id &&
+                    check_distance_constraint_within_set(u, selected_internal_id, internal_sub_communities)) {
+
                     if (internal_sub_communities.count(current_internal_id) &&
-                        internal_sub_communities.count(best_internal_id)) {
+                        internal_sub_communities.count(selected_internal_id)) {
 
                         // Move node between subcommunities
                         internal_sub_communities[current_internal_id].erase(u);
-                        internal_sub_communities[best_internal_id].insert(u);
-                        internal_assignment[u] = best_internal_id;
+                        internal_sub_communities[selected_internal_id].insert(u);
+                        internal_assignment[u] = selected_internal_id;
 
                         // Remove empty subcommunities
                         if (internal_sub_communities[current_internal_id].empty()) {
@@ -595,6 +681,8 @@ private:
                     }
                 }
             }
+
+            iteration++;
         }
 
         // Convert map of subcommunities to vector of vectors
@@ -638,7 +726,7 @@ private:
         // Add weights from all edges to nodes in the same community
         if (u < hypergraph_->edges.size()) {
             for (const Edge& edge : hypergraph_->edges[u]) {
-                size_t v = static_cast<size_t>(edge.v);
+                auto v = static_cast<size_t>(edge.v);
                 if (community_nodes_set.count(v)) {
                     auto v_it = internal_assignment.find(v);
                     if (v_it != internal_assignment.end()) {
@@ -691,17 +779,14 @@ private:
 
             const std::vector<int>& v_original_nodes = hypergraph_->nodes[v];
 
-            for (size_t i = 0; i < u_original_nodes.size(); ++i) {
-                int uu_original_idx = u_original_nodes[i];
+            for (int uu_original_idx : u_original_nodes) {
                 if (static_cast<size_t>(uu_original_idx) >= original_graph_.nodes.size()) continue;
 
-                for (size_t j = 0; j < v_original_nodes.size(); ++j) {
-                    int vv_original_idx = v_original_nodes[j];
+                for (int vv_original_idx : v_original_nodes) {
                     if (static_cast<size_t>(vv_original_idx) >= original_graph_.nodes.size()) continue;
 
-                    // Check distance constraint
-                    if (calcDis(original_graph_.nodes[uu_original_idx],
-                               original_graph_.nodes[vv_original_idx]) > distance_threshold_) {
+                    // 使用缓存的距离计算
+                    if (get_cached_distance(uu_original_idx, vv_original_idx) > distance_threshold_) {
                         return false;
                     }
                 }
@@ -769,14 +854,14 @@ private:
         for (size_t u = 0; u < old_num_nodes; ++u) {
             if (old_node_to_new_node[u] == -1) continue; // Skip unmapped nodes
 
-            size_t new_u = static_cast<size_t>(old_node_to_new_node[u]);
+            auto new_u = static_cast<size_t>(old_node_to_new_node[u]);
 
             if (u < hypergraph_->edges.size()) {
                 for (const Edge& edge : hypergraph_->edges[u]) {
-                    size_t v = static_cast<size_t>(edge.v);
+                    auto v = static_cast<size_t>(edge.v);
 
                     if (v < old_node_to_new_node.size() && old_node_to_new_node[v] != -1) {
-                        size_t new_v = static_cast<size_t>(old_node_to_new_node[v]);
+                        auto new_v = static_cast<size_t>(old_node_to_new_node[v]);
 
                         if (new_u != new_v) {
                             // Create edge between new hypernodes
