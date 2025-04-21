@@ -11,3 +11,4 @@ Sinanet-master
 !/cpp/dataset/simple/
 !/cpp/dataset/SinaNet/
 !/cpp/dataset/download.py
+/cpp/cmake-build-debug
