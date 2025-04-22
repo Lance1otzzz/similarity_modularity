@@ -1,1 +1,0 @@
-TESTFILE='data/sinanet_test.json'
