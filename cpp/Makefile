@@ -4,8 +4,8 @@ CFLAGS = -O3 -Wall -Wno-sign-compare -Wextra -static-libstdc++ -std=c++20
 DEBUGFLAGS = -g -Wall -Wno-sign-compare -static-libstdc++ -std=c++20
 
 # 定义数据集路径和参数
-DATASET = ./dataset/cora
-RESOLUTION = 20
+DATASET = ./dataset/simple
+RESOLUTION = 200
 
 all: main.cpp graph.hpp defines.hpp louvain.hpp
 	$(CC) main.cpp $(CFLAGS) -o main
@@ -24,13 +24,6 @@ leiden: all
 
 simple: louvain
 
-louvain_custom: all
-	@read -p "请输入分辨率参数: " res; \
-	./main 10 $(DATASET) $$res
-
-leiden_custom: all
-	@read -p "请输入分辨率参数: " res; \
-	./main 11 $(DATASET) $$res
 
 compare: all
 	@echo "Running Louvain Alg.($(DATASET),r=$(RESOLUTION)):"
@@ -41,4 +34,24 @@ compare: all
 clean:
 	rm -f ./test ./main
 
-.PHONY: all test debug louvain leiden simple louvain_custom leiden_custom compare clean
+
+#######python config#########
+EXP_SCRIPT = run.py
+VIS_SCRIPT = visualize_results.py
+RESULTS_CSV = experiment_results_logscale.csv
+PYTHON = python
+
+$(RESULTS_CSV): $(EXP_SCRIPT) main
+	@echo ">>> Running experiments to generate $(RESULTS_CSV)..."
+	$(PYTHON) $(EXP_SCRIPT)
+
+visualize: $(RESULTS_CSV) $(VIS_SCRIPT)
+	@echo ">>> Generating visualizations from $(RESULTS_CSV)..."
+	$(PYTHON) $(VIS_SCRIPT)
+
+full_run: visualize
+	@echo ">>> Full experiment run and visualization complete."
+
+
+
+.PHONY: all test debug louvain leiden simple louvain_custom leiden_custom compare clean visualize full_run

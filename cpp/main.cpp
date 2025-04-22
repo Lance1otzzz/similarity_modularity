@@ -57,10 +57,10 @@ int main(int argc, char** argv)
 	else if (algorithm==11)
 	{
 		cout<<"start Leiden"<<endl;
-		auto startLeiden=timeNow();
+		const auto startLeiden=timeNow();
 		ConstrainedLeiden leiden_solver(g, r);
 		leiden_solver.run();
-		auto endLeiden=timeNow();
+		const auto endLeiden=timeNow();
 		cout<<"Leiden total time: "<<timeElapsed(startLeiden,endLeiden)<<endl;
 	}
 	return 0;

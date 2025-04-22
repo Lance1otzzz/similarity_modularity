@@ -57,8 +57,8 @@ public:
         }
         // Initial hypergraph is the original graph (one node per hypernode)
         hypergraph_ = std::make_unique<Graph<std::vector<int>>>(original_graph_);
-        std::cout << "Initialized with " << original_graph_.n << " nodes and distance threshold "
-                  << distance_threshold_ << std::endl;
+        // std::cout << "Initialized with " << original_graph_.n << " nodes and distance threshold "
+                  // << distance_threshold_ << std::endl;
     }
 
     // Disable copy and move operations
@@ -84,15 +84,15 @@ public:
 
         // --- Main Iteration Loop ---
         while (improvement) {
-            std::cout << "--- Starting Level " << level << " ---" << std::endl;
-            std::cout << "Current number of hypernodes: " << hypergraph_->n << std::endl;
+            // std::cout << "--- Starting Level " << level << " ---" << std::endl;
+            // std::cout << "Current number of hypernodes: " << hypergraph_->n << std::endl;
 
             improvement = false; // Assume no improvement in this pass
 
             // --- Phase 1: Local Moving (with Distance Constraint) ---
             bool local_moves_made = run_local_moving_phase();
-            std::cout << "Local moving phase completed. Moves made: "
-                      << (local_moves_made ? "Yes" : "No") << std::endl;
+            // std::cout << "Local moving phase completed. Moves made: "
+                      // << (local_moves_made ? "Yes" : "No") << std::endl;
 
             // --- Phase 2: Partition Refinement (Leiden Specific) ---
             std::vector<int> refined_assignments = community_assignments_; // Start with Phase 1 result
@@ -100,7 +100,7 @@ public:
 
             if (local_moves_made) {
                 refined_assignments = run_refinement_phase(community_assignments_);
-                std::cout << "Refinement phase completed." << std::endl;
+                // std::cout << "Refinement phase completed." << std::endl;
 
                 // Check if refinement actually changed the assignments
                 if (refined_assignments != community_assignments_) {
@@ -121,18 +121,18 @@ public:
                 if (aggregation_occurred) {
                     improvement = true; // Continue to the next level if aggregation happened
                     level++;
-                    std::cout << "Aggregation phase completed. Graph structure updated." << std::endl;
+                    // std::cout << "Aggregation phase completed. Graph structure updated." << std::endl;
                 } else {
                     improvement = false; // Stop if aggregation didn't reduce nodes
-                    std::cout << "Aggregation did not reduce nodes. Halting." << std::endl;
+                    // std::cout << "Aggregation did not reduce nodes. Halting." << std::endl;
                 }
             } else {
                 improvement = false; // Stop if no changes were made
-                std::cout << "No changes in local moving or refinement. Halting." << std::endl;
+                // std::cout << "No changes in local moving or refinement. Halting." << std::endl;
             }
         } // End while(improvement)
 
-        std::cout << "--- Constrained Leiden Algorithm Finished ---" << std::endl;
+        // std::cout << "--- Constrained Leiden Algorithm Finished ---" << std::endl;
 
         // Calculate and print final modularity
         output_final_results();
@@ -188,7 +188,7 @@ private:
             communities_[i].hypernodes.insert(i);
             communities_[i].total_degree_weight = hypergraph_->degree[i];
         }
-        std::cout << "Initial partition created with " << n << " communities." << std::endl;
+        // std::cout << "Initial partition created with " << n << " communities." << std::endl;
     }
 
     /**
@@ -239,7 +239,7 @@ private:
         int max_iterations = 10; // 限制最大迭代次数
 
         while (local_improvement && iteration < max_iterations) {
-            std::cout << "Local moving iteration " << iteration << " in progress..." << std::endl;
+            // std::cout << "Local moving iteration " << iteration << " in progress..." << std::endl;
             local_improvement = false;
 
             // Create a random node order for this iteration
@@ -250,8 +250,8 @@ private:
             int processed = 0;
             for (size_t u : node_order) {
                 if (processed % 500 == 0) {
-                    std::cout << "  Processed " << processed << "/" << node_order.size()
-                              << " nodes in local moving phase." << std::endl;
+                    // std::cout << "  Processed " << processed << "/" << node_order.size()
+                              // << " nodes in local moving phase." << std::endl;
                 }
                 processed++;
 
@@ -262,7 +262,7 @@ private:
             }
 
             iteration++;
-            std::cout << "Local moving iteration " << iteration << " completed." << std::endl;
+            // std::cout << "Local moving iteration " << iteration << " completed." << std::endl;
         }
         return overall_improvement;
     }
@@ -474,7 +474,7 @@ private:
      * @return New community assignments after refinement.
      */
     std::vector<int> run_refinement_phase(const std::vector<int>& current_assignments) {
-        std::cout << "    Starting Refinement Phase..." << std::endl;
+        // std::cout << "    Starting Refinement Phase..." << std::endl;
 
         size_t n = hypergraph_->n;
         std::vector<int> refined_assignments = current_assignments;
@@ -499,7 +499,7 @@ private:
         // Process each community
         for (const auto& [community_id, nodes_in_community] : nodes_by_community) {
             if (progress % 100 == 0 || progress == total_communities - 1) {
-                std::cout << "    Refining community " << progress + 1 << "/" << total_communities << std::endl;
+                // std::cout << "    Refining community " << progress + 1 << "/" << total_communities << std::endl;
             }
             progress++;
 
@@ -513,8 +513,8 @@ private:
 
             if (resulting_sub_communities.size() > 1) { // Split occurred
                 refinement_made_changes = true;
-                std::cout << "    Community " << community_id << " split into "
-                          << resulting_sub_communities.size() << " sub-communities." << std::endl;
+                // std::cout << "    Community " << community_id << " split into "
+                          // << resulting_sub_communities.size() << " sub-communities." << std::endl;
 
                 // Find the largest sub-community
                 size_t largest_sub_idx = 0;
@@ -546,12 +546,12 @@ private:
             }
         }
 
-        if (refinement_made_changes) {
-            std::cout << "    Refinement Phase completed. Changes were made. Total communities now potentially: "
-                      << next_new_community_id << std::endl;
-        } else {
-            std::cout << "    Refinement Phase completed. No communities were split." << std::endl;
-        }
+        // if (refinement_made_changes) {
+        //     std::cout << "    Refinement Phase completed. Changes were made. Total communities now potentially: "
+        //               << next_new_community_id << std::endl;
+        // } else {
+        //     std::cout << "    Refinement Phase completed. No communities were split." << std::endl;
+        // }
 
         return refined_assignments;
     }
@@ -893,7 +893,7 @@ private:
      */
     void output_final_results() {
         if (hypergraph_) {
-            std::cout << "Final number of communities: " << hypergraph_->n << std::endl;
+            // std::cout << "Final number of communities: " << hypergraph_->n << std::endl;
 
             try {
                 const std::vector<std::vector<int>>& final_partition = hypergraph_->nodes;
