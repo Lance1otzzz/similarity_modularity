@@ -8,7 +8,7 @@ import shutil
 
 datasets_to_run = [
     './dataset/simple',
-    './dataset/cora',
+    './dataset/Cora',
     './dataset/SinaNet',
 
 ]
