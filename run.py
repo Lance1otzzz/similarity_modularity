@@ -16,7 +16,7 @@ datasets_to_run = [
 resolutions_to_run = [1, 5, 10, 100, 2000,]
 
 # 输出 CSV 文件名
-output_filename = 'experiment_results_manual_list.csv'
+output_filename = 'experiment_results_list.csv'
 
 def detect_make_command():
     if shutil.which("make"):

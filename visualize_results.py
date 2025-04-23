@@ -4,7 +4,7 @@ import os
 import re # For cleaning dataset names for filenames
 
 
-results_filename = 'experiment_results_logscale.csv'
+results_filename = 'experiment_results_list.csv'
 
 # 图表保存目录 (如果不存在会自动创建)
 output_plot_dir = 'plots'
