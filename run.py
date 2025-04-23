@@ -3,6 +3,7 @@ import os
 import re
 import pandas as pd
 import time
+import shutil
 
 
 datasets_to_run = [
@@ -17,6 +18,15 @@ resolutions_to_run = [1, 5, 10, 100, 2000,]
 # 输出 CSV 文件名
 output_filename = 'experiment_results_manual_list.csv'
 
+def detect_make_command():
+    if shutil.which("make"):
+        return "make"
+    elif shutil.which("mingw32-make"):
+        return "mingw32-make"
+    else:
+        raise EnvironmentError("No 'make' or 'mingw32-make' command found in PATH.")
+
+MAKE_CMD=detect_make_command()
 
 def parse_output(output_str):
     """解析 make compare 的输出，提取指标"""
@@ -74,7 +84,7 @@ def run_experiment(datasets_config, resolutions_config):
             # 使用 os.path.normpath 确保路径格式一致性 (虽然例子是 './dataset/name' 格式)
             norm_dataset_path = os.path.normpath(dataset).replace('\\', '/') # 保证正斜杠
             command = [
-                'make',
+                MAKE_CMD,
                 'compare',
                 f'DATASET={norm_dataset_path}',
                 f'RESOLUTION={resolution}'

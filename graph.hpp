@@ -115,7 +115,7 @@ struct GraphBase
 	int n=0,m=0;
 	std::vector<NodeType> nodes;
 	std::vector<std::vector<Edge>> edges; // if future Edge has weight
-	std::vector<int> degree;
+	std::vector<long long> degree;
 	GraphBase():n(0),m(0){}
 
 	GraphBase(const GraphBase &other):n(other.n),m(other.m),nodes(other.nodes),edges(other.edges),degree(other.degree){}
@@ -148,7 +148,7 @@ struct GraphBase
 	{
 		m++;
 		edges[u].emplace_back(u,v,1);
-		edges[v].emplace_back(v,u,1);
+		if (u!=v) edges[v].emplace_back(v,u,1);
 		degree[u]++;
 		degree[v]++;
 	}
@@ -156,7 +156,7 @@ struct GraphBase
 	{
 		m++;
 		edges[u].emplace_back(u,v,w);
-		edges[v].emplace_back(v,u,w);
+		if (u!=v) edges[v].emplace_back(v,u,w);
 		degree[u]+=w;
 		degree[v]+=w;
 	}
@@ -236,7 +236,6 @@ struct Graph<Node>:public GraphBase<Node>
 					throw std::invalid_argument("invalid edge");
 				}
 				if (calcDis(nodes[u],nodes[v])>r) continue; // edges not meet the requirement dont counts m
-				m++; 
 				addedge(u,v);
 			}
 			else 
@@ -310,36 +309,36 @@ template<>
 struct Graph<std::vector<int>>:public GraphBase<std::vector<int>>
 {
 	using GraphBase::GraphBase;
-	std::vector<int> degreeSum;
+	//std::vector<int> degreeSum;
 	Graph(const Graph<Node> &other):GraphBase<std::vector<int>>()
 	{
 		n=other.n;
 		m=other.m;
-		degree.resize(n);
+		degree=other.degree;
 		nodes.resize(n);
 		edges=other.edges;
-		degreeSum=other.degree;
+		//degreeSum=other.degree;
 		for (int i=0;i<n;i++) nodes[i].push_back(i);
 	}
-	Graph(const Graph<std::vector<int>> &other):GraphBase<std::vector<int>>(other),degreeSum(other.degreeSum){}
+	Graph(const Graph<std::vector<int>> &other):GraphBase<std::vector<int>>(other){}
 
-	Graph(Graph<std::vector<int>> &&other):GraphBase<std::vector<int>>(std::move(other)),degreeSum(std::move(other.degreeSum)){}
+	Graph(Graph<std::vector<int>> &&other):GraphBase<std::vector<int>>(std::move(other)){}
 	
-	explicit Graph(int num):GraphBase::GraphBase(num),degreeSum(num){}
+	explicit Graph(int num):GraphBase::GraphBase(num){}
 
 	~Graph(){}
 
 	Graph<std::vector<int>>& operator=(const Graph<std::vector<int>> &other)
 	{
 		GraphBase::operator=(other);
-		degreeSum=other.degreeSum;
+		//degreeSum=other.degreeSum;
 		return *this;
 	}
 
 	Graph<std::vector<int>>& operator=(Graph<std::vector<int>> &&other)
 	{
 		GraphBase::operator=(other);
-		degreeSum=std::move(other.degreeSum);
+		//degreeSum=std::move(other.degreeSum);
 		return *this;
 	}
 

@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-void louvain(Graph<Node> &g, double r) 
+void heur(Graph<Node> &g, double r) 
 {
 	double mm=g.m*2;
 
