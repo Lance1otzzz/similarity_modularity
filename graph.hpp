@@ -368,14 +368,19 @@ inline double calcModularity(const Graph<Node> &g, const std::vector<std::vector
 	for (int i=0;i<community.size();i++)
 		for (auto x:community[i]) color[x]=i;
 	
-	int mm=g.m*2;
+	std::vector<int> sum_edge_weight(community.size()),sum_degree(community.size());
+
+	double mm=g.m*2;
 	for (int u=0;u<g.n;u++)
 	{
 		int cu=color[u];
+		sum_degree[cu]+=g.degree[u];
 		for (auto &e:g.edges[u])
 			if (cu==color[e.v])
-				res+=e.w-(double)g.degree[u]*g.degree[e.v]/mm;
+				sum_edge_weight[cu]+=e.w;
+				//res+=e.w-(double)g.degree[u]*g.degree[e.v]/mm;
 	}
+	for (int i=0;i<community.size();i++) res+=sum_edge_weight[i]/(double)mm-sqr(sum_degree[i]/mm);
 
-	return res/mm;
+	return res;
 }
