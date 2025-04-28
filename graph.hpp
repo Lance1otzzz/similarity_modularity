@@ -148,17 +148,24 @@ struct GraphBase
 	{
 		m++;
 		edges[u].emplace_back(u,v,1);
-		if (u!=v) edges[v].emplace_back(v,u,1);
+		if (u!=v) 
+		{
+			edges[v].emplace_back(v,u,1);
+			degree[v]++;
+		}
 		degree[u]++;
-		degree[v]++;
 	}
+
 	void addedge(const int &u,const int &v,const int &w)
 	{
 		m++;
 		edges[u].emplace_back(u,v,w);
-		if (u!=v) edges[v].emplace_back(v,u,w);
+		if (u!=v) 
+		{
+			edges[v].emplace_back(v,u,w);
+			degree[v]+=w;
+		}
 		degree[u]+=w;
-		degree[v]+=w;
 	}
 };
 
@@ -378,7 +385,6 @@ inline double calcModularity(const Graph<Node> &g, const std::vector<std::vector
 		for (auto &e:g.edges[u])
 			if (cu==color[e.v])
 				sum_edge_weight[cu]+=e.w;
-				//res+=e.w-(double)g.degree[u]*g.degree[e.v]/mm;
 	}
 	for (int i=0;i<community.size();i++) res+=sum_edge_weight[i]/(double)mm-sqr(sum_degree[i]/mm);
 
