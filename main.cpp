@@ -2,7 +2,7 @@
 #include "defines.hpp"
 #include "louvain.hpp"
 #include "leiden.hpp"
-#include "heur.hpp"
+#include "louvain_heur.hpp"
 #include <iostream>
 #include <chrono>
 using namespace std;
@@ -10,7 +10,7 @@ using namespace std;
 
 // ./main 1
 /*
-	algorithm 1: heuristic
+	algorithm 9: louvain_heur
 	algorithm 10: louvain
 	algorithm 11: leiden
 
@@ -34,11 +34,11 @@ int main(int argc, char** argv)
 	g.loadGraph(argv[2],r);
 	auto endLoadingGraph=timeNow();
 	cout<<"LoadGraph time: "<<timeElapsed(startLoadingGraph,endLoadingGraph)<<endl;
-	if (algorithm==1)
+	if (algorithm==9)
 	{
 		cout<<"start heur"<<endl;
 		auto startHeur=timeNow();
-		heur(g,r);
+		louvain_heur(g,r);
 		auto endHeur=timeNow();
 		cout<<"Heur total time: "<<timeElapsed(startHeur,endHeur)<<endl;
 	}
