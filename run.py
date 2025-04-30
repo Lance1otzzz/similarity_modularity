@@ -99,6 +99,14 @@ def run_experiment(datasets_config, resolutions_config):
                     shell=False # Safer, usually sufficient for variable passing
                 )
                 stdout = process.stdout
+                stderr = process.stderr
+                print("--- C++ Program Output START ---")
+                print(stdout)
+                if stderr:
+                    print("--- C++ Program Error Output START ---")
+                    print(stderr)
+                    print("--- C++ Program Error Output END ---")
+                print("--- C++ Program Output END ---")
                 run_data = parse_output(stdout)
                 run_data['dataset'] = dataset # Store original path from list
                 run_data['resolution'] = resolution
