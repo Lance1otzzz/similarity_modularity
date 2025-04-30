@@ -7,9 +7,9 @@
 #include <unordered_map>
 #include <unordered_set>
 
-void heur(Graph<Node> &g, double r) 
+void louvain_heur(Graph<Node> &g, double r) 
 {
-	double mm=g.m*2;
+	double mm=g.m;
 
     std::vector<int> communityAssignments(g.n);  // stores the community of each hypernode
     for (int i=0;i<g.n;++i) communityAssignments[i]=i; // Initialize: each hypernode is its own community
@@ -46,11 +46,11 @@ void heur(Graph<Node> &g, double r)
 				}
 
 				// Find the community that gives the best modularity gain
-				double delta_Q_remove=-uToCom[cu]/mm+(double)uDegreeSum*(communityDegreeSum[cu]-uDegreeSum)/sqr(mm);
+				double delta_Q_static=-uToCom[cu]/mm+(double)uDegreeSum*(communityDegreeSum[cu]-uDegreeSum)/mm/mm/2;
 				for (auto &c:uToCom) //id,value
 				{
-					double delta_Q_add=(c.second-(double)uDegreeSum*communityDegreeSum[c.first]/mm)/mm;
-					double delta_Q=delta_Q_remove+delta_Q_add;
+					double delta_Q_=(c.second-(double)uDegreeSum*communityDegreeSum[c.first]/mm/2)/mm;
+					double delta_Q=delta_Q_static+delta_Q_;
 					if (delta_Q>bestDelta_Q) 
 					{
 						bool sim=true;
