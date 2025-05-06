@@ -9,6 +9,7 @@
 
 void louvain(Graph<Node> &g, double r) 
 {
+	double rr=r*r;
 	double mm=g.m;
 
     std::vector<int> communityAssignments(g.n);  // stores the community of each hypernode
@@ -25,6 +26,9 @@ void louvain(Graph<Node> &g, double r)
 		std::vector<long long> communityDegreeSum(hg.degree); // The degree sum of every node in community (not just degree of hypernodes)
         improvement=false;
 
+#ifdef debug
+		std::cerr<<"phase1"<<std::endl;
+#endif
         // Phase 1: Optimize modularity by moving nodes
 		bool imp=true; // imp for phase 1
 		while (imp)
@@ -58,7 +62,7 @@ void louvain(Graph<Node> &g, double r)
 						{
 							for (auto hnodev:community[c.first]) //every hypernode in the community
 							{
-								for (auto vv:hg.nodes[hnodev]) if (calcDis(g.nodes[uu],g.nodes[vv])>r) 
+								for (auto vv:hg.nodes[hnodev]) if (calcDisSqr(g.nodes[uu],g.nodes[vv])>rr) 
 								{
 									sim=false;
 									break;
@@ -76,8 +80,11 @@ void louvain(Graph<Node> &g, double r)
 				}
 
 				// If moving to a new community improves the modularity, assign the best community to node u
-				if (bestCommunity != communityAssignments[u]) 
+				if (bestCommunity != communityAssignments[u] && bestDelta_Q>eps) 
 				{
+#ifdef debug
+					std::cerr<<bestCommunity<<' '<<bestDelta_Q<<std::endl;
+#endif
 					community[communityAssignments[u]].erase(u);
 					communityDegreeSum[cu]-=hg.degree[u];
 					communityAssignments[u]=bestCommunity;
@@ -90,6 +97,9 @@ void louvain(Graph<Node> &g, double r)
         }
 
         // Phase 2: Create a new graph
+#ifdef debug
+		std::cerr<<"phase2"<<std::endl;
+#endif
 
 		std::vector<std::vector<int>> newNode;
 

@@ -38,6 +38,14 @@ double calcDis(const Node &x, const Node &y)
 	return std::sqrt(res);
 }
 
+double calcDisSqr(const Node &x, const Node &y)
+{
+	double res=0;
+	for (int i=0;i<x.attributes.size();i++)
+		res+=sqr(x.attributes[i]-y.attributes[i]);
+	return res;
+}
+
 struct Hypersphere{
 	Node center; // id=-1; 
 	double r;
@@ -223,6 +231,7 @@ struct Graph<Node>:public GraphBase<Node>
 	}
 	void readEdges(const std::string &filename, const double &r)
 	{
+		double rr=r*r;
 		std::ifstream file(filename.c_str());
 		if (!file.is_open()) 
 		{
@@ -242,7 +251,7 @@ struct Graph<Node>:public GraphBase<Node>
 							 << ") in line: " << line << std::endl;
 					throw std::invalid_argument("invalid edge");
 				}
-				if (calcDis(nodes[u],nodes[v])>r) continue; // edges not meet the requirement dont counts m
+				if (calcDisSqr(nodes[u],nodes[v])>rr) continue; // edges not meet the requirement dont counts m
 				addedge(u,v);
 			}
 			else 
