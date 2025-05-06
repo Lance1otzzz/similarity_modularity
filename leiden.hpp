@@ -704,7 +704,7 @@ private:
                       // << "，模块度 = " << final_mod << std::endl;
 
             // 同时也打印一下在 run() 过程中记录的 best_mod_，校验是否一致
-            std::cout << "[ConstrainedLeiden] FinalModularity = " << best_mod_ << std::endl;
+            std::cout << "[ConstrainedLeiden] Final Modularity = " << best_mod_ << std::endl;
         } else {
             std::cout << "[ConstrainedLeiden] 最终划分为空！" << std::endl;
         }
