@@ -38,7 +38,7 @@ def parse_output(output_str):
     }
     try:
         # Regex for Louvain
-        louvain_mod_match = re.search(r"Modularity=([\d.eE+-]+)", output_str)
+        louvain_mod_match = re.search(r"Modularity\s=\s([\d.eE+-]+)", output_str)
         if louvain_mod_match:
             results['louvain_modularity'] = float(louvain_mod_match.group(1))
 
@@ -47,7 +47,7 @@ def parse_output(output_str):
             results['louvain_time'] = float(louvain_time_match.group(1))
 
         # Regex for Leiden
-        leiden_mod_match = re.search(r"Final Modularity\s*=\s*([\d.eE+-]+)", output_str)
+        leiden_mod_match = re.search(r"Modularity\s*=\s*([\d.eE+-]+)", output_str)
         if leiden_mod_match:
             results['leiden_modularity'] = float(leiden_mod_match.group(1))
 

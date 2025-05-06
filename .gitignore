@@ -12,3 +12,5 @@ Sinanet-master
 !/dataset/SinaNet/
 !/dataset/download.py
 /cmake-build-debug
+experiment_results_list.csv
+/plots
