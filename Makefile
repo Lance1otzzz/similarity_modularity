@@ -7,32 +7,34 @@ DEBUGFLAGS = -g -Wall -Wno-sign-compare -static-libstdc++ -Ddebug
 DATASET = ./dataset/simple
 RESOLUTION = 200
 
-all: main.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp
+all: main
+
+main: main.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp
 	$(CC) main.cpp $(CFLAGS) -o main
 
 test: test.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp
 	$(CC) test.cpp $(CFLAGS) -o test
 
 debug: main.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp
-	$(CC) main.cpp $(DEBUGFLAGS) -o main
+	$(CC) main.cpp $(DEBUGFLAGS) -o debug
 
-louvain: all
+louvain: main
 	./main 10 $(DATASET) $(RESOLUTION)
 
-leiden: all
+leiden: main
 	./main 11 $(DATASET) $(RESOLUTION)
 
 simple: louvain
 
 
-compare: all
+compare: main
 	@echo "Running Louvain Alg.($(DATASET),r=$(RESOLUTION)):"
 	@./main 10 $(DATASET) $(RESOLUTION)
 	@echo "\nRunning Leiden Alg.($(DATASET),r=$(RESOLUTION)):"
 	@./main 11 $(DATASET) $(RESOLUTION)
 
 clean:
-	rm -f ./test ./main
+	rm -f ./test ./main ./debug
 
 
 #######python config#########
@@ -54,4 +56,4 @@ full_run: visualize
 
 
 
-.PHONY: all test debug louvain leiden simple louvain_custom leiden_custom compare clean visualize full_run
+.PHONY: all louvain leiden simple louvain_custom leiden_custom compare clean visualize full_run
