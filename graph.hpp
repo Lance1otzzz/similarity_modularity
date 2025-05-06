@@ -251,7 +251,8 @@ struct Graph<Node>:public GraphBase<Node>
 							 << ") in line: " << line << std::endl;
 					throw std::invalid_argument("invalid edge");
 				}
-				if (calcDisSqr(nodes[u],nodes[v])>rr) continue; // edges not meet the requirement dont counts m
+				// test if dont delete edges
+				// if (calcDisSqr(nodes[u],nodes[v])>rr) continue; // edges not meet the requirement dont counts m
 				addedge(u,v);
 			}
 			else 
