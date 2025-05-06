@@ -668,8 +668,7 @@ private:
                         int new_v = old_to_new[v];
                         if (new_v < 0) continue;
                         if (new_u != new_v) {
-                            auto p = std::minmax((size_t)new_u, (size_t)new_v);
-                            new_edges[p] += ed.w;
+                            new_edges[std::minmax((size_t)new_u, (size_t)new_v)] += ed.w;
                         }
                     }
                 }
@@ -699,7 +698,7 @@ private:
         }
         const auto & final_partition = hypergraph_->nodes;
         if (!final_partition.empty()) {
-            double final_mod = calcModularity(original_graph_, final_partition);
+            // double final_mod = calcModularity(original_graph_, final_partition);
             // std::cout << "[ConstrainedLeiden] 最终社区数 = " << hypergraph_->n
                       // << "，模块度 = " << final_mod << std::endl;
 
@@ -727,9 +726,9 @@ private:
             if (nodelist.empty()) {
                 // std::cout << "(空)" << std::endl;
             } else {
-                for (auto &nid : nodelist) {
+                //for (auto &nid : nodelist) {
                     // std::cout << nid << " ";
-                }
+                //}
                 // std::cout << std::endl;
             }
         }

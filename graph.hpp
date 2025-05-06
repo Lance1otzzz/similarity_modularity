@@ -231,7 +231,7 @@ struct Graph<Node>:public GraphBase<Node>
 	}
 	void readEdges(const std::string &filename, const double &r)
 	{
-		double rr=r*r;
+		// double rr=r*r; 
 		std::ifstream file(filename.c_str());
 		if (!file.is_open()) 
 		{
