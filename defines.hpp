@@ -12,7 +12,6 @@ inline double timeElapsed(std::chrono::high_resolution_clock::time_point start, 
 
 const double eps=1e-8;
 
-
 struct pair_hash 
 {
     std::size_t operator()(const std::pair<int, int>& p) const 
@@ -38,6 +37,44 @@ std::string ensureFolderSeparator(const std::string &folder) {
 }
 
 double sqr(const double &x) { return x*x; }
+double normSqr(const std::vector<double> &x)
+{
+	double res=0;
+	for (auto &y:x) res+=sqr(y);
+	return res;
+}
+
+std::vector<double> operator+(const std::vector<double>& a, const std::vector<double>& b) 
+{
+    assert(a.size() == b.size());
+    std::vector<double> result(a.size());
+    for (size_t i = 0; i < a.size(); ++i)
+        result[i] = a[i] + b[i];
+    return result;
+}
+
+std::vector<double>& operator+=(std::vector<double>& a, const std::vector<double>& b) {
+    assert(a.size() == b.size());
+    for (size_t i = 0; i < a.size(); ++i)
+        a[i] += b[i];
+    return a;
+}
+
+std::vector<double> operator-(const std::vector<double>& a, const std::vector<double>& b) 
+{
+    assert(a.size() == b.size());
+    std::vector<double> result(a.size());
+    for (size_t i = 0; i < a.size(); ++i)
+        result[i] = a[i] - b[i];
+    return result;
+}
+
+std::vector<double>& operator-=(std::vector<double>& a, const std::vector<double>& b) {
+    assert(a.size() == b.size());
+    for (size_t i = 0; i < a.size(); ++i)
+        a[i] -= b[i];
+    return a;
+}
 
 struct Matrix
 {

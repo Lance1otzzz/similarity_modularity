@@ -326,6 +326,7 @@ template<>
 struct Graph<std::vector<int>>:public GraphBase<std::vector<int>>
 {
 	using GraphBase::GraphBase;
+	std::vector<std::vector<double>> attrSum;
 	//std::vector<int> degreeSum;
 	Graph(const Graph<Node> &other):GraphBase<std::vector<int>>()
 	{
@@ -334,20 +335,24 @@ struct Graph<std::vector<int>>:public GraphBase<std::vector<int>>
 		degree=other.degree;
 		nodes.resize(n);
 		edges=other.edges;
+		attrSum.resize(n);
+		for (int i=0;i<n;i++) attrSum=nodes[i].attributes;
 		//degreeSum=other.degree;
 		for (int i=0;i<n;i++) nodes[i].push_back(i);
 	}
 	Graph(const Graph<std::vector<int>> &other):GraphBase<std::vector<int>>(other){}
 
 	Graph(Graph<std::vector<int>> &&other):GraphBase<std::vector<int>>(std::move(other)){}
-	
-	explicit Graph(int num):GraphBase::GraphBase(num){}
+
+	explicit Graph(int num,Graph<std::vector<double>> &&otherattrSum)
+		:GraphBase::GraphBase(num),attrSum(std::move(otherattrSum)){}
 
 	~Graph(){}
 
 	Graph<std::vector<int>>& operator=(const Graph<std::vector<int>> &other)
 	{
 		GraphBase::operator=(other);
+		attrSum=other.attrSum;
 		//degreeSum=other.degreeSum;
 		return *this;
 	}
@@ -355,6 +360,7 @@ struct Graph<std::vector<int>>:public GraphBase<std::vector<int>>
 	Graph<std::vector<int>>& operator=(Graph<std::vector<int>> &&other)
 	{
 		GraphBase::operator=(other);
+		attrSum=std::move(other.attrSum);
 		//degreeSum=std::move(other.degreeSum);
 		return *this;
 	}
