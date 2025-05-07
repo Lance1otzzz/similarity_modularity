@@ -7,8 +7,10 @@
 #include <unordered_map>
 #include <unordered_set>
 
+const double lambda=0.5;
 void louvain_heur(Graph<Node> &g, double r) 
 {
+	double rr=r*r;
 	double mm=g.m;
 
     std::vector<int> communityAssignments(g.n);  // stores the community of each hypernode
@@ -58,7 +60,7 @@ void louvain_heur(Graph<Node> &g, double r)
 						{
 							for (auto hnodev:community[c.first]) //every hypernode in the community
 							{
-								for (auto vv:hg.nodes[hnodev]) if (calcDis(g.nodes[uu],g.nodes[vv])>r) 
+								for (auto vv:hg.nodes[hnodev]) if (calcDisSqr(g.nodes[uu],g.nodes[vv])>rr) 
 								{
 									sim=false;
 									break;
@@ -76,8 +78,11 @@ void louvain_heur(Graph<Node> &g, double r)
 				}
 
 				// If moving to a new community improves the modularity, assign the best community to node u
-				if (bestCommunity != communityAssignments[u]) 
+				if (bestCommunity != communityAssignments[u] && bestDelta_Q>eps) 
 				{
+#ifdef debug
+					std::cerr<<bestCommunity<<' '<<bestDelta_Q<<std::endl;
+#endif
 					community[communityAssignments[u]].erase(u);
 					communityDegreeSum[cu]-=hg.degree[u];
 					communityAssignments[u]=bestCommunity;
@@ -90,6 +95,9 @@ void louvain_heur(Graph<Node> &g, double r)
         }
 
         // Phase 2: Create a new graph
+#ifdef debug
+		std::cerr<<"phase2"<<std::endl;
+#endif
 
 		std::vector<std::vector<int>> newNode;
 
@@ -138,5 +146,5 @@ void louvain_heur(Graph<Node> &g, double r)
 		hg=std::move(newhg);
 	}
 
-	std::cout<<"Modularity="<<calcModularity(g,hg.nodes)<<std::endl;
+	std::cout<<"Louvain_heur Modularity = "<<calcModularity(g,hg.nodes)<<std::endl;
 }
