@@ -9,13 +9,13 @@ RESOLUTION = 200
 
 all: main
 
-main: main.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp
+main: main.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp louvain_heur.hpp
 	$(CC) main.cpp $(CFLAGS) -o main
 
-test: test.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp
+test: test.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp louvain_heur.hpp
 	$(CC) test.cpp $(CFLAGS) -o test
 
-debug: main.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp
+debug: main.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp louvain_heur.hpp
 	$(CC) main.cpp $(DEBUGFLAGS) -o debug
 
 louvain: main

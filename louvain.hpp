@@ -148,5 +148,5 @@ void louvain(Graph<Node> &g, double r)
 		hg=std::move(newhg);
 	}
 
-	std::cout<<"Modularity = "<<calcModularity(g,hg.nodes)<<std::endl;
+	std::cout<<"Louvain Modularity = "<<calcModularity(g,hg.nodes)<<std::endl;
 }
