@@ -3,6 +3,7 @@
 #include "louvain.hpp"
 #include "leiden.hpp"
 #include "louvain_heur.hpp"
+#include "pure-louvain.hpp"
 #include <iostream>
 #include <chrono>
 using namespace std;
@@ -13,6 +14,7 @@ using namespace std;
 	algorithm 9: louvain_heur
 	algorithm 10: louvain
 	algorithm 11: leiden
+	algorithm 20: louvain_pure
 
 */
 int main(int argc, char** argv)
@@ -58,6 +60,14 @@ int main(int argc, char** argv)
 		leiden_solver.run();
 		const auto endLeiden=timeNow();
 		cout<<"Leiden total time: "<<timeElapsed(startLeiden,endLeiden)<<endl;
+	}
+	else if (algorithm==20)
+	{
+		cout<<"start pure Louvain"<<endl;
+		auto startLouvainPure=timeNow();
+		pure_louvain(g,r);
+		auto endLouvainPure=timeNow();
+		cout<<"Leiden total time: "<<timeElapsed(startLouvainPure,endLouvainPure)<<endl;
 	}
 	return 0;
 }

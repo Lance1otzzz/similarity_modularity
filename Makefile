@@ -32,6 +32,9 @@ compare: main
 	@./main 10 $(DATASET) $(RESOLUTION)
 	@echo "\nRunning Leiden Alg.($(DATASET),r=$(RESOLUTION)):"
 	@./main 11 $(DATASET) $(RESOLUTION)
+	@echo "\nRunning pure-louvain Alg.($(DATASET)):"
+	@./main 20 $(DATASET) $(RESOLUTION)
+
 
 clean:
 	rm -f ./test ./main ./debug
