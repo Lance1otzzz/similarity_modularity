@@ -152,5 +152,5 @@ void pure_louvain(Graph<Node> &g, double r)
     }
 
     // 打印最终模块度
-    std::cout << "Louvain Modularity = " << calcModularity(g, hg.nodes) << std::endl;
+    std::cout << "pure_louvain Modularity = " << calcModularity(g, hg.nodes) << std::endl;
 }

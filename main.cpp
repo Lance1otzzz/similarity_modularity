@@ -67,7 +67,7 @@ int main(int argc, char** argv)
 		auto startLouvainPure=timeNow();
 		pure_louvain(g,r);
 		auto endLouvainPure=timeNow();
-		cout<<"Leiden total time: "<<timeElapsed(startLouvainPure,endLouvainPure)<<endl;
+		cout<<"pure_louvain total time: "<<timeElapsed(startLouvainPure,endLouvainPure)<<endl;
 	}
 	return 0;
 }

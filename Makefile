@@ -4,7 +4,7 @@ CFLAGS = -O3 -Wall -Wno-sign-compare -Wextra -static-libstdc++
 DEBUGFLAGS = -g -Wall -Wno-sign-compare -static-libstdc++ -Ddebug
 
 # 定义数据集路径和参数
-DATASET = ./dataset/simple
+DATASET = ./dataset/cora
 RESOLUTION = 200
 
 all: main
