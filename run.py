@@ -34,7 +34,9 @@ def parse_output(output_str):
         'louvain_modularity': None,
         'louvain_time': None,
         'leiden_modularity': None,
-        'leiden_time': None
+        'leiden_time': None,
+        'pure_louvain_modularity': None,
+        'pure_louvain_time': None,
     }
     try:
         # Regex for Louvain
@@ -54,6 +56,14 @@ def parse_output(output_str):
         leiden_time_match = re.search(r"Leiden total time:\s*([\d.eE+-]+)", output_str)
         if leiden_time_match:
             results['leiden_time'] = float(leiden_time_match.group(1))
+
+        # Regex for Pure Louvain
+        pure_louvain_mod_match = re.search(r"pure_louvain Modularity\s*=\s*([\d.eE+-]+)", output_str)
+        if pure_louvain_mod_match:
+            results['pure_louvain_modularity'] = float(pure_louvain_mod_match.group(1))
+        pure_louvain_time_match = re.search(r"pure_louvain total time:\s*([\d.eE+-]+)", output_str)
+        if pure_louvain_time_match:
+            results['pure_louvain_time'] = float(pure_louvain_time_match.group(1))
 
     except Exception as e:
         print(f"Error parsing output: {e}")

@@ -131,7 +131,7 @@ if __name__ == "__main__":
         exit()
 
     # 检查必需的列是否存在
-    required_columns = ['dataset', 'resolution', 'status', 'louvain_modularity', 'louvain_time', 'leiden_modularity', 'leiden_time']
+    required_columns = ['dataset', 'resolution', 'status', 'louvain_modularity', 'louvain_time', 'leiden_modularity', 'leiden_time','pure_louvain_modularity', 'pure_louvain_time',]
     if not all(col in df.columns for col in required_columns):
         print(f"Error: CSV file must contain columns: {required_columns}")
         exit()
