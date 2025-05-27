@@ -4,7 +4,7 @@ CFLAGS = -O3 -Wall -Wno-sign-compare -Wextra -static-libstdc++
 DEBUGFLAGS = -g -Wall -Wno-sign-compare -static-libstdc++ -Ddebug
 
 # 定义数据集路径和参数
-DATASET = ./dataset/cora
+DATASET = ./dataset/CiteSeer
 RESOLUTION = 200
 
 all: main
@@ -25,6 +25,12 @@ leiden: main
 	./main 11 $(DATASET) $(RESOLUTION)
 
 simple: louvain
+
+compare_r:
+	@echo "\nRunning pure-louvain Alg.($(DATASET),r=$(RESOLUTION)):"
+	@./main 20 $(DATASET) $(RESOLUTION)
+	@echo "Running Louvain Alg.($(DATASET),r=$(RESOLUTION)):"
+	@./main 10 $(DATASET) $(RESOLUTION)
 
 
 compare: main
