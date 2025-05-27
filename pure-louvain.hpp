@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <unordered_map>
 #include <unordered_set>
+#include <cmath>
 
 // 去掉了针对 r 的所有距离相关逻辑，仅保留必要的社区划分流程。
 // 可以保留原函数签名中的参数 r，或根据需要删除。
@@ -30,7 +31,7 @@ void pure_louvain(Graph<Node> &g, double r)
     bool improvement = true;
     while (improvement)
     {
-        // communityDegreeSum[i]: 第 i 个社区的总“度”(即超点连接权重总和)
+        // communityDegreeSum[i]: 第 i 个社区的总"度"(即超点连接权重总和)
         std::vector<long long> communityDegreeSum(hg.degree);
         improvement = false;
 
@@ -96,7 +97,7 @@ void pure_louvain(Graph<Node> &g, double r)
 #ifdef debug
         std::cerr << "phase2" << std::endl;
 #endif
-        // Phase 2: 将当前社区结构“折叠”成新的节点，形成新的超点图
+        // Phase 2: 将当前社区结构"折叠"成新的节点，形成新的超点图
         std::vector<std::vector<int>> newNode;
         std::vector<int> idToNewid(hg.n);
         int numNew = 0;
@@ -150,6 +151,64 @@ void pure_louvain(Graph<Node> &g, double r)
         newhg.nodes = std::move(newNode);
         hg = std::move(newhg);
     }
+
+    // 计算每个社区中的最大两点间距离
+    std::cout << "========== Community Max Distance Analysis ==========" << std::endl;
+    std::vector<double> communityMaxDistances;
+    
+    for (int comm = 0; comm < hg.n; ++comm) 
+    {
+        const std::vector<int>& nodesInCommunity = hg.nodes[comm];
+        double maxDistance = 0.0;
+        int maxPair1 = -1, maxPair2 = -1;
+        
+        // 计算社区内所有节点对之间的距离，找到最大值
+        for (int i = 0; i < nodesInCommunity.size(); ++i) 
+        {
+            for (int j = i + 1; j < nodesInCommunity.size(); ++j) 
+            {
+                int nodeA = nodesInCommunity[i];
+                int nodeB = nodesInCommunity[j];
+                double distance = sqrt(calcDisSqr(g.nodes[nodeA], g.nodes[nodeB]));
+                
+                if (distance > maxDistance) 
+                {
+                    maxDistance = distance;
+                    maxPair1 = nodeA;
+                    maxPair2 = nodeB;
+                }
+            }
+        }
+        
+        communityMaxDistances.push_back(maxDistance);
+        
+        // 输出每个社区的信息
+        std::cout << "Community " << comm << ": " 
+                  << nodesInCommunity.size() << " nodes, "
+                  << "Max distance = " << maxDistance;
+        if (maxPair1 != -1) 
+        {
+            std::cout << " (between nodes " << maxPair1 << " and " << maxPair2 << ")";
+        }
+        std::cout << std::endl;
+    }
+    
+    // 计算并输出统计信息
+        double avgMaxDistance = 0.0;
+        double globalMaxDistance = 0.0;
+        for (double dist : communityMaxDistances) 
+        {
+            avgMaxDistance += dist;
+            globalMaxDistance = std::max(globalMaxDistance, dist);
+        }
+        avgMaxDistance /= communityMaxDistances.size();
+        
+        std::cout << "---------- Summary ----------" << std::endl;
+        std::cout << "Total communities: " << communityMaxDistances.size() << std::endl;
+        std::cout << "Average max distance per community: " << avgMaxDistance << std::endl;
+        std::cout << "Global maximum distance: " << globalMaxDistance << std::endl;
+    
+    std::cout << "=================================================" << std::endl;
 
     // 打印最终模块度
     std::cout << "pure_louvain Modularity = " << calcModularity(g, hg.nodes) << std::endl;
