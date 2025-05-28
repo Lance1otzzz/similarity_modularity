@@ -3,6 +3,7 @@
 #include <vector>
 #include <iostream>
 #include <chrono>
+#include <random>
 
 inline std::chrono::high_resolution_clock::time_point timeNow(){return std::chrono::high_resolution_clock::now();}
 inline double timeElapsed(std::chrono::high_resolution_clock::time_point start, std::chrono::high_resolution_clock::time_point end)
@@ -11,6 +12,8 @@ inline double timeElapsed(std::chrono::high_resolution_clock::time_point start, 
 }
 
 const double eps=1e-8;
+const size_t seed=19260817;
+std::mt19937 rng(seed);
 
 struct pair_hash 
 {
@@ -46,7 +49,9 @@ double normSqr(const std::vector<double> &x)
 
 std::vector<double> operator+(const std::vector<double>& a, const std::vector<double>& b) 
 {
-    assert(a.size() == b.size());
+	if (a.size() != b.size()) {
+		throw std::invalid_argument("Size mismatch: a.size() != b.size()");
+	}
     std::vector<double> result(a.size());
     for (size_t i = 0; i < a.size(); ++i)
         result[i] = a[i] + b[i];
@@ -54,7 +59,9 @@ std::vector<double> operator+(const std::vector<double>& a, const std::vector<do
 }
 
 std::vector<double>& operator+=(std::vector<double>& a, const std::vector<double>& b) {
-    assert(a.size() == b.size());
+    if (a.size() != b.size()) {
+		throw std::invalid_argument("Size mismatch: a.size() != b.size()");
+	}
     for (size_t i = 0; i < a.size(); ++i)
         a[i] += b[i];
     return a;
@@ -62,7 +69,9 @@ std::vector<double>& operator+=(std::vector<double>& a, const std::vector<double
 
 std::vector<double> operator-(const std::vector<double>& a, const std::vector<double>& b) 
 {
-    assert(a.size() == b.size());
+    if (a.size() != b.size()) {
+		throw std::invalid_argument("Size mismatch: a.size() != b.size()");
+	}
     std::vector<double> result(a.size());
     for (size_t i = 0; i < a.size(); ++i)
         result[i] = a[i] - b[i];
@@ -70,7 +79,9 @@ std::vector<double> operator-(const std::vector<double>& a, const std::vector<do
 }
 
 std::vector<double>& operator-=(std::vector<double>& a, const std::vector<double>& b) {
-    assert(a.size() == b.size());
+    if (a.size() != b.size()) {
+		throw std::invalid_argument("Size mismatch: a.size() != b.size()");
+	}
     for (size_t i = 0; i < a.size(); ++i)
         a[i] -= b[i];
     return a;

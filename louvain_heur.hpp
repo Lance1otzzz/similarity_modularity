@@ -11,6 +11,7 @@ void louvain_heur(Graph<Node> &g, double r)
 {
 	double rr=r*r;
 	double mm=g.m;
+	const double ref_attr_sqr=estimateAvgAttrDistanceSqr(g);
 
     std::vector<int> communityAssignments(g.n);  // stores the community of each hypernode
     for (int i=0;i<g.n;++i) communityAssignments[i]=i; // Initialize: each hypernode is its own community
@@ -37,7 +38,7 @@ void louvain_heur(Graph<Node> &g, double r)
 			imp=false;
 			for (int u=0;u<hg.n;++u) // The u-th hypernode
 			{
-				double bestDelta_Q=0;// if not move
+				//double bestDelta_Q=0;// if not move
 				double bestScore=0;
 				int cu=communityAssignments[u];
 				int bestCommunity=cu;
@@ -54,16 +55,21 @@ void louvain_heur(Graph<Node> &g, double r)
 				// Find the community that gives the best modularity gain
 				double delta_Q_static=-uToCom[cu]/mm+(double)uDegreeSum*(communityDegreeSum[cu]-uDegreeSum)/mm/mm/2;
 				double delta_WCSS_leave=-normSqr(communityAttrSum[cu]-hg.attrSum[u])/(community[cu].size()-1)
-					+normSqr(communityAttrSum[cu])/community[cu].size();
+					+normSqr(communityAttrSum[cu])/community[cu].size(); // omit \sum||x||^2 because WCSS_leave and WCSS_add will add as 0
+//std::cout<<normSqr(communityAttrSum[cu]-hg.attrSum[u])<<' '<<community[cu].size()<<std::endl;
+				if (community[cu].size()==1) delta_WCSS_leave=0;
 				for (auto &c:uToCom) //id,value
 				{
 					double delta_Q_=(c.second-(double)uDegreeSum*communityDegreeSum[c.first]/mm/2)/mm;
 					double delta_Q=delta_Q_static+delta_Q_;
 					double delta_WCSS_add=-normSqr(communityAttrSum[c.first]+hg.attrSum[u])/(community[c.first].size()+1)
-						+normSqr(communityAttrsum[c.first])/community[c.first].size();
+						+normSqr(communityAttrSum[c.first])/community[c.first].size();
 					double delta_WCSS=delta_WCSS_leave+delta_WCSS_add;
-const double lambda=1; //for test. To be deleted!!!!!!!!!!!!
-					double score=delta_Q+lambda*delta_WCSS;///???
+					double delta_WCSS_norm=delta_WCSS/ref_attr_sqr;
+const double lambda=0.01; //for test. To be deleted!!!!!!!!!!!!
+					double score=(1-lambda)*delta_Q*g.m+lambda*delta_WCSS_norm;///!!!!!!!! READ & UNDERSTAND
+//std::cout<<"WCSSleave="<<delta_WCSS_leave<<" WCSSadd="<<delta_WCSS_add<<std::endl;
+//std::cout<<"score="<<score<<" bestScore="<<bestScore<<std::endl;
 					if (score>bestScore) 
 					{
 						bool sim=true;
@@ -90,7 +96,7 @@ const double lambda=1; //for test. To be deleted!!!!!!!!!!!!
 				}
 
 				// If moving to a new community improves the modularity, assign the best community to node u
-				if (bestCommunity != communityAssignments[u] && bestDelta_Q>eps) 
+				if (bestCommunity != communityAssignments[u] && bestScore>eps) 
 				{
 #ifdef debug
 					std::cerr<<bestCommunity<<' '<<bestDelta_Q<<std::endl;
@@ -128,13 +134,13 @@ const double lambda=1; //for test. To be deleted!!!!!!!!!!!!
 					merged.insert(merged.end(),hg.nodes[hnode].begin(),hg.nodes[hnode].end());
 				}
 				newNode.push_back(std::move(merged));
-				newAttrSum.push_back(std::move(communityAttrSum[i]);
+				newAttrSum.push_back(std::move(communityAttrSum[i]));
 				numNew++;
 			}
 		}
 
 		// initialize community, communityAssignments & Hypernode
-		Graph<std::vector<int>> newhg(numNew,newAttrSum);
+		Graph<std::vector<int>> newhg(numNew,std::move(newAttrSum));
 		std::unordered_map<std::pair<int,int>,int,pair_hash> toAdd;
 		for (int u=0;u<hg.n;u++)
 		{

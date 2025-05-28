@@ -322,6 +322,31 @@ struct Graph<Node>:public GraphBase<Node>
 	}
 };
 
+double estimateAvgAttrDistanceSqr(const Graph<Node>& g, int sample=1000) 
+{
+	if (g.n<100)
+	{
+		if (g.n<2) throw std::invalid_argument("too small graph");
+		int cnt=0;
+		double sum=0;
+		for (int u=0;u<g.n;u++)
+			for (int v=u+1;v<g.n;v++)
+			{
+				sum+=normSqr(g.nodes[u].attributes-g.nodes[v].attributes);
+				cnt++;
+			}
+		return sum/cnt;
+	}
+    std::uniform_int_distribution<int> dist(0,g.n-1);
+    double sum=0;
+    for (int i=0;i<sample;i++) 
+	{
+        int u=dist(rng),v=dist(rng);
+        sum+=normSqr(g.nodes[u].attributes-g.nodes[v].attributes);
+    }
+    return sum/sample;
+}
+
 template<>
 struct Graph<std::vector<int>>:public GraphBase<std::vector<int>>
 {
@@ -336,7 +361,7 @@ struct Graph<std::vector<int>>:public GraphBase<std::vector<int>>
 		nodes.resize(n);
 		edges=other.edges;
 		attrSum.resize(n);
-		for (int i=0;i<n;i++) attrSum=nodes[i].attributes;
+		for (int i=0;i<n;i++) attrSum[i]=other.nodes[i].attributes;
 		//degreeSum=other.degree;
 		for (int i=0;i<n;i++) nodes[i].push_back(i);
 	}
@@ -344,7 +369,7 @@ struct Graph<std::vector<int>>:public GraphBase<std::vector<int>>
 
 	Graph(Graph<std::vector<int>> &&other):GraphBase<std::vector<int>>(std::move(other)){}
 
-	explicit Graph(int num,Graph<std::vector<double>> &&otherattrSum)
+	explicit Graph(int num,std::vector<std::vector<double>> &&otherattrSum)
 		:GraphBase::GraphBase(num),attrSum(std::move(otherattrSum)){}
 
 	~Graph(){}
