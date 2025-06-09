@@ -13,6 +13,8 @@
 // 这里保留 r，而并未在函数体中使用，以示兼容。
 void pure_louvain(Graph<Node> &g, double r)
 {
+
+		auto startLouvainPure=timeNow();
     double mm = g.m;  // 图中边权和，用于模块度计算
 
     // 初始化：一开始每个超点（hypernode）都在自己的社区中
@@ -193,6 +195,9 @@ void pure_louvain(Graph<Node> &g, double r)
         std::cout << std::endl;
     }
     
+		auto endLouvainPure=timeNow();
+    std::cout<<"pure_louvain total time: "<<timeElapsed(startLouvainPure,endLouvainPure)<<std::endl;
+
     // 计算并输出统计信息
         double avgMaxDistance = 0.0;
         double globalMaxDistance = 0.0;
