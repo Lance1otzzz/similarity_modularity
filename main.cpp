@@ -3,7 +3,7 @@
 #include "louvain.hpp"
 #include "leiden.hpp"
 #include "louvain_heur.hpp"
-#include "pure-louvain.hpp"
+#include "pure_louvain.hpp"
 #include <iostream>
 #include <chrono>
 using namespace std;

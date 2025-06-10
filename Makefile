@@ -27,7 +27,7 @@ leiden: main
 simple: louvain
 
 compare_r:
-	@echo "\nRunning pure-louvain Alg.($(DATASET),r=$(RESOLUTION)):"
+	@echo "\nRunning pure_louvain Alg.($(DATASET),r=$(RESOLUTION)):"
 	@./main 20 $(DATASET) $(RESOLUTION)
 	@echo "Running Louvain Alg.($(DATASET),r=$(RESOLUTION)):"
 	@./main 10 $(DATASET) $(RESOLUTION)
@@ -38,7 +38,7 @@ compare: main
 	@./main 10 $(DATASET) $(RESOLUTION)
 	@echo "\nRunning Leiden Alg.($(DATASET),r=$(RESOLUTION)):"
 	@./main 11 $(DATASET) $(RESOLUTION)
-	@echo "\nRunning pure-louvain Alg.($(DATASET)):"
+	@echo "\nRunning pure_louvain Alg.($(DATASET)):"
 	@./main 20 $(DATASET) $(RESOLUTION)
 
 
