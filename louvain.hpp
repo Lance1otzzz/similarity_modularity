@@ -12,19 +12,24 @@ void louvain(Graph<Node> &g, double r)
 	double rr=r*r;
 	double mm=g.m;
 
-    std::vector<int> communityAssignments(g.n);  // stores the community of each hypernode
-    for (int i=0;i<g.n;++i) communityAssignments[i]=i; // Initialize: each hypernode is its own community
+	std::vector<int> communityAssignments(g.n);  // stores the community of each hypernode
+	for (int i=0;i<g.n;++i) communityAssignments[i]=i; // Initialize: each hypernode is its own community
 	
 	std::vector<std::unordered_set<int>> community(g.n); // the community contains which hypernodes
 	for (int i=0;i<g.n;i++) community[i].insert(i);
 
 	Graph<std::vector<int>> hg(g); //hypernode graph
 
-    bool improvement=true;
-    while (improvement) 
+	int cnt_it=0;
+	bool improvement=true;
+	auto startfirst=timeNow();
+	while (improvement) 
 	{
+		cnt_it++;
+
+
 		std::vector<long long> communityDegreeSum(hg.degree); // The degree sum of every node in community (not just degree of hypernodes)
-        improvement=false;
+		improvement=false;
 
 #ifdef debug
 		std::cerr<<"phase1"<<std::endl;
@@ -94,8 +99,12 @@ void louvain(Graph<Node> &g, double r)
 					improvement = true;
 				}
 			}
-        }
+		}
 
+		if (cnt_it==1) {
+			auto endPhase1=timeNow();
+			std::cout<<"louvain first iteration phase 1: "<<timeElapsed(startfirst,endPhase1)<<std::endl;
+		}
         // Phase 2: Create a new graph
 #ifdef debug
 		std::cerr<<"phase2"<<std::endl;
@@ -146,7 +155,12 @@ void louvain(Graph<Node> &g, double r)
 		}
 		newhg.nodes=std::move(newNode);
 		hg=std::move(newhg);
+		if (cnt_it==1) {
+			auto endfirst=timeNow();
+			std::cout<<"louvain first iteration: "<<timeElapsed(startfirst,endfirst)<<std::endl;
+		}
 	}
+	std::cout<<"totally "<<cnt_it<<" iterations"<<std::endl;
 
 	std::cout<<"Louvain Modularity = "<<calcModularity(g,hg.nodes)<<std::endl;
 }

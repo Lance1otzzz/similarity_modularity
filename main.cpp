@@ -3,7 +3,7 @@
 #include "louvain.hpp"
 #include "leiden.hpp"
 #include "louvain_heur.hpp"
-#include "pure-louvain.hpp"
+#include "pure_louvain.hpp"
 #include <iostream>
 #include <chrono>
 using namespace std;
@@ -64,10 +64,11 @@ int main(int argc, char** argv)
 	else if (algorithm==20)
 	{
 		cout<<"start pure Louvain"<<endl;
-		auto startLouvainPure=timeNow();
+		//TIME COUNT is contained in the function
+		//auto startLouvainPure=timeNow();
 		pure_louvain(g,r);
-		auto endLouvainPure=timeNow();
-		cout<<"pure_louvain total time: "<<timeElapsed(startLouvainPure,endLouvainPure)<<endl;
+		//auto endLouvainPure=timeNow();
+		//cout<<"pure_louvain total time: "<<timeElapsed(startLouvainPure,endLouvainPure)<<endl;
 	}
 	return 0;
 }
