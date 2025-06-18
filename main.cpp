@@ -6,6 +6,8 @@
 #include "pure_louvain.hpp"
 #include <iostream>
 #include <chrono>
+
+#include "test_trial.hpp"
 using namespace std;
 
 
@@ -69,6 +71,11 @@ int main(int argc, char** argv)
 		pure_louvain(g,r);
 		//auto endLouvainPure=timeNow();
 		//cout<<"pure_louvain total time: "<<timeElapsed(startLouvainPure,endLouvainPure)<<endl;
+	}
+	else if (algorithm==114514)
+	{
+		cout<<"start louvain trial"<<endl;
+		louvain_trial(g,r);
 	}
 	return 0;
 }
