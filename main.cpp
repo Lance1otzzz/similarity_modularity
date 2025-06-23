@@ -17,7 +17,7 @@ using namespace std;
 	algorithm 10: louvain
 	algorithm 11: leiden
 	algorithm 20: louvain_pure
-
+    algorithm 114514: try and test sth
 */
 int main(int argc, char** argv)
 {
@@ -33,10 +33,13 @@ int main(int argc, char** argv)
 	int algorithm=atoi(argv[1]);
 	cout<<"algorithm: "<<algorithm<<endl;
 	Graph<Node> g;
-	double r=atoi(argv[3]);
+	double r=std::stod(argv[3]);
+    cout<<"r is "<<r<<endl;
+    cout<<"the graph is in "<<argv[2]<<endl;
 	auto startLoadingGraph=timeNow();
 	g.loadGraph(argv[2],r);
 	auto endLoadingGraph=timeNow();
+    cout<<"there are "<<g.n<<" nodes and "<<g.m<<" edges"<<endl;
 	cout<<"LoadGraph time: "<<timeElapsed(startLoadingGraph,endLoadingGraph)<<endl;
 	if (algorithm==9)
 	{

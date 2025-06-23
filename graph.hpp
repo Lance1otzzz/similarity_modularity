@@ -6,7 +6,6 @@
 #include <vector>
 #include <string>
 #include <sstream>
-#include <unordered_map>
 #include <unordered_set>
 #include <cmath>
 
@@ -178,7 +177,11 @@ struct GraphBase
 };
 
 template<typename NodeType>
-struct Graph:public GraphBase<NodeType>{};
+struct Graph:public GraphBase<NodeType>{
+    void loadGraph(...) {
+        static_assert(sizeof(NodeType) == 0, "Wrong Graph<T> type instantiated!");
+    }
+};
 
 template<>
 struct Graph<Node>:public GraphBase<Node>
@@ -193,7 +196,9 @@ struct Graph<Node>:public GraphBase<Node>
 
 	void readNodes(const std::string &filename)
 	{
+        std::cout<<"reading nodes from "<<filename<<std::endl;
 		std::ifstream file(filename);
+
 		if (!file.is_open()) 
 		{
 			std::cerr << "Error: Failed to open node file " << filename << std::endl;
@@ -267,12 +272,15 @@ struct Graph<Node>:public GraphBase<Node>
 	// Load graph data from files
 	void loadGraph(const std::string &folder, const double &r) 
 	{
+        std::cout<<"loading graph"<<std::endl;
 		nodes.clear();
 		edges.clear();
 		n=0;m=0;
 
 		std::string base = ensureFolderSeparator(folder);
+        std::cout<<"start readNodes"<<std::endl;
 		readNodes(base + "nodes.txt");
+        std::cout<<"start readEdges"<<std::endl;
 		readEdges(base + "edges.txt",r);
 	}
 

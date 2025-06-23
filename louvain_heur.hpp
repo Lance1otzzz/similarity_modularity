@@ -3,7 +3,6 @@
 #include "graph.hpp"
 #include "defines.hpp"
 #include <vector>
-#include <algorithm>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -48,6 +47,8 @@ void louvain_heur(Graph<Node> &g, double r)
 				long long uDegreeSum=hg.degree[u];// just normal degree
 				for (const Edge& edge:hg.edges[u]) 
 				{
+//                    if (calcDisSqr(g.nodes[edge.u],g.nodes[edge.v])>rr) continue;// if the distance of two nodes are greater than r, no need to test
+// only a small ratio of edges need to be calculated (best score ones), so no need to check now
 					int cv=communityAssignments[edge.v];
 					uToCom[cv]+=edge.w;
 				}
@@ -99,7 +100,7 @@ const double lambda=0.01; //for test. To be deleted!!!!!!!!!!!!
 				if (bestCommunity != communityAssignments[u] && bestScore>eps) 
 				{
 #ifdef debug
-					std::cerr<<bestCommunity<<' '<<bestDelta_Q<<std::endl;
+					//std::cerr<<bestCommunity<<' '<<bestDelta_Q<<std::endl;
 #endif
 					community[communityAssignments[u]].erase(u);
 					communityDegreeSum[cu]-=hg.degree[u];

@@ -3,7 +3,6 @@
 #include "graph.hpp"
 #include "defines.hpp"
 #include <vector>
-#include <algorithm>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -32,7 +31,7 @@ void louvain(Graph<Node> &g, double r)
 		improvement=false;
 
 #ifdef debug
-		std::cerr<<"phase1"<<std::endl;
+		//std::cerr<<"phase1"<<std::endl;
 #endif
         // Phase 1: Optimize modularity by moving nodes
 		bool imp=true; // imp for phase 1
@@ -50,6 +49,8 @@ void louvain(Graph<Node> &g, double r)
 				long long uDegreeSum=hg.degree[u];// just normal degree
 				for (const Edge& edge:hg.edges[u]) 
 				{
+//                    if (calcDisSqr(g.nodes[edge.u],g.nodes[edge.v])>rr) continue;// if the distance of two nodes are greater than r, no need to test
+// only a small ratio of edges need to be calculated (best score ones), so no need to check now
 					int cv=communityAssignments[edge.v];
 					uToCom[cv]+=edge.w;
 				}
@@ -88,7 +89,7 @@ void louvain(Graph<Node> &g, double r)
 				if (bestCommunity != communityAssignments[u] && bestDelta_Q>eps) 
 				{
 #ifdef debug
-					std::cerr<<bestCommunity<<' '<<bestDelta_Q<<std::endl;
+					//std::cerr<<bestCommunity<<' '<<bestDelta_Q<<std::endl;
 #endif
 					community[communityAssignments[u]].erase(u);
 					communityDegreeSum[cu]-=hg.degree[u];
@@ -107,7 +108,7 @@ void louvain(Graph<Node> &g, double r)
 		}
         // Phase 2: Create a new graph
 #ifdef debug
-		std::cerr<<"phase2"<<std::endl;
+		//std::cerr<<"phase2"<<std::endl;
 #endif
 
 		std::vector<std::vector<int>> newNode;
