@@ -2,6 +2,7 @@
 
 #include "graph.hpp"
 #include "defines.hpp"
+#include <algorithm>
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
@@ -43,7 +44,7 @@ void louvain_heur(Graph<Node> &g, double r)
 				int bestCommunity=cu;
 				
 				// Try to move the node to a neighboring community
-				std::unordered_map<int,long long> uToCom;
+				std::unordered_map<int,long long> uToCom;//first: id; second: from i to com degree
 				long long uDegreeSum=hg.degree[u];// just normal degree
 				for (const Edge& edge:hg.edges[u]) 
 				{
@@ -59,6 +60,8 @@ void louvain_heur(Graph<Node> &g, double r)
 					+normSqr(communityAttrSum[cu])/community[cu].size(); // omit \sum||x||^2 because WCSS_leave and WCSS_add will add as 0
 //std::cout<<normSqr(communityAttrSum[cu]-hg.attrSum[u])<<' '<<community[cu].size()<<std::endl;
 				if (community[cu].size()==1) delta_WCSS_leave=0;
+
+				std::vector<std::pair<double,int>> coms;//score,id
 				for (auto &c:uToCom) //id,value
 				{
 					double delta_Q_=(c.second-(double)uDegreeSum*communityDegreeSum[c.first]/mm/2)/mm;
@@ -67,32 +70,38 @@ void louvain_heur(Graph<Node> &g, double r)
 						+normSqr(communityAttrSum[c.first])/community[c.first].size();
 					double delta_WCSS=delta_WCSS_leave+delta_WCSS_add;
 					double delta_WCSS_norm=delta_WCSS/ref_attr_sqr;
-const double lambda=0.01; //for test. To be deleted!!!!!!!!!!!!
+const double lambda=0; //for test. To be deleted!!!!!!!!!!!!
 					double score=(1-lambda)*delta_Q*g.m+lambda*delta_WCSS_norm;///!!!!!!!! READ & UNDERSTAND
 //std::cout<<"WCSSleave="<<delta_WCSS_leave<<" WCSSadd="<<delta_WCSS_add<<std::endl;
 //std::cout<<"score="<<score<<" bestScore="<<bestScore<<std::endl;
-					if (score>bestScore) 
+					coms.push_back({score,c.first});
+				}
+
+				std::sort(coms.begin(),coms.end(),std::greater<std::pair<double,int>>());
+
+				for (auto &x:coms)
+				//for (size_t i=0;i<coms.size();i++)
+				{
+					//auto x=std::
+					bool sim=true;
+					for (auto uu:hg.nodes[u]) //uu: every node in the hypernode u
 					{
-						bool sim=true;
-						for (auto uu:hg.nodes[u]) //uu: every node in the hypernode u
+						for (auto hnodev:community[x.second]) //every hypernode in the community
 						{
-							for (auto hnodev:community[c.first]) //every hypernode in the community
+							for (auto vv:hg.nodes[hnodev]) if (calcDisSqr(g.nodes[uu],g.nodes[vv])>rr) 
 							{
-								for (auto vv:hg.nodes[hnodev]) if (calcDisSqr(g.nodes[uu],g.nodes[vv])>rr) 
-								{
-									sim=false;
-									break;
-								}
-								if (!sim) break;
+								sim=false;
+								break;
 							}
 							if (!sim) break;
 						}
-						if (sim)
-						{
-							bestScore=score;
-							//bestDelta_Q=delta_Q;
-							bestCommunity=c.first;
-						}
+						if (!sim) break;
+					}
+					if (sim)
+					{
+						bestScore=x.first;
+						bestCommunity=x.second;
+						break;
 					}
 				}
 

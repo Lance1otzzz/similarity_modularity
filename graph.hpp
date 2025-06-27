@@ -45,71 +45,6 @@ double calcDisSqr(const Node &x, const Node &y)
 	return res;
 }
 
-struct Hypersphere{
-	Node center; // id=-1; 
-	double r;
-	Hypersphere(){}
-	Hypersphere(const Hypersphere &H)
-	{
-		r=H.r;
-		center=H.center;
-	}
-	Hypersphere(Hypersphere &&H)
-	{
-		r=H.r;
-		center=std::move(H.center);
-	}
-	Hypersphere(const Node &C,const double &R)
-	{
-		center=C;
-		r=R;
-	}
-	Hypersphere(Node &&C, const double &R)
-	{
-		center=std::move(C);
-		r=R;
-	}
-	void printHypersphere()
-	{
-		std::cout<<"Hypersphere:center point:"<<std::endl;
-		center.printNode();
-		std::cout<<"r="<<r<<"\nend printing Hypersphere"<<std::endl;
-	}
-};
-
-Hypersphere calcHypersphere(std::vector<Node> points)
-{
-	/// IF the points are in a same hyperplane!!!!!!!!!!!!!!!!!!!
-	int dimension=points[0].attributes.size();
-	if (points.size()!=dimension+1) 
-	{
-		std::cerr<<"cannot calculate hypershphere because the dimension and the number of points does not match"<<std::endl;
-		throw std::invalid_argument("Dimension mismatch");
-	}
-
-	Matrix equations(dimension,dimension+1);
-	for (int i=1;i<=dimension;i++) // i-th - 1st
-	{
-		for (int j=0;j<dimension;j++) 
-			equations.a[i-1][dimension]+=sqr(points[0].attributes[j])-sqr(points[i].attributes[j]);
-		for (int j=0;j<dimension;j++)
-			equations.a[i-1][j]=2*(points[i].attributes[j]-points[0].attributes[j]);
-	}
-	if (!equations.gauss())
-	{
-		std::cerr<<"gauss err"<<std::endl;
-		throw std::invalid_argument("Gauss Error");
-	}
-	std::vector<double> ans(dimension);
-	for (int i=0;i<dimension;i++) ans[i]=equations.a[i][dimension];
-	Node center(-1,std::move(ans));
-	double r=0;
-	for (int i=0;i<dimension;i++) r+=sqr(points[0].attributes[i]-center.attributes[i]);
-	r=sqrt(r);
-	Hypersphere res(std::move(center),r);
-	return res;
-}
-
 struct Edge { // 0-based index
 	int u, v, w;
 	Edge(int u_,int v_):u(u_),v(v_),w(1){}
@@ -177,16 +112,13 @@ struct GraphBase
 };
 
 template<typename NodeType>
-struct Graph:public GraphBase<NodeType>{
-    void loadGraph(...) {
-        static_assert(sizeof(NodeType) == 0, "Wrong Graph<T> type instantiated!");
-    }
-};
+struct Graph:public GraphBase<NodeType>{};
 
 template<>
 struct Graph<Node>:public GraphBase<Node>
 {
 	int attnum=0;
+	//std::unordered_map<std::pair<int,int>,double,pair_hash> saved_dis;
 	using GraphBase::GraphBase;
 	Graph(const Graph<Node> &other):GraphBase<Node>(other),attnum(other.attnum){}
 
@@ -439,3 +371,73 @@ inline double calcModularity(const Graph<Node> &g, const std::vector<std::vector
 
 	return res;
 }
+
+
+
+// no use now. for minimum fu4gai4 hypersphere
+struct Hypersphere{
+	Node center; // id=-1; 
+	double r;
+	Hypersphere(){}
+	Hypersphere(const Hypersphere &H)
+	{
+		r=H.r;
+		center=H.center;
+	}
+	Hypersphere(Hypersphere &&H)
+	{
+		r=H.r;
+		center=std::move(H.center);
+	}
+	Hypersphere(const Node &C,const double &R)
+	{
+		center=C;
+		r=R;
+	}
+	Hypersphere(Node &&C, const double &R)
+	{
+		center=std::move(C);
+		r=R;
+	}
+	void printHypersphere()
+	{
+		std::cout<<"Hypersphere:center point:"<<std::endl;
+		center.printNode();
+		std::cout<<"r="<<r<<"\nend printing Hypersphere"<<std::endl;
+	}
+};
+
+Hypersphere calcHypersphere(std::vector<Node> points)
+{
+	/// IF the points are in a same hyperplane!!!!!!!!!!!!!!!!!!!
+	int dimension=points[0].attributes.size();
+	if (points.size()!=dimension+1) 
+	{
+		std::cerr<<"cannot calculate hypershphere because the dimension and the number of points does not match"<<std::endl;
+		throw std::invalid_argument("Dimension mismatch");
+	}
+
+	Matrix equations(dimension,dimension+1);
+	for (int i=1;i<=dimension;i++) // i-th - 1st
+	{
+		for (int j=0;j<dimension;j++) 
+			equations.a[i-1][dimension]+=sqr(points[0].attributes[j])-sqr(points[i].attributes[j]);
+		for (int j=0;j<dimension;j++)
+			equations.a[i-1][j]=2*(points[i].attributes[j]-points[0].attributes[j]);
+	}
+	if (!equations.gauss())
+	{
+		std::cerr<<"gauss err"<<std::endl;
+		throw std::invalid_argument("Gauss Error");
+	}
+	std::vector<double> ans(dimension);
+	for (int i=0;i<dimension;i++) ans[i]=equations.a[i][dimension];
+	Node center(-1,std::move(ans));
+	double r=0;
+	for (int i=0;i<dimension;i++) r+=sqr(points[0].attributes[i]-center.attributes[i]);
+	r=sqrt(r);
+	Hypersphere res(std::move(center),r);
+	return res;
+}
+
+
