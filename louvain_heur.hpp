@@ -66,23 +66,26 @@ void louvain_heur(Graph<Node> &g, double r)
 				{
 					double delta_Q_=(c.second-(double)uDegreeSum*communityDegreeSum[c.first]/mm/2)/mm;
 					double delta_Q=delta_Q_static+delta_Q_;
-					double delta_WCSS_add=-normSqr(communityAttrSum[c.first]+hg.attrSum[u])/(community[c.first].size()+1)
-						+normSqr(communityAttrSum[c.first])/community[c.first].size();
+					double delta_WCSS_add=0;////test time, temporarily not calculating
+						//-normSqr(communityAttrSum[c.first]+hg.attrSum[u])/(community[c.first].size()+1)
+						//+normSqr(communityAttrSum[c.first])/community[c.first].size();
 					double delta_WCSS=delta_WCSS_leave+delta_WCSS_add;
 					double delta_WCSS_norm=delta_WCSS/ref_attr_sqr;
 const double lambda=0; //for test. To be deleted!!!!!!!!!!!!
 					double score=(1-lambda)*delta_Q*g.m+lambda*delta_WCSS_norm;///!!!!!!!! READ & UNDERSTAND
 //std::cout<<"WCSSleave="<<delta_WCSS_leave<<" WCSSadd="<<delta_WCSS_add<<std::endl;
 //std::cout<<"score="<<score<<" bestScore="<<bestScore<<std::endl;
-					coms.push_back({score,c.first});
+					if (score>eps) coms.push_back({score,c.first});
 				}
 
-				std::sort(coms.begin(),coms.end(),std::greater<std::pair<double,int>>());
+				//std::sort(coms.begin(),coms.end(),std::greater<std::pair<double,int>>());
+				std::make_heap(coms.begin(),coms.end());
 
-				for (auto &x:coms)
+				//for (auto &x:coms)
 				//for (size_t i=0;i<coms.size();i++)
+				while (!coms.empty())
 				{
-					//auto x=std::
+					auto x=coms.front();
 					bool sim=true;
 					for (auto uu:hg.nodes[u]) //uu: every node in the hypernode u
 					{
@@ -102,6 +105,11 @@ const double lambda=0; //for test. To be deleted!!!!!!!!!!!!
 						bestScore=x.first;
 						bestCommunity=x.second;
 						break;
+					}
+					else
+					{
+						std::pop_heap(coms.begin(),coms.end());
+						coms.pop_back();
 					}
 				}
 
