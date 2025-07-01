@@ -47,8 +47,10 @@ double calcDisSqr(const Node &x, const Node &y)
 
 struct Edge { // 0-based index
 	int u, v, w;
-	Edge(int u_,int v_):u(u_),v(v_),w(1){}
-	Edge(int u_,int v_,int w_):u(u_),v(v_),w(w_){}
+	bool flag;
+	//Edge(int u_,int v_):u(u_),v(v_),w(1),tag(false){}
+	Edge(int u_,int v_,int w_):u(u_),v(v_),w(w_),flag(false){}
+	Edge(int u_,int v_,int w_,bool flag_):u(u_),v(v_),w(w_),flag(flag_){}
 };
 
 template<typename NodeType>
@@ -109,6 +111,17 @@ struct GraphBase
 		}
 		degree[u]+=w;
 	}
+	void addedge_loading(const int &u,const int &v,const bool &flag=false)
+	{
+		m++;
+		edges[u].emplace_back(u,v,1,flag);
+		if (u!=v) 
+		{
+			edges[v].emplace_back(v,u,1,flag);
+			degree[v]++;
+		}
+		degree[u]++;
+	}
 };
 
 template<typename NodeType>
@@ -168,7 +181,7 @@ struct Graph<Node>:public GraphBase<Node>
 	}
 	void readEdges(const std::string &filename, const double &r)
 	{
-		// double rr=r*r; 
+		double rr=r*r; 
 		std::ifstream file(filename.c_str());
 		if (!file.is_open()) 
 		{
@@ -188,9 +201,7 @@ struct Graph<Node>:public GraphBase<Node>
 							 << ") in line: " << line << std::endl;
 					throw std::invalid_argument("invalid edge");
 				}
-				// test if dont delete edges
-				// if (calcDisSqr(nodes[u],nodes[v])>rr) continue; // edges not meet the requirement dont counts m
-				addedge(u,v);
+				addedge_loading(u,v,calcDisSqr(nodes[u],nodes[v])>rr);
 			}
 			else 
 			{

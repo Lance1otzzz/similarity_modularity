@@ -21,16 +21,9 @@ void louvain_heur(Graph<Node> &g, double r)
 
 	Graph<std::vector<int>> hg(g); //hypernode graph
 
-
-	int cntCalDelta_Q=0,skipped=0;
-	int iteration=0;
-	int cntCheck=0,cntMove=0;
-
     bool improvement=true;
     while (improvement) 
 	{
-		iteration++;
-		int cntNeiCom=0,cntU=0;
 		std::vector<long long> communityDegreeSum(hg.degree); // The degree sum of every node in community (not just degree of hypernodes)
 
 		std::vector<std::vector<double>> communityAttrSum(hg.n);
@@ -45,7 +38,6 @@ void louvain_heur(Graph<Node> &g, double r)
 			imp=false;
 			for (int u=0;u<hg.n;++u) // The u-th hypernode
 			{
-				cntU++;
 				//double bestDelta_Q=0;// if not move
 				double bestScore=0;
 				int cu=communityAssignments[u];
@@ -56,53 +48,43 @@ void louvain_heur(Graph<Node> &g, double r)
 				long long uDegreeSum=hg.degree[u];// just normal degree
 				for (const Edge& edge:hg.edges[u]) 
 				{
+//                    if (calcDisSqr(g.nodes[edge.u],g.nodes[edge.v])>rr) continue;// if the distance of two nodes are greater than r, no need to test
+// only a small ratio of edges need to be calculated (best score ones), so no need to check now
 					int cv=communityAssignments[edge.v];
-					auto it=uToCom.find(cv);
-					if (it==uToCom.end()) uToCom[cv]=edge.flag?-1:edge.w;
-					else if (edge.flag) it->second=-1; 
-					else if (it->second!=-1) it->second+=edge.w;
+					uToCom[cv]+=edge.w;
 				}
-//!!!!!!!check if the uToCom is big,decide if using vector
 
 				// Find the community that gives the best modularity gain
 				double delta_Q_static=-uToCom[cu]/mm+(double)uDegreeSum*(communityDegreeSum[cu]-uDegreeSum)/mm/mm/2;
-				//double delta_WCSS_leave=-normSqr(communityAttrSum[cu]-hg.attrSum[u])/(community[cu].size()-1)
-				//	+normSqr(communityAttrSum[cu])/community[cu].size(); // omit \sum||x||^2 because WCSS_leave and WCSS_add will add as 0
+				double delta_WCSS_leave=-normSqr(communityAttrSum[cu]-hg.attrSum[u])/(community[cu].size()-1)
+					+normSqr(communityAttrSum[cu])/community[cu].size(); // omit \sum||x||^2 because WCSS_leave and WCSS_add will add as 0
 //std::cout<<normSqr(communityAttrSum[cu]-hg.attrSum[u])<<' '<<community[cu].size()<<std::endl;
-				//if (community[cu].size()==1) delta_WCSS_leave=0;
+				if (community[cu].size()==1) delta_WCSS_leave=0;
 
 				std::vector<std::pair<double,int>> coms;//score,id
 				for (auto &c:uToCom) //id,value
 				{
-					cntNeiCom++;
-					cntCalDelta_Q++;
-					if (c.second==-1) 
-					{
-						//how many?
-						skipped++;
-						continue;
-					}
 					double delta_Q_=(c.second-(double)uDegreeSum*communityDegreeSum[c.first]/mm/2)/mm;
 					double delta_Q=delta_Q_static+delta_Q_;
-					//double delta_WCSS_add=0;////test time, temporarily not calculating
+					double delta_WCSS_add=0;////test time, temporarily not calculating
 						//-normSqr(communityAttrSum[c.first]+hg.attrSum[u])/(community[c.first].size()+1)
 						//+normSqr(communityAttrSum[c.first])/community[c.first].size();
-					//double delta_WCSS=delta_WCSS_leave+delta_WCSS_add;
-					//double delta_WCSS_norm=delta_WCSS/ref_attr_sqr;
-//const double lambda=0; //for test. To be deleted!!!!!!!!!!!!
-					//double score=(1-lambda)*delta_Q*g.m+lambda*delta_WCSS_norm;///!!!!!!!! READ & UNDERSTAND
-					double score=delta_Q;
+					double delta_WCSS=delta_WCSS_leave+delta_WCSS_add;
+					double delta_WCSS_norm=delta_WCSS/ref_attr_sqr;
+const double lambda=0; //for test. To be deleted!!!!!!!!!!!!
+					double score=(1-lambda)*delta_Q*g.m+lambda*delta_WCSS_norm;///!!!!!!!! READ & UNDERSTAND
 //std::cout<<"WCSSleave="<<delta_WCSS_leave<<" WCSSadd="<<delta_WCSS_add<<std::endl;
 //std::cout<<"score="<<score<<" bestScore="<<bestScore<<std::endl;
-					if (score>eps) coms.emplace_back(score,c.first);
+					if (score>eps) coms.push_back({score,c.first});
 				}
 
+				//std::sort(coms.begin(),coms.end(),std::greater<std::pair<double,int>>());
 				std::make_heap(coms.begin(),coms.end());
 
-				cntMove++;
+				//for (auto &x:coms)
+				//for (size_t i=0;i<coms.size();i++)
 				while (!coms.empty())
 				{
-					cntCheck++;
 					auto x=coms.front();
 					bool sim=true;
 					for (auto uu:hg.nodes[u]) //uu: every node in the hypernode u
@@ -152,8 +134,6 @@ void louvain_heur(Graph<Node> &g, double r)
 				}
 			}
         }
-		std::cout<<"iteration "<<iteration<<std::endl;
-		std::cout<<"neighbor community average "<<(double)cntNeiCom/cntU<<" degree"<<std::endl;
 
         // Phase 2: Create a new graph
 		std::vector<std::vector<int>> newNode;
@@ -206,9 +186,6 @@ void louvain_heur(Graph<Node> &g, double r)
 		newhg.nodes=std::move(newNode);
 		hg=std::move(newhg);
 	}
-
-	std::cout<<"move time:"<<cntMove<<" check time:"<<cntCheck<<std::endl;
-	std::cout<<"calculated delta_Q: "<<cntCalDelta_Q<<" and skipped "<<skipped<<" times"<<std::endl;
 
 	std::cout<<"Louvain_heur Modularity = "<<calcModularity(g,hg.nodes)<<std::endl;
 }
