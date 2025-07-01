@@ -7,28 +7,26 @@
 #include <string>
 #include <sstream>
 #include <unordered_set>
-#include <limits>
 #include <cmath>
 
 // Node structure with generated ID and original attributes, not hypernode
 struct Node {
 	int id;
 	std::vector<double> attributes; // Contains ALL values from input line
-	double attrSqr,attrAbsSum,attrAbsMax,attrAbsMin;
-	bool negative;
+	double attrSqr;
 	// maybe some other attributes
-	Node():id(0),attrSqr(0),attrAbsSum(0),attrAbsMax(std::numeric_limits<double>::min()),attrAbsMin(std::numeric_limits<double>::max()),negative(false){}
-//	Node(const int &d):id(0),attrSqr(0)
-//	{
-//		attributes.resize(d);
-//	}
-//	Node(const int &ID,const std::vector<double> &A):id(ID),attributes(A),attrSqr(0)
-//	{
-//		for (const double &x:A) attrSqr+=sqr(x);
-//	}
-//	Node(const int &ID,std::vector<double> &&A):id(ID),attributes(std::move(A)),attrSqr(0){
-//		for (const double &x:A) attrSqr+=sqr(x);
-//	}
+	Node(){}
+	Node(const int &d):id(0),attrSqr(0)
+	{
+		attributes.resize(d);
+	}
+	Node(const int &ID,const std::vector<double> &A):id(ID),attributes(A),attrSqr(0)
+	{
+		for (const double &x:A) attrSqr+=sqr(x);
+	}
+	Node(const int &ID,std::vector<double> &&A):id(ID),attributes(std::move(A)),attrSqr(0){
+		for (const double &x:A) attrSqr+=sqr(x);
+	}
 	void printNode()
 	{
 		std::cout<<"Node id="<<id<<'\n';
@@ -39,37 +37,17 @@ struct Node {
 
 double calcDisSqr(const Node &x, const Node &y)
 {
-	double res=0;
+	double res=x.attrSqr+y.attrSqr;
 	//for (int i=0;i<x.attributes.size();i++)
 		//res+=sqr(x.attributes[i]-y.attributes[i]);
 	for (int i=0;i<x.attributes.size();i++)
-		res+=x.attributes[i]*y.attributes[i]; //this way can optimize a little
-	return x.attrSqr+y.attrSqr-2*res;
+		res-=2*x.attributes[i]*y.attributes[i];
+	return res;
 }
 
 double calcDis(const Node &x, const Node &y)
 {
 	return std::sqrt(calcDisSqr(x,y));
-}
-
-bool checkDisSqr(const Node &x,const Node &y,const double &rr) // true for fail
-{
-	double sumAttrSqr=x.attrSqr+y.attrSqr;
-	double xyUpperBound=std::min(x.attrAbsSum*y.attrAbsMax,y.attrAbsSum*x.attrAbsMax);
-	if (!x.negative&&!y.negative)
-	{
-		if (sumAttrSqr-2*xyUpperBound>rr) return true;
-		double xyLowerBound=std::max(x.attrAbsSum*y.attrAbsMin,y.attrAbsSum*x.attrAbsMin);
-		if (sumAttrSqr-2*xyLowerBound<rr) return false;
-	}
-	else 
-	{
-		double upperBound=sumAttrSqr+2*xyUpperBound;
-		if (upperBound<rr) return false;
-		double lowerBound=sumAttrSqr-2*xyUpperBound;
-		if (lowerBound>rr) return true;
-	}
-	return calcDisSqr(x,y)>rr;
 }
 
 
@@ -188,11 +166,6 @@ struct Graph<Node>:public GraphBase<Node> //graph with simpe node
 			double value;
 			while (iss >> value) {
 				node.attributes.push_back(value);
-				node.attrSqr+=sqr(value);
-				node.attrAbsSum+=std::abs(value);
-				node.attrAbsMax=std::max(node.attrAbsMax,value);
-				node.attrAbsMin=std::min(node.attrAbsMin,value);
-				if (value<0) node.negative=true;
 			}
 			if (node.attributes.empty()) {
 				std::cerr << "Warning: No attributes at line " << line_num << std::endl;
@@ -451,37 +424,37 @@ struct Hypersphere{
 	}
 };
 
-//Hypersphere calcHypersphere(std::vector<Node> points)
-//{
-//	/// IF the points are in a same hyperplane!!!!!!!!!!!!!!!!!!!
-//	int dimension=points[0].attributes.size();
-//	if (points.size()!=dimension+1) 
-//	{
-//		std::cerr<<"cannot calculate hypershphere because the dimension and the number of points does not match"<<std::endl;
-//		throw std::invalid_argument("Dimension mismatch");
-//	}
-//
-//	Matrix equations(dimension,dimension+1);
-//	for (int i=1;i<=dimension;i++) // i-th - 1st
-//	{
-//		for (int j=0;j<dimension;j++) 
-//			equations.a[i-1][dimension]+=sqr(points[0].attributes[j])-sqr(points[i].attributes[j]);
-//		for (int j=0;j<dimension;j++)
-//			equations.a[i-1][j]=2*(points[i].attributes[j]-points[0].attributes[j]);
-//	}
-//	if (!equations.gauss())
-//	{
-//		std::cerr<<"gauss err"<<std::endl;
-//		throw std::invalid_argument("Gauss Error");
-//	}
-//	std::vector<double> ans(dimension);
-//	for (int i=0;i<dimension;i++) ans[i]=equations.a[i][dimension];
-//	Node center(-1,std::move(ans));
-//	double r=0;
-//	for (int i=0;i<dimension;i++) r+=sqr(points[0].attributes[i]-center.attributes[i]);
-//	r=sqrt(r);
-//	Hypersphere res(std::move(center),r);
-//	return res;
-//}
+Hypersphere calcHypersphere(std::vector<Node> points)
+{
+	/// IF the points are in a same hyperplane!!!!!!!!!!!!!!!!!!!
+	int dimension=points[0].attributes.size();
+	if (points.size()!=dimension+1) 
+	{
+		std::cerr<<"cannot calculate hypershphere because the dimension and the number of points does not match"<<std::endl;
+		throw std::invalid_argument("Dimension mismatch");
+	}
+
+	Matrix equations(dimension,dimension+1);
+	for (int i=1;i<=dimension;i++) // i-th - 1st
+	{
+		for (int j=0;j<dimension;j++) 
+			equations.a[i-1][dimension]+=sqr(points[0].attributes[j])-sqr(points[i].attributes[j]);
+		for (int j=0;j<dimension;j++)
+			equations.a[i-1][j]=2*(points[i].attributes[j]-points[0].attributes[j]);
+	}
+	if (!equations.gauss())
+	{
+		std::cerr<<"gauss err"<<std::endl;
+		throw std::invalid_argument("Gauss Error");
+	}
+	std::vector<double> ans(dimension);
+	for (int i=0;i<dimension;i++) ans[i]=equations.a[i][dimension];
+	Node center(-1,std::move(ans));
+	double r=0;
+	for (int i=0;i<dimension;i++) r+=sqr(points[0].attributes[i]-center.attributes[i]);
+	r=sqrt(r);
+	Hypersphere res(std::move(center),r);
+	return res;
+}
 
 

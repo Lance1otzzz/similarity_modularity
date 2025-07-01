@@ -1,7 +1,8 @@
 CC=g++
 #CC=clang++
-CFLAGS = -O3 -Wall -Wno-sign-compare -Wextra -static-libstdc++
-DEBUGFLAGS = -g -Wall -Wextra -Wno-sign-compare -static-libstdc++ -Ddebug
+CFLAGS = -O3 -Wall -Wno-sign-compare -Wextra 
+#-static-libstdc++
+DEBUGFLAGS = -g -Wall -Wextra -Wno-sign-compare -Ddebug
 
 # 定义数据集路径和参数
 DATASET = ./dataset/CiteSeer
@@ -11,6 +12,9 @@ all: main
 
 main: main.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp louvain_heur.hpp
 	$(CC) main.cpp $(CFLAGS) -o main
+
+pg: main.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp louvain_heur.hpp
+	$(CC) main.cpp -pg -o main
 
 test: test.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp louvain_heur.hpp
 	$(CC) test.cpp $(CFLAGS) -o test

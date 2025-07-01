@@ -11,8 +11,8 @@ void louvain_heur(Graph<Node> &g, double r)
 {
 	double rr=r*r;
 	double mm=g.m;
-	const double ref_attr_sqr=estimateAvgAttrDistanceSqr(g);
-
+//	const double ref_attr_sqr=estimateAvgAttrDistanceSqr(g);
+	
     std::vector<int> communityAssignments(g.n);  // stores the community of each hypernode
     for (int i=0;i<g.n;++i) communityAssignments[i]=i; // Initialize: each hypernode is its own community
 	
@@ -39,6 +39,7 @@ void louvain_heur(Graph<Node> &g, double r)
         improvement=false;
 
         // Phase 1: Optimize modularity by moving nodes
+		auto startPhase1=timeNow();
 		bool imp=true; // imp for phase 1
 		while (imp)
 		{
@@ -109,7 +110,7 @@ void louvain_heur(Graph<Node> &g, double r)
 					{
 						for (auto hnodev:community[x.second]) //every hypernode in the community
 						{
-							for (auto vv:hg.nodes[hnodev]) if (calcDisSqr(g.nodes[uu],g.nodes[vv])>rr) 
+							for (auto vv:hg.nodes[hnodev]) if (checkDisSqr(g.nodes[uu],g.nodes[vv],rr)) 
 							{
 								sim=false;
 								break;
@@ -154,6 +155,9 @@ void louvain_heur(Graph<Node> &g, double r)
         }
 		std::cout<<"iteration "<<iteration<<std::endl;
 		std::cout<<"neighbor community average "<<(double)cntNeiCom/cntU<<" degree"<<std::endl;
+
+		auto endPhase1=timeNow();
+		std::cout<<"phase 1 time:"<<timeElapsed(startPhase1,endPhase1)<<std::endl;
 
         // Phase 2: Create a new graph
 		std::vector<std::vector<int>> newNode;
@@ -205,6 +209,9 @@ void louvain_heur(Graph<Node> &g, double r)
 		}
 		newhg.nodes=std::move(newNode);
 		hg=std::move(newhg);
+
+		auto endPhase2=timeNow();
+		std::cout<<"phase 2 time:"<<timeElapsed(endPhase1, endPhase2)<<std::endl;
 	}
 
 	std::cout<<"move time:"<<cntMove<<" check time:"<<cntCheck<<std::endl;
