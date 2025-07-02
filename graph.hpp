@@ -10,6 +10,8 @@
 #include <limits>
 #include <cmath>
 
+inline int totchecknode=0,notpruned=0;
+
 // Node structure with generated ID and original attributes, not hypernode
 struct Node {
 	int id;
@@ -54,6 +56,7 @@ double calcDis(const Node &x, const Node &y)
 
 bool checkDisSqr(const Node &x,const Node &y,const double &rr) // true for fail
 {
+	totchecknode++;
 	double sumAttrSqr=x.attrSqr+y.attrSqr;
 	double xyUpperBound=std::min(x.attrAbsSum*y.attrAbsMax,y.attrAbsSum*x.attrAbsMax);
 	if (!x.negative&&!y.negative)
@@ -69,6 +72,7 @@ bool checkDisSqr(const Node &x,const Node &y,const double &rr) // true for fail
 		double lowerBound=sumAttrSqr-2*xyUpperBound;
 		if (lowerBound>rr) return true;
 	}
+	notpruned++;
 	return calcDisSqr(x,y)>rr;
 }
 

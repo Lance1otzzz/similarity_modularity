@@ -26,6 +26,8 @@ void louvain_heur(Graph<Node> &g, double r)
 	int iteration=0;
 	int cntCheck=0,cntMove=0;
 
+	double checkTime=0;
+
     bool improvement=true;
     while (improvement) 
 	{
@@ -64,6 +66,7 @@ void louvain_heur(Graph<Node> &g, double r)
 					else if (it->second!=-1) it->second+=edge.w;
 				}
 //!!!!!!!check if the uToCom is big,decide if using vector
+//not bottleneck, not add now
 
 				// Find the community that gives the best modularity gain
 				double delta_Q_static=-uToCom[cu]/mm+(double)uDegreeSum*(communityDegreeSum[cu]-uDegreeSum)/mm/mm/2;
@@ -101,10 +104,12 @@ void louvain_heur(Graph<Node> &g, double r)
 				std::make_heap(coms.begin(),coms.end());
 
 				cntMove++;
+
+				auto startCheckTime=timeNow();
 				while (!coms.empty())
 				{
 					cntCheck++;
-					auto x=coms.front();
+					auto x=coms.front(); //if hypernode u can move to community x
 					bool sim=true;
 					for (auto uu:hg.nodes[u]) //uu: every node in the hypernode u
 					{
@@ -131,6 +136,8 @@ void louvain_heur(Graph<Node> &g, double r)
 						coms.pop_back();
 					}
 				}
+				auto endCheckTime=timeNow();
+				checkTime+=timeElapsed(startCheckTime, endCheckTime);
 
 				// If moving to a new community improves the modularity, assign the best community to node u
 				if (bestCommunity != communityAssignments[u] && bestScore>eps) 
@@ -153,6 +160,8 @@ void louvain_heur(Graph<Node> &g, double r)
 				}
 			}
         }
+
+
 		std::cout<<"iteration "<<iteration<<std::endl;
 		std::cout<<"neighbor community average "<<(double)cntNeiCom/cntU<<" degree"<<std::endl;
 
@@ -214,7 +223,10 @@ void louvain_heur(Graph<Node> &g, double r)
 		std::cout<<"phase 2 time:"<<timeElapsed(endPhase1, endPhase2)<<std::endl;
 	}
 
-	std::cout<<"move time:"<<cntMove<<" check time:"<<cntCheck<<std::endl;
+	std::cout<<"\ncheck time:"<<checkTime<<std::endl;
+
+	std::cout<<"# tries to move:"<<cntMove<<"\n# check hypornode to community:"<<cntCheck<<'\n';
+	std::cout<<"# check node to node:"<<totchecknode<<" and pruned "<<totchecknode-notpruned<<std::endl;
 	std::cout<<"calculated delta_Q: "<<cntCalDelta_Q<<" and skipped "<<skipped<<" times"<<std::endl;
 
 	std::cout<<"Louvain_heur Modularity = "<<calcModularity(g,hg.nodes)<<std::endl;
