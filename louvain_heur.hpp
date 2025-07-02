@@ -80,7 +80,7 @@ void louvain_heur(Graph<Node> &g, double r)
 				{
 					cntNeiCom++;
 					cntCalDelta_Q++;
-					if (c.second==-1) 
+					if (c.second==-1||c.first==cu) 
 					{
 						//how many?
 						skipped++;
