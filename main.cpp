@@ -41,13 +41,21 @@ int main(int argc, char** argv)
 	auto endLoadingGraph=timeNow();
     cout<<"there are "<<g.n<<" nodes and "<<g.m<<" edges"<<endl;
 	cout<<"LoadGraph time: "<<timeElapsed(startLoadingGraph,endLoadingGraph)<<endl;
-	if (algorithm==9)
+	if (algorithm==8)
 	{
 		cout<<"start heur"<<endl;
 		auto startHeur=timeNow();
 		louvain_heur(g,r);
 		auto endHeur=timeNow();
-		cout<<"Heur total time: "<<timeElapsed(startHeur,endHeur)<<endl;
+		cout<<":latest total time: "<<timeElapsed(startHeur,endHeur)<<endl;
+	}
+	else if (algorithm==9)
+	{
+		cout<<"start heur"<<endl;
+		auto startHeur=timeNow();
+		louvain_with_heap_and_flm(g,r);
+		auto endHeur=timeNow();
+		cout<<"without_flm total time: "<<timeElapsed(startHeur,endHeur)<<endl;
 	}
 	else if (algorithm==10)
 	{
