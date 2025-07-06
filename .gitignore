@@ -7,6 +7,7 @@ Sinanet-master
 *.png
 /test
 /main
+/debug
 /dataset/*
 !/dataset/simple/
 !/dataset/SinaNet/

@@ -24,6 +24,7 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 	Graph<std::vector<int>> hg(g); //hypernode graph
 
 
+
 	int cntCalDelta_Q=0,skipped=0;
 	int iteration=0;
 	int cntCheck=0,cntMove=0;
@@ -41,6 +42,17 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 		for (int i=0;i<hg.n;i++) communityAttrSum[i]=hg.attrSum[i];
 
         improvement=false;
+
+		std::vector<std::unordered_map<int,long long>> eToOtherC(hg.n);//id,edge weight. sum edges from hypernodes to other communtiy
+		for (int u=0;u<hg.n;u++)
+		{
+			long long uDegreeSum=hg.degree[u];// just normal degree
+			for (const Edge& edge:hg.edges[u]) 
+			{
+				int cv=communityAssignments[edge.v];
+				if (!edge.flag) eToOtherC[u][cv]=edge.w;
+			}
+		}
 
         // Phase 1: Optimize modularity by moving nodes
 		auto startPhase1=timeNow();
@@ -64,32 +76,21 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 			int bestCommunity=cu;
 			
 			// Try to move the node to a neighboring community
-			std::unordered_map<int,long long> uToCom;//first: id; second: from i to com degree
 			long long uDegreeSum=hg.degree[u];// just normal degree
-			for (const Edge& edge:hg.edges[u]) 
-			{
-				int cv=communityAssignments[edge.v];
-				auto it=uToCom.find(cv);
-				if (it==uToCom.end()) uToCom[cv]=edge.flag?-1:edge.w;
-				else if (edge.flag) it->second=-1; 
-				else if (it->second!=-1) it->second+=edge.w;
-			}
-//!!!!!!!check if the uToCom is big,decide if using vector
-//not bottleneck, not add now
 
 			// Find the community that gives the best modularity gain
-			double delta_Q_static=-uToCom[cu]/mm+(double)uDegreeSum*(communityDegreeSum[cu]-uDegreeSum)/mm/mm/2;
+			double delta_Q_static=-eToOtherC[u][cu]/mm+(double)uDegreeSum*(communityDegreeSum[cu]-uDegreeSum)/mm/mm/2;
 			//double delta_WCSS_leave=-normSqr(communityAttrSum[cu]-hg.attrSum[u])/(community[cu].size()-1)
 			//	+normSqr(communityAttrSum[cu])/community[cu].size(); // omit \sum||x||^2 because WCSS_leave and WCSS_add will add as 0
 //std::cout<<normSqr(communityAttrSum[cu]-hg.attrSum[u])<<' '<<community[cu].size()<<std::endl;
 			//if (community[cu].size()==1) delta_WCSS_leave=0;
 
 			std::vector<std::pair<double,int>> coms;//score,id
-			for (auto &c:uToCom) //id,value
+			for (auto &c:eToOtherC[u]) //id,value
 			{
 				cntNeiCom++;
 				cntCalDelta_Q++;
-				if (c.second==-1||c.first==cu) 
+				if (c.second==-1||c.first==cu)  //!!!!!seems wrong here. after nodes moving, second=-1 may change
 				{
 					//how many?
 					skipped++;
@@ -168,6 +169,10 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 				q.push(u);
 				for (const Edge& edge:hg.edges[u]) 
 				{
+					if (edge.flag==true) continue;
+					eToOtherC[edge.v][cu]-=edge.w;
+					eToOtherC[edge.v][bestCommunity]+=edge.w;
+
 					if (!inq[edge.v]) 
 					{
 						inq[edge.v]=true;
@@ -214,7 +219,6 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 		for (int u=0;u<hg.n;u++)
 		{
 			int uu=idToNewid[u];
-			//newhg.degreeSum[uu]+=hg.degreeSum[u];
 			for (auto e:hg.edges[u]) 
 			{
 				int vv=idToNewid[e.v];
@@ -249,6 +253,18 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 
 	std::cout<<"Louvain_heur Modularity = "<<calcModularity(g,hg.nodes)<<std::endl;
 }
+
+
+
+
+
+
+
+
+
+
+
+
 
 void louvain_with_heap_and_flm(Graph<Node> &g, double r) 
 {

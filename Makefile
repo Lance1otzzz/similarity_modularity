@@ -2,7 +2,7 @@ CC=g++
 #CC=clang++
 CFLAGS = -O3 -Wall -Wno-sign-compare -Wextra 
 #-static-libstdc++
-DEBUGFLAGS = -g -Wall -Wextra -Wno-sign-compare -Ddebug
+DEBUGFLAGS = -O0 -g -Wall -Wextra -Wno-sign-compare -Ddebug
 
 # 定义数据集路径和参数
 DATASET = ./dataset/CiteSeer
