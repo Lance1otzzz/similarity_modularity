@@ -55,7 +55,15 @@ int main(int argc, char** argv)
 		auto startHeur=timeNow();
 		louvain_with_heap_and_flm(g,r);
 		auto endHeur=timeNow();
-		cout<<"without_flm total time: "<<timeElapsed(startHeur,endHeur)<<endl;
+		cout<<"with_heap_and_flm total time: "<<timeElapsed(startHeur,endHeur)<<endl;
+	}
+	else if (algorithm==91)
+	{
+		cout<<"start heur"<<endl;
+		auto startHeur=timeNow();
+		louvain_with_heap(g,r);
+		auto endHeur=timeNow();
+		cout<<"with_heap_without_flm total time: "<<timeElapsed(startHeur,endHeur)<<endl;
 	}
 	else if (algorithm==10)
 	{

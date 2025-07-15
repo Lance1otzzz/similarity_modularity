@@ -11,7 +11,7 @@
 struct nodeToComEdge
 {
 	long long w;
-	size_t timeStamp; // the timestamp last time check the edge
+	int timeStamp; // the timestamp last time check the edge
 	bool flag; //1 if not ok
 };
 
@@ -62,7 +62,6 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 		std::vector<std::unordered_map<int,nodeToComEdge>> eToOtherC(hg.n);//id,edge weight. sum edges from hypernodes to other communtiy
 		for (int u=0;u<hg.n;u++)
 		{
-			long long uDegreeSum=hg.degree[u];// just normal degree
 			for (const Edge& edge:hg.edges[u]) 
 			{
 				int cv=communityAssignments[edge.v];
@@ -112,7 +111,7 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 				{
 					//how many?
 					skipped++;
-					//if (c.first!=cu) std::cout<<c.second.flag<<' '<<c.second.timeStamp<<' '<<community[c.first].leaveTimeStamp<<' '<<community[c.first].comeTimeStamp<<std::endl;
+					//if (iteration==1&&c.first!=cu) std::cout<<c.second.flag<<' '<<c.second.timeStamp<<' '<<community[c.first].leaveTimeStamp<<' '<<community[c.first].comeTimeStamp<<std::endl;
 					continue;
 				}
 				double delta_Q_=(c.second.w-(double)uDegreeSum*communityDegreeSum[c.first]/mm/2)/mm;
