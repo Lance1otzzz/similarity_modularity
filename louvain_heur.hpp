@@ -12,7 +12,7 @@ struct nodeToComEdge
 {
 	long long w;
 	int timeStamp; // the timestamp last time check the edge
-	bool flag; //1 if not ok
+	Flag flag;
 };
 
 struct infoCom
@@ -67,7 +67,7 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 				int cv=communityAssignments[edge.v];
 				auto &t=eToOtherC[u][cv];
 				t.w=edge.w;
-				if (edge.flag) t.flag=true;
+				t.flag=edge.flag;
 				t.timeStamp=0;
 			}
 		}
@@ -107,7 +107,7 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 				if (c.first==cu) continue;
 				cntNeiCom++;
 				cntCalDelta_Q++;
-				if (c.second.flag&&c.second.timeStamp>=community[c.first].leaveTimeStamp)
+				if (c.second.flag==violated&&c.second.timeStamp>=community[c.first].leaveTimeStamp)
 				{
 					//how many?
 					skipped++;
@@ -140,7 +140,7 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 				auto x=coms.front(); //if hypernode u can move to community x
 				auto &t=eToOtherC[u][x.second];
 				bool sim=true;
-				if (t.flag==false&&t.timeStamp>=community[x.second].comeTimeStamp) goto label;
+				if (t.flag==satisfied&&t.timeStamp>=community[x.second].comeTimeStamp) goto label;
 				for (auto uu:hg.nodes[u]) //uu: every node in the hypernode u
 				{
 					for (auto hnodev:community[x.second].elements) //every hypernode in the community
@@ -158,14 +158,14 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 				t.timeStamp=cntU;
 				if (sim)
 				{
-					t.flag=false;
+					t.flag=satisfied;
 					bestScore=x.first;
 					bestCommunity=x.second;
 					break;
 				}
 				else
 				{
-					t.flag=true;
+					t.flag=violated;
 					std::pop_heap(coms.begin(),coms.end());
 					coms.pop_back();
 				}
@@ -198,15 +198,18 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 				for (const Edge& edge:hg.edges[u]) 
 				{
 					auto &t2=eToOtherC[edge.v][bestCommunity];
-					if (edge.flag==true) 
+					if (edge.flag==violated) 
 					{
 						auto &t=eToOtherC[u][communityAssignments[edge.v]];
-						t.flag=true;
+						t.flag=violated;
 						t.timeStamp=cntU;
-						t2.flag=true;
+						t2.flag=violated;
 						t2.timeStamp=cntU;
 					}
-					eToOtherC[edge.v][cu].w-=edge.w;
+					auto &t3=eToOtherC[edge.v];
+					auto it=t3.find(cu);
+					if (it->second.w==edge.w) t3.erase(it);
+					else it->second.w-=edge.w;
 					t2.w+=edge.w;
 
 					if (!inq[edge.v]) 
@@ -270,6 +273,8 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 		{
 			community[i].elements.clear();
 			community[i].elements.insert(i);
+			community[i].leaveTimeStamp=-1;
+			community[i].comeTimeStamp=-1;
 			communityAssignments[i]=i;
 			communityAttrSum[i]=hg.attrSum[i];
 		}
@@ -362,8 +367,8 @@ void louvain_with_heap_and_flm(Graph<Node> &g, double r)
 			{
 				int cv=communityAssignments[edge.v];
 				auto it=uToCom.find(cv);
-				if (it==uToCom.end()) uToCom[cv]=edge.flag?-1:edge.w;
-				else if (edge.flag) it->second=-1; 
+				if (it==uToCom.end()) uToCom[cv]=edge.flag==violated?-1:edge.w;
+				else if (edge.flag==violated) it->second=-1; 
 				else if (it->second!=-1) it->second+=edge.w;
 			}
 //!!!!!!!check if the uToCom is big,decide if using vector
@@ -596,8 +601,8 @@ void louvain_with_heap(Graph<Node> &g, double r)
 				{
 					int cv=communityAssignments[edge.v];
 					auto it=uToCom.find(cv);
-					if (it==uToCom.end()) uToCom[cv]=edge.flag?-1:edge.w;
-					else if (edge.flag) it->second=-1; 
+					if (it==uToCom.end()) uToCom[cv]=edge.flag==violated?-1:edge.w;
+					else if (edge.flag==violated) it->second=-1; 
 					else if (it->second!=-1) it->second+=edge.w;
 				}
 //!!!!!!!check if the uToCom is big,decide if using vector

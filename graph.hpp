@@ -77,12 +77,13 @@ bool checkDisSqr(const Node &x,const Node &y,const double &rr) // true for fail
 }
 
 
+enum Flag{satisfied=0,violated=1,unknown=2};
 struct Edge { // 0-based index
 	int u, v, w;
-	bool flag;
+	Flag flag;
 	//Edge(int u_,int v_):u(u_),v(v_),w(1),tag(false){}
-	Edge(int u_,int v_,int w_):u(u_),v(v_),w(w_),flag(false){}
-	Edge(int u_,int v_,int w_,bool flag_):u(u_),v(v_),w(w_),flag(flag_){}
+	Edge(int u_,int v_,int w_):u(u_),v(v_),w(w_),flag(unknown){}
+	Edge(int u_,int v_,int w_,Flag flag_):u(u_),v(v_),w(w_),flag(flag_){}
 };
 
 template<typename NodeType>
@@ -132,7 +133,7 @@ struct GraphBase
 		degree[u]++;
 	}
 
-	void addedge(const int &u,const int &v,const int &w)
+	void addedge(const int &u,const int &v,const int &w) //addedge function for phase 2
 	{
 		m++;
 		edges[u].emplace_back(u,v,w);
@@ -143,7 +144,7 @@ struct GraphBase
 		}
 		degree[u]+=w;
 	}
-	void addedge_loading(const int &u,const int &v,const bool &flag=false)
+	void addedge_loading(const int &u,const int &v,const Flag &flag=unknown) // addedge function when loading edges
 	{
 		m++;
 		edges[u].emplace_back(u,v,1,flag);
@@ -238,7 +239,7 @@ struct Graph<Node>:public GraphBase<Node> //graph with simpe node
 							 << ") in line: " << line << std::endl;
 					throw std::invalid_argument("invalid edge");
 				}
-				addedge_loading(u,v,calcDisSqr(nodes[u],nodes[v])>rr);
+				addedge_loading(u,v,calcDisSqr(nodes[u],nodes[v])>rr?violated:satisfied);
 			}
 			else 
 			{
