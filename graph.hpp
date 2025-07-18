@@ -12,14 +12,14 @@
 
 inline int totchecknode=0,notpruned=0;
 
-// Node structure with generated ID and original attributes, not hypernode
+// Node structure with ID and original attributes, not hypernode
 struct Node {
-	int id;
+	int id; //linenumber as ID
 	std::vector<double> attributes; // Contains ALL values from input line
-	double attrSqr,attrAbsSum,attrAbsMax,attrAbsMin;
-	bool negative;
-	// maybe some other attributes
+	double attrSqr,attrAbsSum,attrAbsMax,attrAbsMin; // squaresum, sum for abs, max of abs, min of abs
+	bool negative; //if the attributes contain negtive value
 	Node():id(0),attrSqr(0),attrAbsSum(0),attrAbsMax(std::numeric_limits<double>::min()),attrAbsMin(std::numeric_limits<double>::max()),negative(false){}
+// seems temporarily no use, so commented
 //	Node(const int &d):id(0),attrSqr(0)
 //	{
 //		attributes.resize(d);
@@ -39,17 +39,25 @@ struct Node {
 	}
 };
 
+double calcDisSqr_baseline(const Node &x, const Node &y)
+{
+	double res=0;
+	for (int i=0;i<x.attributes.size();i++)
+		res+=sqr(x.attributes[i]-y.attributes[i]);
+	return res;
+}
+
 double calcDisSqr(const Node &x, const Node &y)
 {
 	double res=0;
 	//for (int i=0;i<x.attributes.size();i++)
 		//res+=sqr(x.attributes[i]-y.attributes[i]);
 	for (int i=0;i<x.attributes.size();i++)
-		res+=x.attributes[i]*y.attributes[i]; //this way can optimize a little
+		res+=x.attributes[i]*y.attributes[i]; //precomputing square sum can optimize time a little
 	return x.attrSqr+y.attrSqr-2*res;
 }
 
-double calcDis(const Node &x, const Node &y)
+double calcDis(const Node &x, const Node &y) // nouse
 {
 	return std::sqrt(calcDisSqr(x,y));
 }
@@ -65,7 +73,7 @@ bool checkDisSqr(const Node &x,const Node &y,const double &rr) // true for fail
 		double xyLowerBound=std::max(x.attrAbsSum*y.attrAbsMin,y.attrAbsSum*x.attrAbsMin);
 		if (sumAttrSqr-2*xyLowerBound<rr) return false;
 	}
-	else 
+	else
 	{
 		double upperBound=sumAttrSqr+2*xyUpperBound;
 		if (upperBound<rr) return false;
@@ -81,7 +89,6 @@ enum Flag{satisfied=0,violated=1,unknown=2};
 struct Edge { // 0-based index
 	int u, v, w;
 	Flag flag;
-	//Edge(int u_,int v_):u(u_),v(v_),w(1),tag(false){}
 	Edge(int u_,int v_,int w_):u(u_),v(v_),w(w_),flag(unknown){}
 	Edge(int u_,int v_,int w_,Flag flag_):u(u_),v(v_),w(w_),flag(flag_){}
 };
@@ -121,7 +128,7 @@ struct GraphBase
 		return *this;
 	}
 
-	void addedge(const int &u,const int &v)
+	void addedge(const int &u,const int &v) //addedge for loadingEdge_baseline
 	{
 		m++;
 		edges[u].emplace_back(u,v,1);
@@ -157,14 +164,13 @@ struct GraphBase
 	}
 };
 
-template<typename NodeType>
+template<typename NodeType> // this way we can easily find if there is bug that it derive wrong type
 struct Graph:public GraphBase<NodeType>{};
 
 template<>
-struct Graph<Node>:public GraphBase<Node> //graph with simpe node
+struct Graph<Node>:public GraphBase<Node> //graph with simple node (not hypernode)
 {
 	int attnum=0;
-	//std::unordered_map<std::pair<int,int>,double,pair_hash> saved_dis;
 	using GraphBase::GraphBase;
 	Graph(const Graph<Node> &other):GraphBase<Node>(other),attnum(other.attnum){}
 
@@ -172,7 +178,7 @@ struct Graph<Node>:public GraphBase<Node> //graph with simpe node
 
 	~Graph(){}
 
-	void readNodes(const std::string &filename)
+	void readNodes_baseline(const std::string &filename)
 	{
         std::cout<<"reading nodes from "<<filename<<std::endl;
 		std::ifstream file(filename);
@@ -193,7 +199,50 @@ struct Graph<Node>:public GraphBase<Node> //graph with simpe node
 			double value;
 			while (iss >> value) {
 				node.attributes.push_back(value);
-				node.attrSqr+=sqr(value);
+				//node.attrSqr+=sqr(value);
+			}
+			if (node.attributes.empty()) {
+				std::cerr << "Warning: No attributes at line " << line_num << std::endl;
+				throw std::invalid_argument("no node attributes");
+			}
+			if (attnum==0) attnum=node.attributes.size();
+			else if (attnum!=node.attributes.size())
+			{
+				std::cerr<<"nodes have different attribute dimensions"<<std::endl;
+				throw std::invalid_argument("attribute dimension inconsistent");
+			}
+			nodes.push_back(node);
+			line_num++;
+		}
+		n=line_num;
+		edges.resize(n);
+		degree.resize(n);
+		file.close();
+	}
+
+	void readNodes(const std::string &filename) //with precompute of abssum, absmax, absmin
+	{
+        std::cout<<"reading nodes from "<<filename<<std::endl;
+		std::ifstream file(filename);
+
+		if (!file.is_open()) 
+		{
+			std::cerr << "Error: Failed to open node file " << filename << std::endl;
+			throw std::invalid_argument("file error");
+		}
+		std::string line;
+		int line_num = 0;  // 0-based line counter
+		while (std::getline(file, line)) 
+		{
+			std::istringstream iss(line);
+			Node node;
+			node.id = line_num;
+			// 读取所有数值作为属性
+			double value;
+			while (iss >> value) {
+				node.attributes.push_back(value);
+				// different from baseline
+				node.attrSqr+=sqr(value); 
 				node.attrAbsSum+=std::abs(value);
 				node.attrAbsMax=std::max(node.attrAbsMax,value);
 				node.attrAbsMin=std::min(node.attrAbsMin,value);
@@ -217,6 +266,40 @@ struct Graph<Node>:public GraphBase<Node> //graph with simpe node
 		degree.resize(n);
 		file.close();
 	}
+
+
+	void readEdges_baseline(const std::string &filename)
+	{
+		std::ifstream file(filename.c_str());
+		if (!file.is_open()) 
+		{
+			std::cerr << "Error: Failed to open edge file " << filename << std::endl;
+			throw std::invalid_argument("ERR FILE");
+		}
+		std::string line;
+		while (std::getline(file, line)) 
+		{
+			std::istringstream iss(line);
+			int u, v;
+			if (iss >> u >> v) 
+			{
+				if (u < 0 || u >= n ||
+					v < 0 || v >= n) {
+					std::cerr << "Invalid edge (" << u << "->" << v
+							 << ") in line: " << line << std::endl;
+					throw std::invalid_argument("invalid edge");
+				}
+				addedge(u,v);
+			}
+			else 
+			{
+				std::cerr << "Invalid edge format: " << line << std::endl;
+				throw std::invalid_argument("invalid edge format");
+			}
+		}
+		file.close();
+	}
+
 	void readEdges(const std::string &filename, const double &r)
 	{
 		double rr=r*r; 
@@ -239,7 +322,7 @@ struct Graph<Node>:public GraphBase<Node> //graph with simpe node
 							 << ") in line: " << line << std::endl;
 					throw std::invalid_argument("invalid edge");
 				}
-				addedge_loading(u,v,calcDisSqr(nodes[u],nodes[v])>rr?violated:satisfied);
+				addedge_loading(u,v,calcDisSqr(nodes[u],nodes[v])>rr?violated:satisfied); //different from baseline. precompute if the edge meet the restraint
 			}
 			else 
 			{
@@ -251,7 +334,7 @@ struct Graph<Node>:public GraphBase<Node> //graph with simpe node
 	}
 
 	// Load graph data from files
-	void loadGraph(const std::string &folder, const double &r) 
+	void loadGraph(const std::string &folder, const double &r, const int &alg)
 	{
         std::cout<<"loading graph"<<std::endl;
 		nodes.clear();
@@ -259,10 +342,20 @@ struct Graph<Node>:public GraphBase<Node> //graph with simpe node
 		n=0;m=0;
 
 		std::string base = ensureFolderSeparator(folder);
-        std::cout<<"start readNodes"<<std::endl;
-		readNodes(base + "nodes.txt");
-        std::cout<<"start readEdges"<<std::endl;
-		readEdges(base + "edges.txt",r);
+		if (alg==10)
+		{
+			std::cout<<"start readNodes baseline"<<std::endl;
+			readNodes_baseline(base + "nodes.txt");
+			std::cout<<"start readEdges baseline"<<std::endl;
+			readEdges_baseline(base + "edges.txt");
+		}
+		else 
+		{
+			std::cout<<"start readNodes"<<std::endl;
+			readNodes(base + "nodes.txt");
+			std::cout<<"start readEdges"<<std::endl;
+			readEdges(base + "edges.txt",r);
+		}
 	}
 
 	void printGraph() 

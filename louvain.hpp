@@ -68,7 +68,7 @@ void louvain(Graph<Node> &g, double r)
 						{
 							for (auto hnodev:community[c.first]) //every hypernode in the community
 							{
-								for (auto vv:hg.nodes[hnodev]) if (calcDisSqr(g.nodes[uu],g.nodes[vv])>rr) 
+								for (auto vv:hg.nodes[hnodev]) if (calcDisSqr_baseline(g.nodes[uu],g.nodes[vv])>rr) 
 								{
 									sim=false;
 									break;

@@ -13,7 +13,9 @@ using namespace std;
 
 // ./main 1
 /*
-	algorithm 9: louvain_heur
+	algorithm 8: louvain_heur_latest
+	algorithm 9: louvain_with_heap_and_flm
+	algorithm 91: louvain_with_heap , without fast local move
 	algorithm 10: louvain
 	algorithm 11: leiden
 	algorithm 20: louvain_pure
@@ -37,64 +39,73 @@ int main(int argc, char** argv)
     cout<<"r is "<<r<<endl;
     cout<<"the graph is in "<<argv[2]<<endl;
 	auto startLoadingGraph=timeNow();
-	g.loadGraph(argv[2],r);
+	g.loadGraph(argv[2],r,algorithm);
 	auto endLoadingGraph=timeNow();
     cout<<"there are "<<g.n<<" nodes and "<<g.m<<" edges"<<endl;
 	cout<<"LoadGraph time: "<<timeElapsed(startLoadingGraph,endLoadingGraph)<<endl;
-	if (algorithm==8)
+	auto startMainAlg=timeNow();
+	switch(algorithm)
 	{
-		cout<<"start heur"<<endl;
-		auto startHeur=timeNow();
-		louvain_heur(g,r);
-		auto endHeur=timeNow();
-		cout<<":latest total time: "<<timeElapsed(startHeur,endHeur)<<endl;
+		case 8:
+		{
+			cout<<"start latest heur"<<endl;
+			louvain_heur(g,r);
+			cout<<":latest time: ";
+			break;
+		}
+		case 9:
+		{
+			cout<<"start heap & flm heur"<<endl;
+			louvain_with_heap_and_flm(g,r);
+			cout<<"with_heap_and_flm time: ";
+			break;
+		}
+		case 91:
+		{
+			cout<<"start heap heur"<<endl;
+			louvain_with_heap(g,r);
+			cout<<"with_heap_without_flm time: ";
+			break;
+		}
+		case 10:
+		{
+			cout<<"start baseline louvain"<<endl;
+			louvain(g,r);
+			cout<<"Louvain time: ";
+			break;
+		}
+		case 11:
+		{
+			cout<<"start Leiden"<<endl;
+			ConstrainedLeiden leiden_solver(g, r);
+			leiden_solver.run();
+			cout<<"Leiden time: ";
+			break;
+		}
+		case 20:
+		{
+			cout<<"start pure Louvain"<<endl;
+			//TIME COUNT is contained in the function
+			//auto startLouvainPure=timeNow();
+			pure_louvain(g,r);
+			//auto endLouvainPure=timeNow();
+			//cout<<"pure_louvain total time: "<<timeElapsed(startLouvainPure,endLouvainPure)<<endl;
+			break;
+		}
+		case 114514:
+		{
+			cout<<"start louvain trial"<<endl;
+			louvain_trial(g,r);
+			break;
+		}
+		default:
+		{
+			cout<<"!!!NO SUCH ALGORITHM!!!"<<endl;
+			return -1;
+		}
 	}
-	else if (algorithm==9)
-	{
-		cout<<"start heur"<<endl;
-		auto startHeur=timeNow();
-		louvain_with_heap_and_flm(g,r);
-		auto endHeur=timeNow();
-		cout<<"with_heap_and_flm total time: "<<timeElapsed(startHeur,endHeur)<<endl;
-	}
-	else if (algorithm==91)
-	{
-		cout<<"start heur"<<endl;
-		auto startHeur=timeNow();
-		louvain_with_heap(g,r);
-		auto endHeur=timeNow();
-		cout<<"with_heap_without_flm total time: "<<timeElapsed(startHeur,endHeur)<<endl;
-	}
-	else if (algorithm==10)
-	{
-		cout<<"start louvain"<<endl;
-		auto startLouvain=timeNow();
-		louvain(g,r);
-		auto endLouvain=timeNow();
-		cout<<"Louvain total time: "<<timeElapsed(startLouvain,endLouvain)<<endl;
-	}
-	else if (algorithm==11)
-	{
-		cout<<"start Leiden"<<endl;
-		const auto startLeiden=timeNow();
-		ConstrainedLeiden leiden_solver(g, r);
-		leiden_solver.run();
-		const auto endLeiden=timeNow();
-		cout<<"Leiden total time: "<<timeElapsed(startLeiden,endLeiden)<<endl;
-	}
-	else if (algorithm==20)
-	{
-		cout<<"start pure Louvain"<<endl;
-		//TIME COUNT is contained in the function
-		//auto startLouvainPure=timeNow();
-		pure_louvain(g,r);
-		//auto endLouvainPure=timeNow();
-		//cout<<"pure_louvain total time: "<<timeElapsed(startLouvainPure,endLouvainPure)<<endl;
-	}
-	else if (algorithm==114514)
-	{
-		cout<<"start louvain trial"<<endl;
-		louvain_trial(g,r);
-	}
+	auto endMainAlg=timeNow();
+	cout<<timeElapsed(startMainAlg, endMainAlg)<<endl;
+	cout<<"Total time cost: "<<timeElapsed(startMainAlg, endMainAlg)+timeElapsed(startLoadingGraph,endLoadingGraph)<<endl;
 	return 0;
 }
