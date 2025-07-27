@@ -4,11 +4,18 @@
 #include "leiden.hpp"
 #include "louvain_heur.hpp"
 #include "pure_louvain.hpp"
+#include "pruning_alg/kmeans_preprocessing.hpp"
+#include "pruning_alg/bipolar_pruning.hpp"
 #include <iostream>
 #include <chrono>
 
 #include "test_trial.hpp"
 using namespace std;
+
+// Define the global random number generator
+std::mt19937 rng(seed);
+
+
 
 
 // ./main 1
@@ -18,8 +25,11 @@ using namespace std;
 	algorithm 91: louvain_with_heap , without fast local move
 	algorithm 10: louvain
 	algorithm 11: leiden
+	algorithm 12: louvain_with_bipolar_pruning
 	algorithm 20: louvain_pure
     algorithm 114514: try and test sth
+    
+
 */
 int main(int argc, char** argv)
 {
@@ -34,6 +44,9 @@ int main(int argc, char** argv)
 	}
 	int algorithm=atoi(argv[1]);
 	cout<<"algorithm: "<<algorithm<<endl;
+	
+
+	
 	Graph<Node> g;
 	double r=std::stod(argv[3]);
     cout<<"r is "<<r<<endl;
@@ -56,7 +69,20 @@ int main(int argc, char** argv)
 		case 9:
 		{
 			cout<<"start heap & flm heur"<<endl;
+			// K-means preprocessing
+			auto startPreprocessing = timeNow();
+			double preprocessing_time = preprocess_kmeans_index(g, 10);
+			auto endPreprocessing = timeNow();
+			cout<<"K-means preprocessing time: "<<preprocessing_time<<endl;
+			
+			// Main algorithm
+			auto startMainAlgorithm = timeNow();
 			louvain_with_heap_and_flm(g,r);
+			auto endMainAlgorithm = timeNow();
+			cout<<"Main algorithm time: "<<timeElapsed(startMainAlgorithm, endMainAlgorithm)<<endl;
+			
+			// Cleanup
+			cleanup_distance_index();
 			cout<<"with_heap_and_flm time: ";
 			break;
 		}
@@ -80,6 +106,38 @@ int main(int argc, char** argv)
 			ConstrainedLeiden leiden_solver(g, r);
 			leiden_solver.run();
 			cout<<"Leiden time: ";
+			break;
+		}
+		case 12:
+		{
+			cout<<"start Louvain with Bipolar Pruning"<<endl;
+			// Bipolar pruning preprocessing
+			auto startPreprocessing = timeNow();
+			double preprocessing_time = build_bipolar_pruning_index(g, 10);
+			auto endPreprocessing = timeNow();
+			cout<<"Bipolar pruning preprocessing time: "<<preprocessing_time<<endl;
+			
+			// Main algorithm
+			auto startMainAlgorithm = timeNow();
+			louvain_with_heap_and_flm(g,r);
+			auto endMainAlgorithm = timeNow();
+			cout<<"Main algorithm time: "<<timeElapsed(startMainAlgorithm, endMainAlgorithm)<<endl;
+			
+			// Print pruning statistics
+			if (g_bipolar_pruning) {
+				cout<<"Bipolar pruning statistics:"<<endl;
+				cout<<"  Total queries: "<<g_bipolar_pruning->get_total_queries()<<endl;
+				cout<<"  Successful prunings: "<<g_bipolar_pruning->get_pruning_count()<<endl;
+				cout<<"  Full calculations: "<<g_bipolar_pruning->get_full_calculations()<<endl;
+				if (g_bipolar_pruning->get_total_queries() > 0) {
+					double pruning_rate = (double)g_bipolar_pruning->get_pruning_count() / g_bipolar_pruning->get_total_queries() * 100.0;
+					cout<<"  Pruning rate: "<<pruning_rate<<"%"<<endl;
+				}
+			}
+			
+			// Cleanup
+			cleanup_bipolar_pruning_index();
+			cout<<"Louvain with Bipolar Pruning time: ";
 			break;
 		}
 		case 20:

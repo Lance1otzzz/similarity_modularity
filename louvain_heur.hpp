@@ -2,6 +2,7 @@
 
 #include "graph.hpp"
 #include "defines.hpp"
+#include "pruning_alg/triangle_pruning.hpp"
 #include <algorithm>
 #include <vector>
 #include <queue>
@@ -145,7 +146,7 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 				{
 					for (auto hnodev:community[x.second].elements) //every hypernode in the community
 					{
-						for (auto vv:hg.nodes[hnodev]) if (checkDisSqr(g.nodes[uu],g.nodes[vv],rr)) 
+						for (auto vv:hg.nodes[hnodev]) if (checkDisSqr_with_pruning(g.nodes[uu],g.nodes[vv],rr)) 
 						{
 							sim=false;
 							break;
@@ -421,7 +422,7 @@ void louvain_with_heap_and_flm(Graph<Node> &g, double r)
 				{
 					for (auto hnodev:community[x.second]) //every hypernode in the community
 					{
-						for (auto vv:hg.nodes[hnodev]) if (checkDisSqr(g.nodes[uu],g.nodes[vv],rr)) 
+						for (auto vv:hg.nodes[hnodev]) if (checkDisSqr_with_pruning(g.nodes[uu],g.nodes[vv],rr)) 
 						{
 							sim=false;
 							break;
@@ -655,7 +656,7 @@ void louvain_with_heap(Graph<Node> &g, double r)
 					{
 						for (auto hnodev:community[x.second]) //every hypernode in the community
 						{
-							for (auto vv:hg.nodes[hnodev]) if (checkDisSqr(g.nodes[uu],g.nodes[vv],rr)) 
+							for (auto vv:hg.nodes[hnodev]) if (checkDisSqr_with_pruning(g.nodes[uu],g.nodes[vv],rr)) 
 							{
 								sim=false;
 								break;

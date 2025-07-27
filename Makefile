@@ -10,17 +10,17 @@ RESOLUTION = 200
 
 all: main
 
-main: main.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp louvain_heur.hpp
-	$(CC) main.cpp $(CFLAGS) -o main
+main: main.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp louvain_heur.hpp pruning_alg/kmeans_preprocessing.hpp pruning_alg/kmeans_preprocessing.cpp pruning_alg/triangle_pruning.hpp pruning_alg/triangle_pruning.cpp pruning_alg/bipolar_pruning.hpp pruning_alg/bipolar_pruning.cpp
+	$(CC) main.cpp kmeans_preprocessing.cpp triangle_pruning.cpp bipolar_pruning.cpp $(CFLAGS) -o main
 
-pg: main.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp louvain_heur.hpp
-	$(CC) main.cpp -pg -o main
+pg: main.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp louvain_heur.hpp pruning_alg/kmeans_preprocessing.hpp pruning_alg/kmeans_preprocessing.cpp pruning_alg/triangle_pruning.hpp pruning_alg/triangle_pruning.cpp pruning_alg/bipolar_pruning.hpp pruning_alg/bipolar_pruning.cpp
+	$(CC) main.cpp kmeans_preprocessing.cpp triangle_pruning.cpp bipolar_pruning.cpp -pg -o main
 
 test: test.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp louvain_heur.hpp
 	$(CC) test.cpp $(CFLAGS) -o test
 
-debug: main.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp louvain_heur.hpp
-	$(CC) main.cpp $(DEBUGFLAGS) -o debug
+debug: main.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp louvain_heur.hpp pruning_alg/kmeans_preprocessing.hpp pruning_alg/kmeans_preprocessing.cpp pruning_alg/triangle_pruning.hpp pruning_alg/triangle_pruning.cpp pruning_alg/bipolar_pruning.hpp pruning_alg/bipolar_pruning.cpp
+	$(CC) main.cpp kmeans_preprocessing.cpp triangle_pruning.cpp bipolar_pruning.cpp $(DEBUGFLAGS) -o debug
 
 louvain: main
 	./main 10 $(DATASET) $(RESOLUTION)
