@@ -39,7 +39,7 @@ struct Node {
 	}
 };
 
-double calcDisSqr_baseline(const Node &x, const Node &y)
+inline double calcDisSqr_baseline(const Node &x, const Node &y)
 {
 	double res=0;
 	for (int i=0;i<x.attributes.size();i++)
@@ -47,7 +47,7 @@ double calcDisSqr_baseline(const Node &x, const Node &y)
 	return res;
 }
 
-double calcDisSqr(const Node &x, const Node &y)
+inline double calcDisSqr(const Node &x, const Node &y)
 {
 	double res=0;
 	//for (int i=0;i<x.attributes.size();i++)
@@ -57,12 +57,12 @@ double calcDisSqr(const Node &x, const Node &y)
 	return x.attrSqr+y.attrSqr-2*res;
 }
 
-double calcDis(const Node &x, const Node &y) // nouse
+inline double calcDis(const Node &x, const Node &y) // nouse
 {
 	return std::sqrt(calcDisSqr(x,y));
 }
 
-bool checkDisSqr(const Node &x,const Node &y,const double &rr) // true for fail
+inline bool checkDisSqr(const Node &x,const Node &y,const double &rr) // true for fail
 {
 	totchecknode++;
 	double sumAttrSqr=x.attrSqr+y.attrSqr;
@@ -404,7 +404,7 @@ struct Graph<Node>:public GraphBase<Node> //graph with simple node (not hypernod
 	}
 };
 
-double estimateAvgAttrDistanceSqr(const Graph<Node>& g, int sample=1000) 
+inline double estimateAvgAttrDistanceSqr(const Graph<Node>& g, int sample=1000) 
 {
 	if (g.n<100)
 	{

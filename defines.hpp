@@ -13,7 +13,9 @@ inline double timeElapsed(std::chrono::high_resolution_clock::time_point start, 
 
 const double eps=1e-8;
 const size_t seed=19260817;
-std::mt19937 rng(seed);
+extern std::mt19937 rng;
+
+
 
 struct pair_hash 
 {
@@ -26,7 +28,7 @@ struct pair_hash
 };
 
 // Ensure folder path ends with separator
-std::string ensureFolderSeparator(const std::string &folder) {
+inline std::string ensureFolderSeparator(const std::string &folder) {
     if (folder.empty()) return "./";
     char last = folder.back();
     if (last != '/' && last != '\\') {
@@ -39,15 +41,15 @@ std::string ensureFolderSeparator(const std::string &folder) {
     return folder;
 }
 
-double sqr(const double &x) { return x*x; }
-double normSqr(const std::vector<double> &x)
+inline double sqr(const double &x) { return x*x; }
+inline double normSqr(const std::vector<double> &x)
 {
 	double res=0;
 	for (auto &y:x) res+=sqr(y);
 	return res;
 }
 
-std::vector<double> operator+(const std::vector<double>& a, const std::vector<double>& b) 
+inline std::vector<double> operator+(const std::vector<double>& a, const std::vector<double>& b) 
 {
 	if (a.size() != b.size()) {
 		throw std::invalid_argument("Size mismatch: a.size() != b.size()");
@@ -58,7 +60,7 @@ std::vector<double> operator+(const std::vector<double>& a, const std::vector<do
     return result;
 }
 
-std::vector<double>& operator+=(std::vector<double>& a, const std::vector<double>& b) {
+inline std::vector<double>& operator+=(std::vector<double>& a, const std::vector<double>& b) {
     if (a.size() != b.size()) {
 		throw std::invalid_argument("Size mismatch: a.size() != b.size()");
 	}
@@ -67,7 +69,7 @@ std::vector<double>& operator+=(std::vector<double>& a, const std::vector<double
     return a;
 }
 
-std::vector<double> operator-(const std::vector<double>& a, const std::vector<double>& b) 
+inline std::vector<double> operator-(const std::vector<double>& a, const std::vector<double>& b) 
 {
     if (a.size() != b.size()) {
 		throw std::invalid_argument("Size mismatch: a.size() != b.size()");
@@ -78,7 +80,7 @@ std::vector<double> operator-(const std::vector<double>& a, const std::vector<do
     return result;
 }
 
-std::vector<double>& operator-=(std::vector<double>& a, const std::vector<double>& b) {
+inline std::vector<double>& operator-=(std::vector<double>& a, const std::vector<double>& b) {
     if (a.size() != b.size()) {
 		throw std::invalid_argument("Size mismatch: a.size() != b.size()");
 	}
