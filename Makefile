@@ -1,53 +1,68 @@
 CC=g++
 #CC=clang++
-CFLAGS = -O3 -Wall -Wno-sign-compare -Wextra 
-#-static-libstdc++
+CFLAGS = -O3 -Wall -Wno-sign-compare -Wextra
 DEBUGFLAGS = -O0 -g -Wall -Wextra -Wno-sign-compare -Ddebug
+
+# 定义源文件和头文件
+SRCS = main.cpp \
+       pruning_alg/kmeans_preprocessing.cpp \
+       pruning_alg/triangle_pruning.cpp \
+       pruning_alg/bipolar_pruning.cpp
+
+HEADERS = graph.hpp \
+          defines.hpp \
+          louvain.hpp \
+          leiden.hpp \
+          louvain_heur.hpp \
+          pruning_alg/kmeans_preprocessing.hpp \
+          pruning_alg/triangle_pruning.hpp \
+          pruning_alg/bipolar_pruning.hpp
+
+# 定义可执行文件名
+TARGET = main
 
 # 定义数据集路径和参数
 DATASET = ./dataset/CiteSeer
 RESOLUTION = 200
 
-all: main
+all: $(TARGET)
 
-main: main.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp louvain_heur.hpp pruning_alg/kmeans_preprocessing.hpp pruning_alg/kmeans_preprocessing.cpp pruning_alg/triangle_pruning.hpp pruning_alg/triangle_pruning.cpp pruning_alg/bipolar_pruning.hpp pruning_alg/bipolar_pruning.cpp
-	$(CC) main.cpp kmeans_preprocessing.cpp triangle_pruning.cpp bipolar_pruning.cpp $(CFLAGS) -o main
+$(TARGET): $(SRCS) $(HEADERS)
+	$(CC) $(SRCS) $(CFLAGS) -o $(TARGET)
 
-pg: main.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp louvain_heur.hpp pruning_alg/kmeans_preprocessing.hpp pruning_alg/kmeans_preprocessing.cpp pruning_alg/triangle_pruning.hpp pruning_alg/triangle_pruning.cpp pruning_alg/bipolar_pruning.hpp pruning_alg/bipolar_pruning.cpp
-	$(CC) main.cpp kmeans_preprocessing.cpp triangle_pruning.cpp bipolar_pruning.cpp -pg -o main
+pg: $(SRCS) $(HEADERS)
+	$(CC) $(SRCS) -pg -o $(TARGET)
+
+debug: $(SRCS) $(HEADERS)
+	$(CC) $(SRCS) $(DEBUGFLAGS) -o debug
 
 test: test.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp louvain_heur.hpp
 	$(CC) test.cpp $(CFLAGS) -o test
 
-debug: main.cpp graph.hpp defines.hpp louvain.hpp leiden.hpp louvain_heur.hpp pruning_alg/kmeans_preprocessing.hpp pruning_alg/kmeans_preprocessing.cpp pruning_alg/triangle_pruning.hpp pruning_alg/triangle_pruning.cpp pruning_alg/bipolar_pruning.hpp pruning_alg/bipolar_pruning.cpp
-	$(CC) main.cpp kmeans_preprocessing.cpp triangle_pruning.cpp bipolar_pruning.cpp $(DEBUGFLAGS) -o debug
+louvain: $(TARGET)
+	./$(TARGET) 10 $(DATASET) $(RESOLUTION)
 
-louvain: main
-	./main 10 $(DATASET) $(RESOLUTION)
-
-leiden: main
-	./main 11 $(DATASET) $(RESOLUTION)
+leiden: $(TARGET)
+	./$(TARGET) 11 $(DATASET) $(RESOLUTION)
 
 simple: louvain
 
 compare_r:
 	@echo "\nRunning pure_louvain Alg.($(DATASET),r=$(RESOLUTION)):"
-	@./main 20 $(DATASET) $(RESOLUTION)
+	@./$(TARGET) 20 $(DATASET) $(RESOLUTION)
 	@echo "Running Louvain Alg.($(DATASET),r=$(RESOLUTION)):"
-	@./main 10 $(DATASET) $(RESOLUTION)
+	@./$(TARGET) 10 $(DATASET) $(RESOLUTION)
 
-
-compare: main
+compare: $(TARGET)
 	@echo "Running Louvain Alg.($(DATASET),r=$(RESOLUTION)):"
-	@./main 10 $(DATASET) $(RESOLUTION)
+	@./$(TARGET) 10 $(DATASET) $(RESOLUTION)
 	@echo "\nRunning Leiden Alg.($(DATASET),r=$(RESOLUTION)):"
-	@./main 11 $(DATASET) $(RESOLUTION)
+	@./$(TARGET) 11 $(DATASET) $(RESOLUTION)
 	@echo "\nRunning pure_louvain Alg.($(DATASET)):"
-	@./main 20 $(DATASET) $(RESOLUTION)
-
+	@./$(TARGET) 20 $(DATASET) $(RESOLUTION)
 
 clean:
-	rm -f ./test ./main ./debug
+	rm -f ./test ./$(TARGET) ./debug
 
 
 #######python config#########
