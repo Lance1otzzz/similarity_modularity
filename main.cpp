@@ -69,20 +69,7 @@ int main(int argc, char** argv)
 		case 9:
 		{
 			cout<<"start heap & flm heur"<<endl;
-			// K-means preprocessing
-			auto startPreprocessing = timeNow();
-			double preprocessing_time = preprocess_kmeans_index(g, 10);
-			auto endPreprocessing = timeNow();
-			cout<<"K-means preprocessing time: "<<preprocessing_time<<endl;
-			
-			// Main algorithm
-			auto startMainAlgorithm = timeNow();
 			louvain_with_heap_and_flm(g,r);
-			auto endMainAlgorithm = timeNow();
-			cout<<"Main algorithm time: "<<timeElapsed(startMainAlgorithm, endMainAlgorithm)<<endl;
-			
-			// Cleanup
-			cleanup_distance_index();
 			cout<<"with_heap_and_flm time: ";
 			break;
 		}
@@ -119,7 +106,7 @@ int main(int argc, char** argv)
 			
 			// Main algorithm
 			auto startMainAlgorithm = timeNow();
-			louvain_with_heap_and_flm(g,r);
+			louvain_with_heap_and_flm_pruning(g,r);
 			auto endMainAlgorithm = timeNow();
 			cout<<"Main algorithm time: "<<timeElapsed(startMainAlgorithm, endMainAlgorithm)<<endl;
 			

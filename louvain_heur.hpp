@@ -3,6 +3,7 @@
 #include "graph.hpp"
 #include "defines.hpp"
 #include "pruning_alg/triangle_pruning.hpp"
+#include "pruning_alg/bipolar_pruning.hpp"
 #include <algorithm>
 #include <vector>
 #include <queue>
@@ -663,7 +664,7 @@ void louvain_with_heap_and_flm_pruning(Graph<Node> &g, double r)
 				{
 					for (auto hnodev:community[x.second]) //every hypernode in the community
 					{
-						for (auto vv:hg.nodes[hnodev]) if (checkDisSqr_with_pruning(g.nodes[uu],g.nodes[vv],rr)) 
+						for (auto vv:hg.nodes[hnodev]) if (checkDisSqr_with_bipolar_pruning(g.nodes[uu],g.nodes[vv],rr))
 						{
 							sim=false;
 							break;
