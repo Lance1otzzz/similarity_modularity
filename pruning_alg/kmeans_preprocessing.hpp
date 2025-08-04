@@ -31,10 +31,10 @@ struct DistanceIndex {
 extern DistanceIndex* g_distance_index;
 
 // Function to build k-means index for triangle inequality pruning
-double build_kmeans_index(const Graph<Node>& g, int k = 10);
+double build_kmeans_index(const Graph<Node>& g, int k = 2);
 
 // Function to preprocess k-means index and return preprocessing time
-double preprocess_kmeans_index(const Graph<Node>& g, int k = 10);
+double preprocess_kmeans_index(const Graph<Node>& g, int k = 2);
 
 // Function to cleanup the distance index
 void cleanup_distance_index();

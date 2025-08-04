@@ -267,7 +267,7 @@ double build_bipolar_pruning_index(const Graph<Node>& g, int k) {
         delete g_bipolar_pruning;
     }
     
-    g_bipolar_pruning = new BipolarPruning(k, 10);
+    g_bipolar_pruning = new BipolarPruning(k, 1);
     return g_bipolar_pruning->build(g);
 }
 
