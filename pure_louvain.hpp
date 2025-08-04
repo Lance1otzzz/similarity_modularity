@@ -11,7 +11,7 @@
 // 去掉了针对 r 的所有距离相关逻辑，仅保留必要的社区划分流程。
 // 可以保留原函数签名中的参数 r，或根据需要删除。
 // 这里保留 r，而并未在函数体中使用，以示兼容。
-void pure_louvain(Graph<Node> &g, double r)
+void pure_louvain(Graph<Node> &g)
 {
 
 		auto startLouvainPure=timeNow();

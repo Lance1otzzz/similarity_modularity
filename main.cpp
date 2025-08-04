@@ -3,6 +3,8 @@
 #include "louvain.hpp"
 #include "leiden.hpp"
 #include "louvain_heur.hpp"
+#include "louvain_plus.hpp"
+#include "louvain_pruning.hpp"
 #include "pure_louvain.hpp"
 #include "pruning_alg/kmeans_preprocessing.hpp"
 #include "pruning_alg/bipolar_pruning.hpp"
@@ -14,8 +16,6 @@ using namespace std;
 
 // Define the global random number generator
 std::mt19937 rng(seed);
-
-
 
 
 // ./main 1
@@ -99,9 +99,7 @@ int main(int argc, char** argv)
 		{
 			cout<<"start Louvain with Bipolar Pruning"<<endl;
 			// Bipolar pruning preprocessing
-			auto startPreprocessing = timeNow();
 			double preprocessing_time = build_bipolar_pruning_index(g, 10);
-			auto endPreprocessing = timeNow();
 			cout<<"Bipolar pruning preprocessing time: "<<preprocessing_time<<endl;
 			
 			// Main algorithm
@@ -131,9 +129,7 @@ int main(int argc, char** argv)
 		{
 			cout<<"start Pure Louvain with Bipolar Pruning"<<endl;
 			// Bipolar pruning preprocessing
-			auto startPreprocessing = timeNow();
 			double preprocessing_time = build_bipolar_pruning_index(g, 10);
-			auto endPreprocessing = timeNow();
 			cout<<"Bipolar pruning preprocessing time: "<<preprocessing_time<<endl;
 			
 			// Main algorithm
@@ -164,7 +160,7 @@ int main(int argc, char** argv)
 			cout<<"start pure Louvain"<<endl;
 			//TIME COUNT is contained in the function
 			//auto startLouvainPure=timeNow();
-			pure_louvain(g,r);
+			pure_louvain(g);
 			//auto endLouvainPure=timeNow();
 			//cout<<"pure_louvain total time: "<<timeElapsed(startLouvainPure,endLouvainPure)<<endl;
 			break;

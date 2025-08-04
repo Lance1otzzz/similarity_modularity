@@ -715,7 +715,7 @@ private:
      * @brief 打印当前 hypergraph_ 的社区分配情况
      * @param stage_info 提示处于何阶段后
      */
-    void debug_print_current_partition(const std::string &stage_info) {
+    void debug_print_current_partition([[maybe_unused]]const std::string &stage_info) {
         // 打印一下 hypergraph_ 分区信息
         // 例如：每个超节点包含哪些原图节点；以及它目前的 community_assignments_ ID
         // std::cout << "  [调试] " << stage_info << " 的社区划分(超节点->原节点)：" << std::endl;
