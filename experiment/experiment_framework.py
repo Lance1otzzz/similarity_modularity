@@ -242,7 +242,6 @@ class ExperimentRunner:
 
         return pd.DataFrame(combined_results)
 
-    @staticmethod
     def get_pruning_columns(self) -> List[str]:
         """获取pruning相关的列名"""
         pruning_columns = []
@@ -250,7 +249,6 @@ class ExperimentRunner:
                 pruning_columns.extend([f"{algo_name}_pruning_rate"])
         return pruning_columns
 
-    @staticmethod
     def get_modularity_columns(self) -> List[str]:
         """获取modularity相关的列名"""
         modularity_columns = []
@@ -258,7 +256,6 @@ class ExperimentRunner:
                 modularity_columns.extend([f"{algo_name}_modularity"])
         return modularity_columns
 
-    @staticmethod
     def parse_multi_output(self, output: str, command_name: str) -> Tuple[
         Dict[str, float], Dict[str, float], Dict[str, float]]:
         """解析程序输出，提取时间、pruning率和modularity指标"""
