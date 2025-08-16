@@ -20,3 +20,4 @@ experiment_results_list.csv
 gmon.out
 analysis.txt
 */__pycache__
+!/experiment/experiment_config.json

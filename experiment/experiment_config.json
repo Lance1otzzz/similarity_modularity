@@ -1,0 +1,51 @@
+{
+    "algorithm_commands": {
+        "9": "flm",
+        "10": "louvain", 
+        "12": "both",
+        "13": "bipolar",
+        "14": "hybrid"
+    },
+    "output_mapping": {
+        "flm": "flm",
+        "louvain": "louvain",
+        "both": "both",
+        "bipolar": "bipolar",
+        "hybrid": "hybrid"
+    },
+    "table_columns": [
+        "flm_cal_time",
+        "louvain_cal_time",
+        "both_cal_time",
+        "both_preprocessing_time",
+        "both_cal_time",
+        "bipolar_preprocessing_time",
+        "bipolar_cal_time",
+        "hybrid_preprocessing_time",
+        "hybrid_cal_time"
+    ],
+        "target_datasets": [
+        "SinaNet",
+        "Cora", 
+        "CoauthorCS",
+        "CoauthorPhysics",
+        "Yelp"
+    ],
+    "distance_percentiles": [5, 10, 20, 50, 80],
+    "sampling_config": {
+        "max_samples": 100000,
+        "use_edges_for_sampling": true,
+        "cache_distance_data": true
+    },
+    "experiment_config": {
+        "enable_timeout": false,
+        "timeout_seconds": 300,
+        "sleep_between_runs": 0.1,
+        "main_program_path": "./main"
+    },
+    "output_config": {
+        "results_dir": "experiment_results",
+        "cache_dir": "distance_cache",
+        "save_intermediate": true
+    }
+}
