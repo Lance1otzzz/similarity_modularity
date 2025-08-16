@@ -23,7 +23,7 @@ struct infoCom
 
 void louvain_heur(Graph<Node> &g, double r) //edge node to community
 {
-	double rr=r*r;
+	const double rr=r*r;
 	double mm=g.m;
 //	const double ref_attr_sqr=estimateAvgAttrDistanceSqr(g);
 	

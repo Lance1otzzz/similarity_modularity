@@ -365,11 +365,13 @@ void pure_louvain_with_bipolar_pruning(Graph<Node> &g, double r)
         }
         
         communityMaxDistances.push_back(maxDistance);
+		/*
         std::cout << "Community " << comm << ": " << nodesInCommunity.size() << " nodes, max distance = " << maxDistance;
         if (maxPair1 != -1) {
             std::cout << " (between nodes " << maxPair1 << " and " << maxPair2 << ")";
         }
         std::cout << std::endl;
+		 */
     }
     
     if (!communityMaxDistances.empty()) {
