@@ -65,6 +65,9 @@ extern BipolarPruning* g_bipolar_pruning;
 // Function to check distance with bipolar pruning
 bool checkDisSqr_with_bipolar_pruning(const Node& x, const Node& y, const double& rr);
 
+// Function to check distance with hybrid pruning (statistical + bipolar)
+bool checkDisSqr_with_hybrid_pruning(const Node& x, const Node& y, const double& rr);
+
 // Function to build bipolar pruning index and return preprocessing time
 double build_bipolar_pruning_index(const Graph<Node>& g, int k = 10);
 

@@ -165,6 +165,36 @@ int main(int argc, char** argv)
 			//cout<<"pure_louvain total time: "<<timeElapsed(startLouvainPure,endLouvainPure)<<endl;
 			break;
 		}
+		case 14:
+		{
+			cout<<"start Louvain with Hybrid Pruning"<<endl;
+			// Bipolar pruning preprocessing
+			double preprocessing_time = build_bipolar_pruning_index(g, 10);
+			cout<<"Bipolar pruning preprocessing time: "<<preprocessing_time<<endl;
+			
+			// Main algorithm
+			auto startMainAlgorithm = timeNow();
+			louvain_with_heap_and_flm_hybrid_pruning(g,r);
+			auto endMainAlgorithm = timeNow();
+			cout<<"Main algorithm time: "<<timeElapsed(startMainAlgorithm, endMainAlgorithm)<<endl;
+			
+			// Print pruning statistics
+			if (g_bipolar_pruning) {
+				cout<<"Bipolar pruning statistics:"<<endl;
+				cout<<"  Total queries: "<<g_bipolar_pruning->get_total_queries()<<endl;
+				cout<<"  Successful prunings: "<<g_bipolar_pruning->get_pruning_count()<<endl;
+				cout<<"  Full calculations: "<<g_bipolar_pruning->get_full_calculations()<<endl;
+				if (g_bipolar_pruning->get_total_queries() > 0) {
+					double pruning_rate = (double)g_bipolar_pruning->get_pruning_count() / g_bipolar_pruning->get_total_queries() * 100.0;
+					cout<<"  Pruning rate: "<<pruning_rate<<"%"<<endl;
+				}
+			}
+			
+			// Cleanup
+			cleanup_bipolar_pruning_index();
+			cout<<"Louvain with Hybrid Pruning time: ";
+			break;
+		}
 		case 114514:
 		{
 			cout<<"start louvain trial"<<endl;

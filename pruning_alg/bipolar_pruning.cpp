@@ -262,6 +262,34 @@ bool checkDisSqr_with_bipolar_pruning(const Node& x, const Node& y, const double
     return g_bipolar_pruning->query_distance_exceeds(x.id, y.id, r);
 }
 
+bool checkDisSqr_with_hybrid_pruning(const Node& x, const Node& y, const double& rr) {
+    // Priority 1: Fast statistical pruning using precomputed attributes
+    totchecknode++;
+    double sumAttrSqr = x.attrSqr + y.attrSqr;
+    double xyUpperBound = std::min(x.attrAbsSum * y.attrAbsMax, y.attrAbsSum * x.attrAbsMax);
+    
+    if (!x.negative && !y.negative) {
+        if (sumAttrSqr - 2 * xyUpperBound > rr) return true;
+        double xyLowerBound = std::max(x.attrAbsSum * y.attrAbsMin, y.attrAbsSum * x.attrAbsMin);
+        if (sumAttrSqr - 2 * xyLowerBound < rr) return false;
+    } else {
+        double upperBound = sumAttrSqr + 2 * xyUpperBound;
+        if (upperBound < rr) return false;
+        double lowerBound = sumAttrSqr - 2 * xyUpperBound;
+        if (lowerBound > rr) return true;
+    }
+    
+    // Priority 2: Bipolar pruning if statistical pruning failed
+    if (g_bipolar_pruning) {
+        double r = std::sqrt(rr);
+        return g_bipolar_pruning->query_distance_exceeds(x.id, y.id, r);
+    }
+    
+    // Priority 3: Exact calculation if both pruning methods failed
+    notpruned++;
+    return calcDisSqr(x, y) > rr;
+}
+
 double build_bipolar_pruning_index(const Graph<Node>& g, int k) {
     if (g_bipolar_pruning) {
         delete g_bipolar_pruning;

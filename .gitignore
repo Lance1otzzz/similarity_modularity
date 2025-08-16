@@ -19,3 +19,4 @@ experiment_results_list.csv
 .DS_Store
 gmon.out
 analysis.txt
+*/__pycache__
