@@ -388,42 +388,55 @@ void louvain_with_heap_and_flm_hybrid_pruning(Graph<Node> &g, double r)
 			auto endCheckTime=timeNow();
 			checkTime+=timeElapsed(startCheckTime, endCheckTime);
 
-			// If moving to a new community improves the modularity, assign the best community to node u
-			if (bestCommunity!=cu)
+if (bestCommunity != communityAssignments[u] && bestScore>eps) 
 			{
-				improvement=true;
+#ifdef debug
+				//std::cerr<<bestCommunity<<' '<<bestDelta_Q<<std::endl;
+#endif
+				community[communityAssignments[u]].erase(u);
+				communityDegreeSum[cu]-=hg.degree[u];
+				communityAttrSum[cu]-=hg.attrSum[u];
+
 				communityAssignments[u]=bestCommunity;
-				community[cu].erase(u);
+
 				community[bestCommunity].insert(u);
-				communityDegreeSum[cu]-=uDegreeSum;
-				communityDegreeSum[bestCommunity]+=uDegreeSum;
-				for (int i=0;i<hg.attrSum[u].size();i++)
+				communityDegreeSum[bestCommunity]+=hg.degree[u];
+				communityAttrSum[bestCommunity]+=hg.attrSum[u];
+
+				inq[u]=true;
+				q.push(u);
+				for (const Edge& edge:hg.edges[u]) 
 				{
-					communityAttrSum[cu][i]-=hg.attrSum[u][i];
-					communityAttrSum[bestCommunity][i]+=hg.attrSum[u][i];
+					if (!inq[edge.v]) 
+					{
+						inq[edge.v]=true;
+						q.push(edge.v);
+					}
 				}
-				for (const Edge& edge:hg.edges[u]) if (!inq[communityAssignments[edge.v]])
-				{
-					q.push(communityAssignments[edge.v]);
-					inq[communityAssignments[edge.v]]=true;
-				}
+				//imp=true;
+				improvement = true;
 			}
 		}
-		auto endPhase1=timeNow();
-		std::cout<<"phase 1 time:"<<timeElapsed(startPhase1, endPhase1)<<std::endl;
 
-		// Phase 2: Build the new graph for the next iteration
-		auto startPhase2=timeNow();
+
+		std::cout<<"iteration "<<iteration<<std::endl;
+		std::cout<<"neighbor community average "<<(double)cntNeiCom/cntU<<" degree"<<std::endl;
+
+		auto endPhase1=timeNow();
+		std::cout<<"phase 1 time:"<<timeElapsed(startPhase1,endPhase1)<<std::endl;
+
+        // Phase 2: Create a new graph
 		std::vector<std::vector<int>> newNode;
+
+		std::vector<int> idToNewid(hg.n);
 		std::vector<std::vector<double>> newAttrSum;
-		std::unordered_map<int,int> idToNewid;
 		int numNew=0;
-		for (int i=0;i<hg.n;i++)
+		for (int i=0;i<community.size();i++) //every community
 		{
 			if (!community[i].empty())
 			{
 				std::vector<int> merged;
-				for (auto hnode:community[i])
+				for (int hnode:community[i]) //every hypernode
 				{
 					idToNewid[hnode]=numNew;
 					merged.insert(merged.end(),hg.nodes[hnode].begin(),hg.nodes[hnode].end());
@@ -434,14 +447,13 @@ void louvain_with_heap_and_flm_hybrid_pruning(Graph<Node> &g, double r)
 			}
 		}
 
-		if (numNew==hg.n) break; // No improvement
-
 		// initialize community, communityAssignments & Hypernode
 		Graph<std::vector<int>> newhg(numNew,std::move(newAttrSum));
 		std::unordered_map<std::pair<int,int>,int,pair_hash> toAdd;
 		for (int u=0;u<hg.n;u++)
 		{
 			int uu=idToNewid[u];
+			//newhg.degreeSum[uu]+=hg.degreeSum[u];
 			for (auto e:hg.edges[u]) 
 			{
 				int vv=idToNewid[e.v];
@@ -459,7 +471,7 @@ void louvain_with_heap_and_flm_hybrid_pruning(Graph<Node> &g, double r)
 			community[i].clear();
 			community[i].insert(i);
 			communityAssignments[i]=i;
-			communityAttrSum[i]=newhg.attrSum[i];
+			communityAttrSum[i]=hg.attrSum[i];
 		}
 		newhg.nodes=std::move(newNode);
 		hg=std::move(newhg);

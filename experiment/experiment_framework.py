@@ -267,30 +267,30 @@ class ExperimentRunner:
         # 根据算法命令名称直接定义输出列名
         if command_name == "flm":
             time_columns = ["flm_cal_time"]
-            pruning_columns = ["flm_pruning"]
+            pruning_columns = ["flm_pruning_rate"]
             modularity_columns = ["flm_modularity"]
             main_time_pattern = r'with_heap_and_flm time:\s*([\d.]+)'
         elif command_name == "louvain":
             time_columns = ["louvain_time"]
-            pruning_columns = ["louvain_pruning"]
+            pruning_columns = ["louvain_pruning_rate"]
             modularity_columns = ["louvain_modularity", ]
             main_time_pattern = r'Louvain time:\s*([\d.]+)'
         elif command_name == "both":
             time_columns = ["both_preprocessing_time","both_cal_time"]
-            pruning_columns = ["both_pruning"]
+            pruning_columns = ["both_pruning_rate"]
             modularity_columns = ["both_modularity"]
             main_time_pattern = r'Main algorithm time:\s*([\d.]+)'
         elif command_name == "bipolar":
             time_columns = ["bipolar_preprocessing_time","bipolar_cal_time", ]
-            pruning_columns = ["bipolar_pruning",]
+            pruning_columns = ["bipolar_pruning_rate",]
             modularity_columns = ["bipolar_modularity"]
             main_time_pattern = r'Main algorithm time:\s*([\d.]+)'
         elif command_name == "hybrid":
             time_columns = ["hybrid_preprocessing_time","hybrid_cal_time", ]
-            pruning_columns = ["hybrid_pruning",]
+            pruning_columns = ["hybrid_pruning_rate",]
             modularity_columns = ["hybrid_modularity"]
             main_time_pattern = r'Main algorithm time:\s*([\d.]+)'
-
+        
 
         # 解析建立索引时间 (LoadGraph time)
         load_time_match = re.search(r'LoadGraph time:\s*([\d.]+)', output)
@@ -300,9 +300,26 @@ class ExperimentRunner:
         main_time_match = re.search(main_time_pattern, output)
         main_time = float(main_time_match.group(1)) if main_time_match else -1.0
 
-        # 解析pruning率 (只有指令10、12、13、14有，指令9没有)
-        pruning_match = re.search(r'Pruning rate:\s*([\d.]+)%', output)
-        pruning_rate = float(pruning_match.group(1)) if pruning_match else -1.0
+        # 解析pruning率
+        pruning_rate = -1.0
+        
+        if command_name == "flm":
+            # FLM算法从"# check node to node:X and pruned Y"提取pruning率
+            flm_pruning_match = re.search(r'# check node to node:(\d+) and pruned (\d+)', output)
+            if flm_pruning_match:
+                total_checks = int(flm_pruning_match.group(1))
+                pruned_count = int(flm_pruning_match.group(2))
+                if total_checks > 0:
+                    pruning_rate = (pruned_count / total_checks) * 100
+                else:
+                    pruning_rate = 0.0
+        elif command_name == "louvain":
+            # Louvain算法没有pruning功能
+            pruning_rate = 0.0
+        else:
+            # both和bipolar算法有标准的"Pruning rate"输出
+            pruning_match = re.search(r'Pruning rate:\s*([\d.]+)%', output)
+            pruning_rate = float(pruning_match.group(1)) if pruning_match else -1.0
 
         # 解析modularity值 (根据算法类型的不同模式)
         cal_modularity_value = -1.0
@@ -343,22 +360,18 @@ class ExperimentRunner:
         # 为时间输出列赋值（使用主要函数时间）
         if command_name in ["flm", "louvain"]:
             time_results[time_columns[0]] = main_time  # cal_time
-        elif command_name in ["both", "bipolar"]:
+        elif command_name in ["both", "bipolar", "hybrid"]:
             time_results[time_columns[0]] = main_time  # cal_time
             time_results[time_columns[1]] = preprocessing_time  # cal_preprocessing_time
 
         # 为pruning率输出列赋值
         for column in pruning_columns:
-            if command_name == "flm":
-                # 指令9没有pruning rate
-                pruning_results[column] = -1.0
-            else:
-                pruning_results[column] = pruning_rate
+            pruning_results[column] = pruning_rate
 
         # 为modularity输出列赋值 - 区分cal和pruning版本
         if command_name in ["flm", "louvain"]:
             modularity_results[modularity_columns[0]] = cal_modularity_value  # cal_modularity
-        elif command_name in ["both", "bipolar"]:
+        elif command_name in ["both", "bipolar", "hybrid"]:
             modularity_results[modularity_columns[0]] = cal_modularity_value  # cal_modularity
 
         return time_results, pruning_results, modularity_results
