@@ -26,6 +26,8 @@ std::mt19937 rng(seed);
 	algorithm 10: louvain
 	algorithm 11: leiden
 	algorithm 12: louvain_with_bipolar_pruning
+	algorithm 13: louvain_with_prue_bipolar_pruning
+	algorithm 14: louvain_with_hybrid_pruning(exchange the priority of the two pruning methods)
 	algorithm 20: louvain_pure
     algorithm 114514: try and test sth
     
