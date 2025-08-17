@@ -31,6 +31,7 @@ void louvain_with_heap_and_flm(Graph<Node> &g, double r)
     while (improvement) 
 	{
 		iteration++;
+		int it_pushQueue=0,it_trieMove=0,it_moveSucc=0,it_deltaQViolate=0; // every iteration, how many times pushing into the queue, how many times moving a node, how many times moving successfully, how many times not meeting the delta_Q>0 requirement
 		int cntNeiCom=0,cntU=0;
 		std::vector<long long> communityDegreeSum(hg.degree); // The degree sum of every node in community (not just degree of hypernodes)
 
@@ -44,6 +45,7 @@ void louvain_with_heap_and_flm(Graph<Node> &g, double r)
 
 		std::queue<int> q;
 		for (int u=0;u<hg.n;++u) q.push(u);
+		it_pushQueue+=hg.n;
 		std::vector<bool> inq(hg.n,true);
 
 		//bool imp=true; // imp for phase 1
@@ -55,6 +57,7 @@ void louvain_with_heap_and_flm(Graph<Node> &g, double r)
 			inq[u]=false;
 
 			cntU++;
+			it_trieMove++;
 			//double bestDelta_Q=0;// if not move
 			double bestScore=0;
 			int cu=communityAssignments[u];
@@ -107,6 +110,7 @@ void louvain_with_heap_and_flm(Graph<Node> &g, double r)
 				if (score>eps) coms.emplace_back(score,c.first);
 			}
 
+			if (coms.size()) it_deltaQViolate++;
 			std::make_heap(coms.begin(),coms.end());
 
 			cntMove++;
@@ -151,6 +155,7 @@ void louvain_with_heap_and_flm(Graph<Node> &g, double r)
 #ifdef debug
 				//std::cerr<<bestCommunity<<' '<<bestDelta_Q<<std::endl;
 #endif
+				it_moveSucc++;
 				community[communityAssignments[u]].erase(u);
 				communityDegreeSum[cu]-=hg.degree[u];
 				communityAttrSum[cu]-=hg.attrSum[u];
@@ -162,6 +167,7 @@ void louvain_with_heap_and_flm(Graph<Node> &g, double r)
 				communityAttrSum[bestCommunity]+=hg.attrSum[u];
 
 				inq[u]=true;
+				it_pushQueue++;
 				q.push(u);
 				for (const Edge& edge:hg.edges[u]) 
 				{
@@ -169,6 +175,7 @@ void louvain_with_heap_and_flm(Graph<Node> &g, double r)
 					{
 						inq[edge.v]=true;
 						q.push(edge.v);
+						it_pushQueue++;
 					}
 				}
 				//imp=true;
@@ -177,8 +184,14 @@ void louvain_with_heap_and_flm(Graph<Node> &g, double r)
 		}
 
 
-		std::cout<<"iteration "<<iteration<<std::endl;
-		std::cout<<"neighbor community average "<<(double)cntNeiCom/cntU<<" degree"<<std::endl;
+		std::cout<<std::endl<<"iteration "<<iteration<<std::endl;
+		//std::cout<<"neighbor community average "<<(double)cntNeiCom/cntU<<" degree"<<std::endl;
+		std::cout<<"number of (hyper)nodes: "<<hg.n<<std::endl;
+		
+		std::cout<<"pushQueue: "<<it_pushQueue<<std::endl;
+		std::cout<<"triesMove: "<<it_trieMove<<std::endl;
+		std::cout<<"moveSucc: "<<it_moveSucc<<std::endl;
+		std::cout<<"deltaQViolate: "<<it_deltaQViolate<<std::endl;
 
 		auto endPhase1=timeNow();
 		std::cout<<"phase 1 time:"<<timeElapsed(startPhase1,endPhase1)<<std::endl;
