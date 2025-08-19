@@ -258,6 +258,7 @@ void louvain_with_heap_and_flm(Graph<Node> &g, double r)
 	std::cout<<"calculated delta_Q: "<<cntCalDelta_Q<<" and skipped "<<skipped<<" times"<<std::endl;
 
 	std::cout<<"Louvain_heur Modularity = "<<calcModularity(g,hg.nodes)<<std::endl;
+	std::cout<<"check if graph similarity meets the restraint: "<<graphCheckDis(g,hg.nodes,rr)<<std::endl;
 }
 
 
@@ -484,4 +485,5 @@ void louvain_with_heap(Graph<Node> &g, double r)
 	std::cout<<"calculated delta_Q: "<<cntCalDelta_Q<<" and skipped "<<skipped<<" times"<<std::endl;
 
 	std::cout<<"Louvain_heur Modularity = "<<calcModularity(g,hg.nodes)<<std::endl;
+	std::cout<<"check if graph similarity meets the restraint: "<<graphCheckDis(g,hg.nodes,rr)<<std::endl;
 }

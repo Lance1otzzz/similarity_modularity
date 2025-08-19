@@ -25,10 +25,10 @@ std::mt19937 rng(seed);
 	algorithm 91: louvain_with_heap , without fast local move
 	algorithm 10: louvain
 	algorithm 11: leiden
-	algorithm 12: louvain_with_bipolar_pruning
-	algorithm 13: louvain_with_prue_bipolar_pruning
-	algorithm 14: louvain_with_hybrid_pruning(exchange the priority of the two pruning methods)
-	algorithm 20: louvain_pure
+	algorithm 12: louvain_flm_with_bipolar_pruning
+	algorithm 13: louvain_with_bipolar_pruning
+	algorithm 14: louvain_with_hybrid_pruning (exchange the priority of the two pruning methods)
+	algorithm 20: pure_louvain
     algorithm 114514: try and test sth
     
 
@@ -58,40 +58,41 @@ int main(int argc, char** argv)
 	auto endLoadingGraph=timeNow();
     cout<<"there are "<<g.n<<" nodes and "<<g.m<<" edges"<<endl;
 	cout<<"LoadGraph time: "<<timeElapsed(startLoadingGraph,endLoadingGraph)<<endl;
+	cout<<"-----------------------------------"<<endl;
 	auto startMainAlg=timeNow();
 	switch(algorithm)
 	{
 		case 8:
 		{
-			cout<<"start latest heur"<<endl;
+			cout<<"!!!!!start latest heur!!!!!"<<endl;
 			louvain_heur(g,r);
 			cout<<":latest time: ";
 			break;
 		}
 		case 9:
 		{
-			cout<<"start heap & flm heur"<<endl;
+			cout<<"!!!!!start heap & flm heur!!!!!"<<endl;
 			louvain_with_heap_and_flm(g,r);
 			cout<<"with_heap_and_flm time: ";
 			break;
 		}
 		case 91:
 		{
-			cout<<"start heap heur"<<endl;
+			cout<<"!!!!!start heap heur!!!!!"<<endl;
 			louvain_with_heap(g,r);
 			cout<<"with_heap_without_flm time: ";
 			break;
 		}
 		case 10:
 		{
-			cout<<"start baseline louvain"<<endl;
+			cout<<"!!!!!start baseline louvain!!!!!"<<endl;
 			louvain(g,r);
 			cout<<"Louvain time: ";
 			break;
 		}
 		case 11:
 		{
-			cout<<"start Leiden"<<endl;
+			cout<<"!!!!!start Leiden!!!!!"<<endl;
 			ConstrainedLeiden leiden_solver(g, r);
 			leiden_solver.run();
 			cout<<"Leiden time: ";
@@ -99,7 +100,7 @@ int main(int argc, char** argv)
 		}
 		case 12:
 		{
-			cout<<"start Louvain with Bipolar Pruning"<<endl;
+			cout<<"!!!!!start Louvain with Bipolar Pruning!!!!"<<endl;
 			// Bipolar pruning preprocessing
 			double preprocessing_time = build_bipolar_pruning_index(g, 10);
 			cout<<"Bipolar pruning preprocessing time: "<<preprocessing_time<<endl;
@@ -129,7 +130,7 @@ int main(int argc, char** argv)
 		}
 		case 13:
 		{
-			cout<<"start Pure Louvain with Bipolar Pruning"<<endl;
+			cout<<"!!!!!start baseline Louvain with Bipolar Pruning!!!!!"<<endl;
 			// Bipolar pruning preprocessing
 			double preprocessing_time = build_bipolar_pruning_index(g, 10);
 			cout<<"Bipolar pruning preprocessing time: "<<preprocessing_time<<endl;
@@ -159,7 +160,7 @@ int main(int argc, char** argv)
 		}
 		case 20:
 		{
-			cout<<"start pure Louvain"<<endl;
+			cout<<"!!!!!start pure Louvain!!!!!"<<endl;
 			//TIME COUNT is contained in the function
 			//auto startLouvainPure=timeNow();
 			pure_louvain(g);
@@ -169,7 +170,7 @@ int main(int argc, char** argv)
 		}
 		case 14:
 		{
-			cout<<"start Louvain with Hybrid Pruning"<<endl;
+			cout<<"!!!!!start Louvain with Hybrid Pruning!!!!!"<<endl;
 			// Bipolar pruning preprocessing
 			double preprocessing_time = build_bipolar_pruning_index(g, 10);
 			cout<<"Bipolar pruning preprocessing time: "<<preprocessing_time<<endl;
@@ -199,13 +200,13 @@ int main(int argc, char** argv)
 		}
 		case 114514:
 		{
-			cout<<"start louvain trial"<<endl;
+			cout<<"!!!!!start louvain trial!!!!!"<<endl;
 			louvain_trial(g,r);
 			break;
 		}
 		default:
 		{
-			cout<<"!!!NO SUCH ALGORITHM!!!"<<endl;
+			cout<<"!!!!!NO SUCH ALGORITHM!!!!!"<<endl;
 			return -1;
 		}
 	}

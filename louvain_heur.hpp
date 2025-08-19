@@ -195,6 +195,8 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 
 				inq[u]=true;
 				q.push(u);
+
+				// update the information of the edges and the neighbors
 				for (const Edge& edge:hg.edges[u]) 
 				{
 					auto &t2=eToOtherC[edge.v][bestCommunity];
@@ -240,9 +242,9 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 			if (!community[i].elements.empty())
 			{
 				std::vector<int> merged;
-				for (int hnode:community[i].elements) //every hypernode
+				for (int hnode:community[i].elements) //every hypernode in the community
 				{
-					idToNewid[hnode]=numNew;
+					idToNewid[hnode]=numNew; //
 					merged.insert(merged.end(),hg.nodes[hnode].begin(),hg.nodes[hnode].end());
 				}
 				newNode.push_back(std::move(merged));
@@ -253,19 +255,36 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 
 		// initialize community, communityAssignments & Hypernode
 		Graph<std::vector<int>> newhg(numNew,std::move(newAttrSum));
-		std::unordered_map<std::pair<int,int>,int,pair_hash> toAdd;
-		for (int u=0;u<hg.n;u++)
+		std::unordered_map<std::pair<int,int>,std::tuple<int,double,Flag>,pair_hash> toAdd; // weight, max distance, Flag
+		for (int u=0;u<hg.n;u++) // every hypernode now
 		{
-			int uu=idToNewid[u];
+			int uu=idToNewid[u]; // u is going to be added in the new hypernode uu
 			for (auto e:hg.edges[u]) 
 			{
-				int vv=idToNewid[e.v];
-				if (uu==vv) toAdd[std::make_pair(uu,uu)]+=e.w;
-				else if (uu<vv) toAdd[std::make_pair(uu,vv)]+=e.w;
-				else toAdd[std::make_pair(vv,uu)]+=e.w;
+				int vv=idToNewid[e.v],cv=communityAssignments[e.v];
+				if (uu==vv) 
+				{
+					auto &t=toAdd[std::make_pair(uu,uu)];
+					std::get<0>(t)+=e.w;
+					std::get<1>(t)=0;
+				}
+				else 
+				{
+					int uuu,vvv;
+					if (uu<vv) uuu=uu,vvv=vv;
+					else uuu=vv,vvv=uu;
+					auto &t=toAdd[std::make_pair(uuu,vvv)];
+					std::get<0>(t)+=e.w;
+					std::get<1>(t)=std::max(std::get<1>(t),e.d);
+
+					auto &t2=eToOtherC[u][cv];
+					if (t2.flag==satisfied&&t2.timeStamp>=community[cv].comeTimeStamp) std::get<2>(t)=satisfied;
+					else if (t2.flag==violated&&t2.timeStamp>=community[cv].leaveTimeStamp) std::get<2>(t)=violated;
+					else std::get<2>(t)=unknown;
+				}
 			}
 		}
-		for (auto x:toAdd) newhg.addedge(x.first.first,x.first.second,x.second);
+		for (auto x:toAdd) newhg.addedge_heur_phase2(x.first.first,x.first.second,std::get<0>(x.second),std::get<1>(x.second),std::get<2>(x.second),rr);
 		community.resize(numNew);
 		communityAssignments.resize(numNew);
 		communityAttrSum.resize(numNew);
@@ -283,6 +302,9 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 
 		auto endPhase2=timeNow();
 		std::cout<<"phase 2 time:"<<timeElapsed(endPhase1, endPhase2)<<std::endl;
+
+		//////test
+		//std::cout<<"modularity now is "<<calcModularity(g, hg.nodes)<<std::endl;
 	}
 
 	std::cout<<"\ncheck time:"<<checkTime<<std::endl;
@@ -292,6 +314,7 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 	std::cout<<"calculated delta_Q: "<<cntCalDelta_Q<<" and skipped "<<skipped<<" times"<<std::endl;
 
 	std::cout<<"Louvain_heur Modularity = "<<calcModularity(g,hg.nodes)<<std::endl;
+	std::cout<<"check if graph similarity meets the restraint: "<<graphCheckDis(g,hg.nodes,rr)<<std::endl;
 }
 
 

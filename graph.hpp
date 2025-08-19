@@ -88,9 +88,11 @@ inline bool checkDisSqr(const Node &x,const Node &y,const double &rr) // true fo
 enum Flag{satisfied=0,violated=1,unknown=2};
 struct Edge { // 0-based index
 	int u, v, w;
+	double d; // distance between two nodes
 	Flag flag;
-	Edge(int u_,int v_,int w_):u(u_),v(v_),w(w_),flag(unknown){}
-	Edge(int u_,int v_,int w_,Flag flag_):u(u_),v(v_),w(w_),flag(flag_){}
+	Edge(int u_,int v_,int w_):u(u_),v(v_),w(w_),d(0),flag(unknown){}
+	Edge(int u_,int v_,int w_,double d_):u(u_),v(v_),w(w_),d(d_),flag(unknown){}
+	Edge(int u_,int v_,int w_,double d_,Flag flag_):u(u_),v(v_),w(w_),d(d_),flag(flag_){}
 };
 
 template<typename NodeType>
@@ -151,13 +153,29 @@ struct GraphBase
 		}
 		degree[u]+=w;
 	}
-	void addedge_loading(const int &u,const int &v,const Flag &flag=unknown) // addedge function when loading edges
+
+	void addedge_loading(const int &u,const int &v,const double &d,const double &rr) // addedge function when loading edges
 	{
+		Flag flag=d>rr?violated:satisfied;
 		m++;
-		edges[u].emplace_back(u,v,1,flag);
+		edges[u].emplace_back(u,v,1,d,flag);
 		if (u!=v) 
 		{
-			edges[v].emplace_back(v,u,1,flag);
+			edges[v].emplace_back(v,u,1,d,flag);
+			degree[v]++;
+		}
+		degree[u]++;
+	}
+
+	void addedge_heur_phase2(const int &u,const int &v,const int &w,const double &d,const Flag &f,const double &rr) // addedge function when loading edges
+	{
+		Flag flag=f;
+		if (d>rr) flag=violated;
+		m++;
+		edges[u].emplace_back(u,v,w,d,flag);
+		if (u!=v) 
+		{
+			edges[v].emplace_back(v,u,w,d,flag);
 			degree[v]++;
 		}
 		degree[u]++;
@@ -322,7 +340,7 @@ struct Graph<Node>:public GraphBase<Node> //graph with simple node (not hypernod
 							 << ") in line: " << line << std::endl;
 					throw std::invalid_argument("invalid edge");
 				}
-				addedge_loading(u,v,calcDisSqr(nodes[u],nodes[v])>rr?violated:satisfied); //different from baseline. precompute if the edge meet the restraint
+				addedge_loading(u,v,calcDisSqr(nodes[u],nodes[v]),rr); //different from baseline. precompute if the edge meet the restraint
 			}
 			else 
 			{
@@ -514,6 +532,23 @@ inline double calcModularity(const Graph<Node> &g, const std::vector<std::vector
 	return res;
 }
 
+inline bool graphCheckDis(const Graph<Node> &g, const std::vector<std::vector<int>> &community, const double &rr)
+{
+	for (auto &C:community)
+	{
+		for (int i=0;i<C.size();i++) 
+			for (int j=i+1;j<C.size();j++)
+			{
+				double t=calcDisSqr(g.nodes[i],g.nodes[j]);
+				if (t>rr) 
+				{
+					std::cout<<"node "<<i<<" and node "<<j<<" not meet similarity restriction:\ndis="<<t<<" while rr="<<rr<<std::endl;
+					return false;
+				}
+			}
+	}
+	return true;
+}
 
 
 // no use now. for minimum fu4gai4 hypersphere

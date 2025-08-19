@@ -11,7 +11,7 @@ inline double timeElapsed(std::chrono::high_resolution_clock::time_point start, 
     return std::chrono::duration<double>(end - start).count();
 }
 
-const double eps=1e-8;
+const double eps=1e-9;
 const size_t seed=19260817;
 extern std::mt19937 rng;
 

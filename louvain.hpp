@@ -346,7 +346,7 @@ void pure_louvain_with_bipolar_pruning(Graph<Node> &g, double r)
     {
         const std::vector<int>& nodesInCommunity = hg.nodes[comm];
         double maxDistance = 0.0;
-        int maxPair1 = -1, maxPair2 = -1;
+//        int maxPair1 = -1, maxPair2 = -1;
         
         // 计算社区内所有节点对之间的距离，找到最大值
         for (int i = 0; i < nodesInCommunity.size(); ++i) 
@@ -358,8 +358,8 @@ void pure_louvain_with_bipolar_pruning(Graph<Node> &g, double r)
                 if (distance > maxDistance) 
                 {
                     maxDistance = distance;
-                    maxPair1 = nodesInCommunity[i];
-                    maxPair2 = nodesInCommunity[j];
+//                    maxPair1 = nodesInCommunity[i];
+//                    maxPair2 = nodesInCommunity[j];
                 }
             }
         }
