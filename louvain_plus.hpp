@@ -10,7 +10,6 @@ void louvain_with_heap_and_flm(Graph<Node> &g, double r)
 {
 	double rr=r*r;
 	double mm=g.m;
-//	const double ref_attr_sqr=estimateAvgAttrDistanceSqr(g);
 	
     std::vector<int> communityAssignments(g.n);  // stores the community of each hypernode
     for (int i=0;i<g.n;++i) communityAssignments[i]=i; // Initialize: each hypernode is its own community
@@ -34,9 +33,6 @@ void louvain_with_heap_and_flm(Graph<Node> &g, double r)
 		int it_pushQueue=0,it_trieMove=0,it_moveSucc=0,it_deltaQViolate=0; // every iteration, how many times pushing into the queue, how many times moving a node, how many times moving successfully, how many times not meeting the delta_Q>0 requirement
 		int cntNeiCom=0,cntU=0;
 		std::vector<long long> communityDegreeSum(hg.degree); // The degree sum of every node in community (not just degree of hypernodes)
-
-		std::vector<std::vector<double>> communityAttrSum(hg.n);
-		for (int i=0;i<hg.n;i++) communityAttrSum[i]=hg.attrSum[i];
 
         improvement=false;
 
@@ -74,15 +70,9 @@ void louvain_with_heap_and_flm(Graph<Node> &g, double r)
 				else if (edge.flag==violated) it->second=-1; 
 				else if (it->second!=-1) it->second+=edge.w;
 			}
-//!!!!!!!check if the uToCom is big,decide if using vector
-//not bottleneck, not add now
 
 			// Find the community that gives the best modularity gain
 			double delta_Q_static=-uToCom[cu]/mm+(double)uDegreeSum*(communityDegreeSum[cu]-uDegreeSum)/mm/mm/2;
-			//double delta_WCSS_leave=-normSqr(communityAttrSum[cu]-hg.attrSum[u])/(community[cu].size()-1)
-			//	+normSqr(communityAttrSum[cu])/community[cu].size(); // omit \sum||x||^2 because WCSS_leave and WCSS_add will add as 0
-//std::cout<<normSqr(communityAttrSum[cu]-hg.attrSum[u])<<' '<<community[cu].size()<<std::endl;
-			//if (community[cu].size()==1) delta_WCSS_leave=0;
 
 			std::vector<std::pair<double,int>> coms;//score,id
 			for (auto &c:uToCom) //id,value
@@ -97,16 +87,7 @@ void louvain_with_heap_and_flm(Graph<Node> &g, double r)
 				}
 				double delta_Q_=(c.second-(double)uDegreeSum*communityDegreeSum[c.first]/mm/2)/mm;
 				double delta_Q=delta_Q_static+delta_Q_;
-				//double delta_WCSS_add=0;////test time, temporarily not calculating
-					//-normSqr(communityAttrSum[c.first]+hg.attrSum[u])/(community[c.first].size()+1)
-					//+normSqr(communityAttrSum[c.first])/community[c.first].size();
-				//double delta_WCSS=delta_WCSS_leave+delta_WCSS_add;
-				//double delta_WCSS_norm=delta_WCSS/ref_attr_sqr;
-//const double lambda=0; //for test. To be deleted!!!!!!!!!!!!
-				//double score=(1-lambda)*delta_Q*g.m+lambda*delta_WCSS_norm;///!!!!!!!! READ & UNDERSTAND
 				double score=delta_Q;
-//std::cout<<"WCSSleave="<<delta_WCSS_leave<<" WCSSadd="<<delta_WCSS_add<<std::endl;
-//std::cout<<"score="<<score<<" bestScore="<<bestScore<<std::endl;
 				if (score>eps) coms.emplace_back(score,c.first);
 			}
 
@@ -121,11 +102,11 @@ void louvain_with_heap_and_flm(Graph<Node> &g, double r)
 				cntCheck++;
 				auto x=coms.front(); //if hypernode u can move to community x
 				bool sim=true;
-				for (auto uu:hg.nodes[u]) //uu: every node in the hypernode u
+				for (auto &uu:hg.nodes[u]) //uu: every node in the hypernode u
 				{
-					for (auto hnodev:community[x.second]) //every hypernode in the community
+					for (auto &hnodev:community[x.second]) //every hypernode in the community
 					{
-						for (auto vv:hg.nodes[hnodev]) if (checkDisSqr(g.nodes[uu],g.nodes[vv],rr)) 
+						for (auto &vv:hg.nodes[hnodev]) if (checkDisSqr(g.nodes[uu],g.nodes[vv],rr)) 
 						{
 							sim=false;
 							break;
@@ -158,13 +139,11 @@ void louvain_with_heap_and_flm(Graph<Node> &g, double r)
 				it_moveSucc++;
 				community[communityAssignments[u]].erase(u);
 				communityDegreeSum[cu]-=hg.degree[u];
-				communityAttrSum[cu]-=hg.attrSum[u];
 
 				communityAssignments[u]=bestCommunity;
 
 				community[bestCommunity].insert(u);
 				communityDegreeSum[bestCommunity]+=hg.degree[u];
-				communityAttrSum[bestCommunity]+=hg.attrSum[u];
 
 				inq[u]=true;
 				it_pushQueue++;
@@ -200,7 +179,6 @@ void louvain_with_heap_and_flm(Graph<Node> &g, double r)
 		std::vector<std::vector<int>> newNode;
 
 		std::vector<int> idToNewid(hg.n);
-		std::vector<std::vector<double>> newAttrSum;
 		int numNew=0;
 		for (int i=0;i<community.size();i++) //every community
 		{
@@ -213,19 +191,18 @@ void louvain_with_heap_and_flm(Graph<Node> &g, double r)
 					merged.insert(merged.end(),hg.nodes[hnode].begin(),hg.nodes[hnode].end());
 				}
 				newNode.push_back(std::move(merged));
-				newAttrSum.push_back(std::move(communityAttrSum[i]));
 				numNew++;
 			}
 		}
 
 		// initialize community, communityAssignments & Hypernode
-		Graph<std::vector<int>> newhg(numNew,std::move(newAttrSum));
+		Graph<std::vector<int>> newhg(numNew);
 		std::unordered_map<std::pair<int,int>,int,pair_hash> toAdd;
 		for (int u=0;u<hg.n;u++)
 		{
 			int uu=idToNewid[u];
 			//newhg.degreeSum[uu]+=hg.degreeSum[u];
-			for (auto e:hg.edges[u]) 
+			for (auto &e:hg.edges[u]) if (e.v>=u)
 			{
 				int vv=idToNewid[e.v];
 				if (uu==vv) toAdd[std::make_pair(uu,uu)]+=e.w;
@@ -233,16 +210,14 @@ void louvain_with_heap_and_flm(Graph<Node> &g, double r)
 				else toAdd[std::make_pair(vv,uu)]+=e.w;
 			}
 		}
-		for (auto x:toAdd) newhg.addedge(x.first.first,x.first.second,x.second);
+		for (auto &x:toAdd) newhg.addedge(x.first.first,x.first.second,x.second);
 		community.resize(numNew);
 		communityAssignments.resize(numNew);
-		communityAttrSum.resize(numNew);
 		for (int i=0;i<numNew;i++) 
 		{
 			community[i].clear();
 			community[i].insert(i);
 			communityAssignments[i]=i;
-			communityAttrSum[i]=hg.attrSum[i];
 		}
 		newhg.nodes=std::move(newNode);
 		hg=std::move(newhg);
@@ -258,7 +233,7 @@ void louvain_with_heap_and_flm(Graph<Node> &g, double r)
 	std::cout<<"calculated delta_Q: "<<cntCalDelta_Q<<" and skipped "<<skipped<<" times"<<std::endl;
 
 	std::cout<<"Louvain_heur Modularity = "<<calcModularity(g,hg.nodes)<<std::endl;
-	std::cout<<"check if graph similarity meets the restraint: "<<graphCheckDis(g,hg.nodes,rr)<<std::endl;
+	//std::cout<<"check if graph similarity meets the restraint: "<<graphCheckDis(g,hg.nodes,rr)<<std::endl;
 }
 
 
@@ -266,7 +241,6 @@ void louvain_with_heap(Graph<Node> &g, double r)
 {
 	double rr=r*r;
 	double mm=g.m;
-//	const double ref_attr_sqr=estimateAvgAttrDistanceSqr(g);
 	
     std::vector<int> communityAssignments(g.n);  // stores the community of each hypernode
     for (int i=0;i<g.n;++i) communityAssignments[i]=i; // Initialize: each hypernode is its own community
@@ -290,8 +264,6 @@ void louvain_with_heap(Graph<Node> &g, double r)
 		int cntNeiCom=0,cntU=0;
 		std::vector<long long> communityDegreeSum(hg.degree); // The degree sum of every node in community (not just degree of hypernodes)
 
-		std::vector<std::vector<double>> communityAttrSum(hg.n);
-		for (int i=0;i<hg.n;i++) communityAttrSum[i]=hg.attrSum[i];
 
         improvement=false;
 
@@ -325,10 +297,6 @@ void louvain_with_heap(Graph<Node> &g, double r)
 
 				// Find the community that gives the best modularity gain
 				double delta_Q_static=-uToCom[cu]/mm+(double)uDegreeSum*(communityDegreeSum[cu]-uDegreeSum)/mm/mm/2;
-				//double delta_WCSS_leave=-normSqr(communityAttrSum[cu]-hg.attrSum[u])/(community[cu].size()-1)
-				//	+normSqr(communityAttrSum[cu])/community[cu].size(); // omit \sum||x||^2 because WCSS_leave and WCSS_add will add as 0
-//std::cout<<normSqr(communityAttrSum[cu]-hg.attrSum[u])<<' '<<community[cu].size()<<std::endl;
-				//if (community[cu].size()==1) delta_WCSS_leave=0;
 
 				std::vector<std::pair<double,int>> coms;//score,id
 				for (auto &c:uToCom) //id,value
@@ -343,16 +311,7 @@ void louvain_with_heap(Graph<Node> &g, double r)
 					}
 					double delta_Q_=(c.second-(double)uDegreeSum*communityDegreeSum[c.first]/mm/2)/mm;
 					double delta_Q=delta_Q_static+delta_Q_;
-					//double delta_WCSS_add=0;////test time, temporarily not calculating
-						//-normSqr(communityAttrSum[c.first]+hg.attrSum[u])/(community[c.first].size()+1)
-						//+normSqr(communityAttrSum[c.first])/community[c.first].size();
-					//double delta_WCSS=delta_WCSS_leave+delta_WCSS_add;
-					//double delta_WCSS_norm=delta_WCSS/ref_attr_sqr;
-//const double lambda=0; //for test. To be deleted!!!!!!!!!!!!
-					//double score=(1-lambda)*delta_Q*g.m+lambda*delta_WCSS_norm;///!!!!!!!! READ & UNDERSTAND
 					double score=delta_Q;
-//std::cout<<"WCSSleave="<<delta_WCSS_leave<<" WCSSadd="<<delta_WCSS_add<<std::endl;
-//std::cout<<"score="<<score<<" bestScore="<<bestScore<<std::endl;
 					if (score>eps) coms.emplace_back(score,c.first);
 				}
 
@@ -366,11 +325,11 @@ void louvain_with_heap(Graph<Node> &g, double r)
 					cntCheck++;
 					auto x=coms.front(); //if hypernode u can move to community x
 					bool sim=true;
-					for (auto uu:hg.nodes[u]) //uu: every node in the hypernode u
+					for (auto &uu:hg.nodes[u]) //uu: every node in the hypernode u
 					{
-						for (auto hnodev:community[x.second]) //every hypernode in the community
+						for (auto &hnodev:community[x.second]) //every hypernode in the community
 						{
-							for (auto vv:hg.nodes[hnodev]) if (checkDisSqr(g.nodes[uu],g.nodes[vv],rr)) 
+							for (auto &vv:hg.nodes[hnodev]) if (checkDisSqr(g.nodes[uu],g.nodes[vv],rr)) 
 							{
 								sim=false;
 								break;
@@ -402,13 +361,11 @@ void louvain_with_heap(Graph<Node> &g, double r)
 #endif
 					community[communityAssignments[u]].erase(u);
 					communityDegreeSum[cu]-=hg.degree[u];
-					communityAttrSum[cu]-=hg.attrSum[u];
 
 					communityAssignments[u]=bestCommunity;
 
 					community[bestCommunity].insert(u);
 					communityDegreeSum[bestCommunity]+=hg.degree[u];
-					communityAttrSum[bestCommunity]+=hg.attrSum[u];
 
 					imp=true;
 					improvement = true;
@@ -427,7 +384,6 @@ void louvain_with_heap(Graph<Node> &g, double r)
 		std::vector<std::vector<int>> newNode;
 
 		std::vector<int> idToNewid(hg.n);
-		std::vector<std::vector<double>> newAttrSum;
 		int numNew=0;
 		for (int i=0;i<community.size();i++) //every community
 		{
@@ -440,19 +396,18 @@ void louvain_with_heap(Graph<Node> &g, double r)
 					merged.insert(merged.end(),hg.nodes[hnode].begin(),hg.nodes[hnode].end());
 				}
 				newNode.push_back(std::move(merged));
-				newAttrSum.push_back(std::move(communityAttrSum[i]));
 				numNew++;
 			}
 		}
 
 		// initialize community, communityAssignments & Hypernode
-		Graph<std::vector<int>> newhg(numNew,std::move(newAttrSum));
+		Graph<std::vector<int>> newhg(numNew);
 		std::unordered_map<std::pair<int,int>,int,pair_hash> toAdd;
 		for (int u=0;u<hg.n;u++)
 		{
 			int uu=idToNewid[u];
 			//newhg.degreeSum[uu]+=hg.degreeSum[u];
-			for (auto e:hg.edges[u]) 
+			for (auto &e:hg.edges[u]) if (e.v>=u)
 			{
 				int vv=idToNewid[e.v];
 				if (uu==vv) toAdd[std::make_pair(uu,uu)]+=e.w;
@@ -460,16 +415,14 @@ void louvain_with_heap(Graph<Node> &g, double r)
 				else toAdd[std::make_pair(vv,uu)]+=e.w;
 			}
 		}
-		for (auto x:toAdd) newhg.addedge(x.first.first,x.first.second,x.second);
+		for (auto &x:toAdd) newhg.addedge(x.first.first,x.first.second,x.second);
 		community.resize(numNew);
 		communityAssignments.resize(numNew);
-		communityAttrSum.resize(numNew);
 		for (int i=0;i<numNew;i++) 
 		{
 			community[i].clear();
 			community[i].insert(i);
 			communityAssignments[i]=i;
-			communityAttrSum[i]=hg.attrSum[i];
 		}
 		newhg.nodes=std::move(newNode);
 		hg=std::move(newhg);
@@ -485,5 +438,5 @@ void louvain_with_heap(Graph<Node> &g, double r)
 	std::cout<<"calculated delta_Q: "<<cntCalDelta_Q<<" and skipped "<<skipped<<" times"<<std::endl;
 
 	std::cout<<"Louvain_heur Modularity = "<<calcModularity(g,hg.nodes)<<std::endl;
-	std::cout<<"check if graph similarity meets the restraint: "<<graphCheckDis(g,hg.nodes,rr)<<std::endl;
+	//std::cout<<"check if graph similarity meets the restraint: "<<graphCheckDis(g,hg.nodes,rr)<<std::endl;
 }

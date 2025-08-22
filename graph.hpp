@@ -98,7 +98,7 @@ struct Edge { // 0-based index
 template<typename NodeType>
 struct GraphBase
 {
-	int n=0,m=0;
+	int n=0,m=0; // m in graph<hypernode> is maintained as the initial m. for phase2 error checking
 	std::vector<NodeType> nodes;
 	std::vector<std::vector<Edge>> edges; // if future Edge has weight
 	std::vector<long long> degree;
@@ -144,7 +144,7 @@ struct GraphBase
 
 	void addedge(const int &u,const int &v,const int &w) //addedge function for phase 2
 	{
-		m++;
+		m+=w;
 		edges[u].emplace_back(u,v,w);
 		if (u!=v) 
 		{
@@ -171,14 +171,14 @@ struct GraphBase
 	{
 		Flag flag=f;
 		if (d>rr) flag=violated;
-		m++;
+		m+=w;
 		edges[u].emplace_back(u,v,w,d,flag);
 		if (u!=v) 
 		{
 			edges[v].emplace_back(v,u,w,d,flag);
-			degree[v]++;
+			degree[v]+=w;
 		}
-		degree[u]++;
+		degree[u]+=w;
 	}
 };
 
@@ -451,7 +451,7 @@ template<>
 struct Graph<std::vector<int>>:public GraphBase<std::vector<int>> //graph with hypernodes
 {
 	using GraphBase::GraphBase;
-	std::vector<std::vector<double>> attrSum;
+	//std::vector<std::vector<double>> attrSum;
 	//std::vector<int> degreeSum;
 	Graph(const Graph<Node> &other):GraphBase<std::vector<int>>()
 	{
@@ -460,8 +460,8 @@ struct Graph<std::vector<int>>:public GraphBase<std::vector<int>> //graph with h
 		degree=other.degree;
 		nodes.resize(n);
 		edges=other.edges;
-		attrSum.resize(n);
-		for (int i=0;i<n;i++) attrSum[i]=other.nodes[i].attributes;
+		//attrSum.resize(n);
+		//for (int i=0;i<n;i++) attrSum[i]=other.nodes[i].attributes;
 		//degreeSum=other.degree;
 		for (int i=0;i<n;i++) nodes[i].push_back(i);
 	}
@@ -469,15 +469,15 @@ struct Graph<std::vector<int>>:public GraphBase<std::vector<int>> //graph with h
 
 	Graph(Graph<std::vector<int>> &&other):GraphBase<std::vector<int>>(std::move(other)){}
 
-	explicit Graph(int num,std::vector<std::vector<double>> &&otherattrSum)
-		:GraphBase::GraphBase(num),attrSum(std::move(otherattrSum)){}
+	//explicit Graph(int num,std::vector<std::vector<double>> &&otherattrSum)
+	//	:GraphBase::GraphBase(num),attrSum(std::move(otherattrSum)){}
 
 	~Graph(){}
 
 	Graph<std::vector<int>>& operator=(const Graph<std::vector<int>> &other)
 	{
 		GraphBase::operator=(other);
-		attrSum=other.attrSum;
+		//attrSum=other.attrSum;
 		//degreeSum=other.degreeSum;
 		return *this;
 	}
@@ -485,7 +485,7 @@ struct Graph<std::vector<int>>:public GraphBase<std::vector<int>> //graph with h
 	Graph<std::vector<int>>& operator=(Graph<std::vector<int>> &&other)
 	{
 		GraphBase::operator=(other);
-		attrSum=std::move(other.attrSum);
+		//attrSum=std::move(other.attrSum);
 		//degreeSum=std::move(other.degreeSum);
 		return *this;
 	}
@@ -539,7 +539,7 @@ inline bool graphCheckDis(const Graph<Node> &g, const std::vector<std::vector<in
 		for (int i=0;i<C.size();i++) 
 			for (int j=i+1;j<C.size();j++)
 			{
-				double t=calcDisSqr(g.nodes[i],g.nodes[j]);
+				double t=calcDisSqr(g.nodes[C[i]],g.nodes[C[j]]);
 				if (t>rr) 
 				{
 					std::cout<<"node "<<i<<" and node "<<j<<" not meet similarity restriction:\ndis="<<t<<" while rr="<<rr<<std::endl;

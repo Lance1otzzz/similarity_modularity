@@ -54,8 +54,8 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 		int cntNeiCom=0,cntU=0;
 		std::vector<long long> communityDegreeSum(hg.degree); // The degree sum of every node in community (not just degree of hypernodes)
 
-		std::vector<std::vector<double>> communityAttrSum(hg.n);
-		for (int i=0;i<hg.n;i++) communityAttrSum[i]=hg.attrSum[i];
+		//std::vector<std::vector<double>> communityAttrSum(hg.n);
+		//for (int i=0;i<hg.n;i++) communityAttrSum[i]=hg.attrSum[i];
 
         improvement=false;
 
@@ -107,6 +107,8 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 				if (c.first==cu) continue;
 				cntNeiCom++;
 				cntCalDelta_Q++;
+				// check if the edge is with flag violated and no node leaves from cv after the flag set
+				// just check if u can move to cv, so no need to check the timestamp of cu
 				if (c.second.flag==violated&&c.second.timeStamp>=community[c.first].leaveTimeStamp)
 				{
 					//how many?
@@ -141,11 +143,11 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 				auto &t=eToOtherC[u][x.second];
 				bool sim=true;
 				if (t.flag==satisfied&&t.timeStamp>=community[x.second].comeTimeStamp) goto label;
-				for (auto uu:hg.nodes[u]) //uu: every node in the hypernode u
+				for (auto &uu:hg.nodes[u]) //uu: every node in the hypernode u
 				{
-					for (auto hnodev:community[x.second].elements) //every hypernode in the community
+					for (auto &hnodev:community[x.second].elements) //every hypernode in the community
 					{
-						for (auto vv:hg.nodes[hnodev]) if (checkDisSqr(g.nodes[uu],g.nodes[vv],rr)) 
+						for (auto &vv:hg.nodes[hnodev]) if (checkDisSqr(g.nodes[uu],g.nodes[vv],rr)) 
 						{
 							sim=false;
 							break;
@@ -183,7 +185,7 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 				t.elements.erase(u);
 				t.leaveTimeStamp=cntU;
 				communityDegreeSum[cu]-=hg.degree[u];
-				communityAttrSum[cu]-=hg.attrSum[u];
+				//communityAttrSum[cu]-=hg.attrSum[u];
 
 				communityAssignments[u]=bestCommunity;
 
@@ -191,7 +193,7 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 				t2.elements.insert(u);
 				t2.comeTimeStamp=cntU;
 				communityDegreeSum[bestCommunity]+=hg.degree[u];
-				communityAttrSum[bestCommunity]+=hg.attrSum[u];
+				//communityAttrSum[bestCommunity]+=hg.attrSum[u];
 
 				inq[u]=true;
 				q.push(u);
@@ -229,13 +231,15 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 		std::cout<<"neighbor community average "<<(double)cntNeiCom/cntU<<" degree"<<std::endl;
 
 		auto endPhase1=timeNow();
+		std::cout<<"mm="<<mm<<" and hg.m="<<hg.m<<std::endl;
 		std::cout<<"phase 1 time:"<<timeElapsed(startPhase1,endPhase1)<<std::endl;
+
 
         // Phase 2: Create a new graph
 		std::vector<std::vector<int>> newNode;
 
 		std::vector<int> idToNewid(hg.n);
-		std::vector<std::vector<double>> newAttrSum;
+		//std::vector<std::vector<double>> newAttrSum;
 		int numNew=0;
 		for (int i=0;i<community.size();i++) //every community
 		{
@@ -248,18 +252,19 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 					merged.insert(merged.end(),hg.nodes[hnode].begin(),hg.nodes[hnode].end());
 				}
 				newNode.push_back(std::move(merged));
-				newAttrSum.push_back(std::move(communityAttrSum[i]));
+				//newAttrSum.push_back(std::move(communityAttrSum[i]));
 				numNew++;
 			}
 		}
 
 		// initialize community, communityAssignments & Hypernode
-		Graph<std::vector<int>> newhg(numNew,std::move(newAttrSum));
+		//Graph<std::vector<int>> newhg(numNew,std::move(newAttrSum));
+		Graph<std::vector<int>> newhg(numNew);
 		std::unordered_map<std::pair<int,int>,std::tuple<int,double,Flag>,pair_hash> toAdd; // weight, max distance, Flag
 		for (int u=0;u<hg.n;u++) // every hypernode now
 		{
-			int uu=idToNewid[u]; // u is going to be added in the new hypernode uu
-			for (auto e:hg.edges[u]) 
+			int uu=idToNewid[u],cu=communityAssignments[u]; // u is going to be added in the new hypernode uu
+			for (auto &e:hg.edges[u]) if (e.v>=u)
 			{
 				int vv=idToNewid[e.v],cv=communityAssignments[e.v];
 				if (uu==vv) 
@@ -268,26 +273,29 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 					std::get<0>(t)+=e.w;
 					std::get<1>(t)=0;
 				}
-				else 
+				else
 				{
-					int uuu,vvv;
-					if (uu<vv) uuu=uu,vvv=vv;
-					else uuu=vv,vvv=uu;
-					auto &t=toAdd[std::make_pair(uuu,vvv)];
+					auto &t=toAdd[std::make_pair(std::min(uu,vv),std::max(uu,vv))];
 					std::get<0>(t)+=e.w;
 					std::get<1>(t)=std::max(std::get<1>(t),e.d);
-
+					
+					std::get<2>(t)=unknown;
 					auto &t2=eToOtherC[u][cv];
-					if (t2.flag==satisfied&&t2.timeStamp>=community[cv].comeTimeStamp) std::get<2>(t)=satisfied;
-					else if (t2.flag==violated&&t2.timeStamp>=community[cv].leaveTimeStamp) std::get<2>(t)=violated;
-					else std::get<2>(t)=unknown;
+					//if (t2.flag==satisfied&&t2.timeStamp>=community[cv].comeTimeStamp) std::get<2>(t)=satisfied;
+					//the above line wrong. t2.flag is whether u can move to cv, not the relation between cu and cv
+					if (t2.flag==violated&&t2.timeStamp>=community[cv].leaveTimeStamp) std::get<2>(t)=violated;
+					else 
+					{
+						auto &t3=eToOtherC[e.v][cu];
+						if (t3.flag==violated&&t3.timeStamp>=community[cu].leaveTimeStamp) std::get<2>(t)=violated;
+					}
 				}
 			}
 		}
-		for (auto x:toAdd) newhg.addedge_heur_phase2(x.first.first,x.first.second,std::get<0>(x.second),std::get<1>(x.second),std::get<2>(x.second),rr);
+		for (auto &x:toAdd) newhg.addedge_heur_phase2(x.first.first,x.first.second,std::get<0>(x.second),std::get<1>(x.second),std::get<2>(x.second),rr);
 		community.resize(numNew);
 		communityAssignments.resize(numNew);
-		communityAttrSum.resize(numNew);
+		//communityAttrSum.resize(numNew);
 		for (int i=0;i<numNew;i++) 
 		{
 			community[i].elements.clear();
@@ -295,7 +303,7 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 			community[i].leaveTimeStamp=-1;
 			community[i].comeTimeStamp=-1;
 			communityAssignments[i]=i;
-			communityAttrSum[i]=hg.attrSum[i];
+			//communityAttrSum[i]=hg.attrSum[i];
 		}
 		newhg.nodes=std::move(newNode);
 		hg=std::move(newhg);
@@ -314,7 +322,5 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 	std::cout<<"calculated delta_Q: "<<cntCalDelta_Q<<" and skipped "<<skipped<<" times"<<std::endl;
 
 	std::cout<<"Louvain_heur Modularity = "<<calcModularity(g,hg.nodes)<<std::endl;
-	std::cout<<"check if graph similarity meets the restraint: "<<graphCheckDis(g,hg.nodes,rr)<<std::endl;
+	//std::cout<<"check if graph similarity meets the restraint: "<<graphCheckDis(g,hg.nodes,rr)<<std::endl;
 }
-
-

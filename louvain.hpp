@@ -22,7 +22,7 @@ void louvain(Graph<Node> &g, double r)
 
 	int cnt_it=0;
 	bool improvement=true;
-	auto startfirst=timeNow();
+	//auto startfirst=timeNow();
 	while (improvement) 
 	{
 		cnt_it++;
@@ -31,9 +31,8 @@ void louvain(Graph<Node> &g, double r)
 		std::vector<long long> communityDegreeSum(hg.degree); // The degree sum of every node in community (not just degree of hypernodes)
 		improvement=false;
 
-#ifdef debug
-		//std::cerr<<"phase1"<<std::endl;
-#endif
+		std::cout<<"phase1"<<std::endl;
+		std::cout<<"mm="<<mm<<" and hg.m="<<hg.m<<std::endl;
         // Phase 1: Optimize modularity by moving nodes
 		bool imp=true; // imp for phase 1
 		while (imp)
@@ -65,11 +64,11 @@ void louvain(Graph<Node> &g, double r)
 					if (delta_Q>bestDelta_Q) 
 					{
 						bool sim=true;
-						for (auto uu:hg.nodes[u]) //uu: every node in the hypernode u
+						for (auto &uu:hg.nodes[u]) //uu: every node in the hypernode u
 						{
-							for (auto hnodev:community[c.first]) //every hypernode in the community
+							for (auto &hnodev:community[c.first]) //every hypernode in the community
 							{
-								for (auto vv:hg.nodes[hnodev]) if (calcDisSqr_baseline(g.nodes[uu],g.nodes[vv])>rr) 
+								for (auto &vv:hg.nodes[hnodev]) if (calcDisSqr_baseline(g.nodes[uu],g.nodes[vv])>rr) 
 								{
 									sim=false;
 									break;
@@ -103,10 +102,9 @@ void louvain(Graph<Node> &g, double r)
 			}
 		}
 
-		if (cnt_it==1) {
-			auto endPhase1=timeNow();
-			std::cout<<"louvain first iteration phase 1: "<<timeElapsed(startfirst,endPhase1)<<std::endl;
-		}
+//		auto endPhase1=timeNow();
+		//std::cout<<"louvain first iteration phase 1: "<<timeElapsed(startfirst,endPhase1)<<std::endl;
+
         // Phase 2: Create a new graph
 #ifdef debug
 		//std::cerr<<"phase2"<<std::endl;
@@ -138,7 +136,7 @@ void louvain(Graph<Node> &g, double r)
 		{
 			int uu=idToNewid[u];
 			//newhg.degreeSum[uu]+=hg.degreeSum[u];
-			for (auto e:hg.edges[u]) 
+			for (auto &e:hg.edges[u]) if (e.v>=u)
 			{
 				int vv=idToNewid[e.v];
 				if (uu==vv) toAdd[std::make_pair(uu,uu)]+=e.w;
@@ -146,7 +144,7 @@ void louvain(Graph<Node> &g, double r)
 				else toAdd[std::make_pair(vv,uu)]+=e.w;
 			}
 		}
-		for (auto x:toAdd) newhg.addedge(x.first.first,x.first.second,x.second);
+		for (auto &x:toAdd) newhg.addedge(x.first.first,x.first.second,x.second);
 		community.resize(numNew);
 		communityAssignments.resize(numNew);
 		for (int i=0;i<numNew;i++) 
@@ -157,10 +155,8 @@ void louvain(Graph<Node> &g, double r)
 		}
 		newhg.nodes=std::move(newNode);
 		hg=std::move(newhg);
-		if (cnt_it==1) {
-			auto endfirst=timeNow();
-			std::cout<<"louvain first iteration: "<<timeElapsed(startfirst,endfirst)<<std::endl;
-		}
+	//	auto endfirst=timeNow();
+	//	std::cout<<"louvain first iteration: "<<timeElapsed(startfirst,endfirst)<<std::endl;
 	}
 	std::cout<<"totally "<<cnt_it<<" iterations"<<std::endl;
 
@@ -189,7 +185,7 @@ void pure_louvain_with_bipolar_pruning(Graph<Node> &g, double r)
 
     int cnt_it = 0;
     bool improvement = true;
-    auto startfirst = timeNow();
+    //auto startfirst = timeNow();
     
     while (improvement)
     {
@@ -230,11 +226,11 @@ void pure_louvain_with_bipolar_pruning(Graph<Node> &g, double r)
                     if (delta_Q > bestDelta_Q)
                     {
                         bool sim = true;
-                        for (auto uu : hg.nodes[u]) // uu: every node in the hypernode u
+                        for (auto &uu : hg.nodes[u]) // uu: every node in the hypernode u
                         {
-                            for (auto hnodev : community[c.first]) // every hypernode in the community
+                            for (auto &hnodev : community[c.first]) // every hypernode in the community
                             {
-                                for (auto vv : hg.nodes[hnodev])
+                                for (auto &vv : hg.nodes[hnodev])
                                 {
                                     // 使用 bipolar pruning 优化距离计算
                                     bool distance_exceeds = false;
@@ -279,11 +275,6 @@ void pure_louvain_with_bipolar_pruning(Graph<Node> &g, double r)
             }
         }
 
-        if (cnt_it == 1) {
-            auto endPhase1 = timeNow();
-            std::cout << "louvain first iteration phase 1: " << timeElapsed(startfirst, endPhase1) << std::endl;
-        }
-
 #ifdef debug
         //std::cerr<<"phase2"<<std::endl;
 #endif
@@ -312,7 +303,7 @@ void pure_louvain_with_bipolar_pruning(Graph<Node> &g, double r)
         std::unordered_map<std::pair<int, int>, int, pair_hash> toAdd;
         for (int u = 0; u < hg.n; u++)
         {
-            for (auto e : hg.edges[u])
+            for (auto &e : hg.edges[u]) if (e.v>=u)
             {
                 int uu = idToNewid[u];
                 int vv = idToNewid[e.v];
