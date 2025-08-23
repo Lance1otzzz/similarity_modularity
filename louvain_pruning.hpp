@@ -62,7 +62,7 @@ void louvain_with_heap_and_flm_pruning(Graph<Node> &g, double r)
 			// Try to move the node to a neighboring community
 			std::unordered_map<int,long long> uToCom;//first: id; second: from i to com degree
 			long long uDegreeSum=hg.degree[u];// just normal degree
-			for (const Edge& edge:hg.edges[u]) 
+			for (const Edge& edge:hg.edges[u]) if (u!=edge.v)
 			{
 				int cv=communityAssignments[edge.v];
 				auto it=uToCom.find(cv);
@@ -285,7 +285,7 @@ void louvain_with_heap_and_flm_hybrid_pruning(Graph<Node> &g, double r)
 			// Try to move the node to a neighboring community
 			std::unordered_map<int,long long> uToCom;//first: id; second: from i to com degree
 			long long uDegreeSum=hg.degree[u];// just normal degree
-			for (const Edge& edge:hg.edges[u]) 
+			for (const Edge& edge:hg.edges[u]) if (u!=edge.v)
 			{
 				int cv=communityAssignments[edge.v];
 				auto it=uToCom.find(cv);

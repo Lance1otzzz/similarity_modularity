@@ -47,7 +47,7 @@ void louvain(Graph<Node> &g, double r)
 				// Try to move the node to a neighboring community
 				std::unordered_map<int,long long> uToCom;
 				long long uDegreeSum=hg.degree[u];// just normal degree
-				for (const Edge& edge:hg.edges[u]) 
+				for (const Edge& edge:hg.edges[u]) if (edge.v!=u)
 				{
 //                    if (calcDisSqr(g.nodes[edge.u],g.nodes[edge.v])>rr) continue;// if the distance of two nodes are greater than r, no need to test
 // only a small ratio of edges need to be calculated (best score ones), so no need to check now

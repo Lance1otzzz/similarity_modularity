@@ -3,6 +3,7 @@
 #include "graph.hpp"
 #include "defines.hpp"
 #include <algorithm>
+#include <stdexcept>
 #include <vector>
 #include <queue>
 #include <unordered_map>
@@ -62,7 +63,7 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 		std::vector<std::unordered_map<int,nodeToComEdge>> eToOtherC(hg.n);//id,edge weight. sum edges from hypernodes to other communtiy
 		for (int u=0;u<hg.n;u++)
 		{
-			for (const Edge& edge:hg.edges[u]) 
+			for (const Edge& edge:hg.edges[u]) if (u!=edge.v)
 			{
 				int cv=communityAssignments[edge.v];
 				auto &t=eToOtherC[u][cv];
@@ -199,7 +200,7 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 				q.push(u);
 
 				// update the information of the edges and the neighbors
-				for (const Edge& edge:hg.edges[u]) 
+				for (const Edge& edge:hg.edges[u]) if (u!=edge.v)
 				{
 					auto &t2=eToOtherC[edge.v][bestCommunity];
 					if (edge.flag==violated) 
@@ -212,6 +213,7 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 					}
 					auto &t3=eToOtherC[edge.v];
 					auto it=t3.find(cu);
+					if (it==t3.end()) throw(std::invalid_argument("cu not found in eToOtherC"));
 					if (it->second.w==edge.w) t3.erase(it);
 					else it->second.w-=edge.w;
 					t2.w+=edge.w;
