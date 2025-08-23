@@ -134,11 +134,8 @@ struct GraphBase
 	{
 		m++;
 		edges[u].emplace_back(u,v,1);
-		if (u!=v) 
-		{
-			edges[v].emplace_back(v,u,1);
-			degree[v]++;
-		}
+		if (u!=v) edges[v].emplace_back(v,u,1);
+		degree[v]++;
 		degree[u]++;
 	}
 
@@ -146,11 +143,8 @@ struct GraphBase
 	{
 		m+=w;
 		edges[u].emplace_back(u,v,w);
-		if (u!=v) 
-		{
-			edges[v].emplace_back(v,u,w);
-			degree[v]+=w;
-		}
+		if (u!=v) edges[v].emplace_back(v,u,w);
+		degree[v]+=w;
 		degree[u]+=w;
 	}
 
@@ -158,26 +152,21 @@ struct GraphBase
 	{
 		Flag flag=d>rr?violated:satisfied;
 		m++;
+		//no u==v
 		edges[u].emplace_back(u,v,1,d,flag);
-		if (u!=v) 
-		{
-			edges[v].emplace_back(v,u,1,d,flag);
-			degree[v]++;
-		}
+		edges[v].emplace_back(v,u,1,d,flag);
+		degree[v]++;
 		degree[u]++;
 	}
 
-	void addedge_heur_phase2(const int &u,const int &v,const int &w,const double &d,const Flag &f,const double &rr) // addedge function when loading edges
+	void addedge_heur_phase2(const int &u,const int &v,const int &w,const double &d,const Flag &f,const double &rr) // addedge function for louvain_heur phase2
 	{
 		Flag flag=f;
 		if (d>rr) flag=violated;
 		m+=w;
 		edges[u].emplace_back(u,v,w,d,flag);
-		if (u!=v) 
-		{
-			edges[v].emplace_back(v,u,w,d,flag);
-			degree[v]+=w;
-		}
+		if (u!=v) edges[v].emplace_back(v,u,w,d,flag);
+		degree[v]+=w;
 		degree[u]+=w;
 	}
 };
@@ -340,6 +329,7 @@ struct Graph<Node>:public GraphBase<Node> //graph with simple node (not hypernod
 							 << ") in line: " << line << std::endl;
 					throw std::invalid_argument("invalid edge");
 				}
+				if (u==v) throw std::invalid_argument("self loop");
 				addedge_loading(u,v,calcDisSqr(nodes[u],nodes[v]),rr); //different from baseline. precompute if the edge meet the restraint
 			}
 			else 
