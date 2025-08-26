@@ -182,6 +182,17 @@ int main(int argc, char** argv)
 			auto endMainAlgorithm = timeNow();
 			cout<<"Main algorithm time: "<<timeElapsed(startMainAlgorithm, endMainAlgorithm)<<endl;
 			
+			// Output detailed pruning statistics
+			if (g_bipolar_pruning) {
+				cout<<"Total queries: "<<g_bipolar_pruning->get_total_queries()<<endl;
+				cout<<"Successful prunings: "<<g_bipolar_pruning->get_pruning_count()<<endl;
+				cout<<"Full calculations: "<<g_bipolar_pruning->get_full_calculations()<<endl;
+				if (g_bipolar_pruning->get_total_queries() > 0) {
+					double pruning_rate = (double)g_bipolar_pruning->get_pruning_count() / g_bipolar_pruning->get_total_queries() * 100.0;
+					cout<<"Pruning rate: "<<pruning_rate<<"%"<<endl;
+				}
+			}
+			
 			// Cleanup
 			cleanup_bipolar_pruning_index();
 			cout<<"Louvain with Hybrid Pruning time: ";

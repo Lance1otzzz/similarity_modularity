@@ -30,7 +30,7 @@ double BipolarPruning::build(const Graph<Node>& g) {
         return timeElapsed(start_time, end_time);
     }
     
-    std::cout << "Building Bipolar Pruning index with k=" << k_ << "..." << std::endl;
+    // std::cout << "Building Bipolar Pruning index with k=" << k_ << "..." << std::endl;
     
     // 1. Run K-means to find k pivots
     run_kmeans(g);
@@ -38,7 +38,7 @@ double BipolarPruning::build(const Graph<Node>& g) {
     size_t num_points = g.n;
     
     // 2. Precompute each point's distance to all k pivots
-    std::cout << "Pre-calculating point-to-all-pivots distances..." << std::endl;
+    // std::cout << "Pre-calculating point-to-all-pivots distances..." << std::endl;
     precomputed_point_to_pivots_dists_.assign(num_points, std::vector<double>(k_));
     for (size_t i = 0; i < num_points; ++i) {
         for (int j = 0; j < k_; ++j) {
@@ -48,7 +48,7 @@ double BipolarPruning::build(const Graph<Node>& g) {
     }
     
     // 3. Precompute distances between all pairs of pivots
-    std::cout << "Pre-calculating pivot-to-pivot distances..." << std::endl;
+    // std::cout << "Pre-calculating pivot-to-pivot distances..." << std::endl;
     precomputed_pivots_dists_.assign(k_, std::vector<double>(k_));
     for (int i = 0; i < k_; ++i) {
         for (int j = i; j < k_; ++j) {
@@ -58,7 +58,7 @@ double BipolarPruning::build(const Graph<Node>& g) {
         }
     }
     
-    std::cout << "Bipolar Pruning build finished." << std::endl;
+    // std::cout << "Bipolar Pruning build finished." << std::endl;
     
     auto end_time = timeNow();
     return timeElapsed(start_time, end_time);
@@ -265,18 +265,39 @@ bool checkDisSqr_with_bipolar_pruning(const Node& x, const Node& y, const double
 bool checkDisSqr_with_hybrid_pruning(const Node& x, const Node& y, const double& rr) {
     totchecknode++;
     
-    // Priority 1: Fast statistical pruning using precomputed attributes
+    // Priority 1: Statistical pruning using precomputed attributes
     double sumAttrSqr = x.attrSqr + y.attrSqr;
-    double xyUpperBound = std::min(x.attrAbsSum * y.attrAbsMax, y.attrAbsSum * x.attrAbsMax);
     
     if (!x.negative && !y.negative) {
-        if (sumAttrSqr - 2 * xyUpperBound > rr) return true;
-        double xyLowerBound = std::max(x.attrAbsSum * y.attrAbsMin, y.attrAbsSum * x.attrAbsMin);
-        if (sumAttrSqr - 2 * xyLowerBound < rr) return false;
+        // For non-negative vectors, calculate proper inner product bounds
+        double minProduct = std::max(x.attrAbsSum * y.attrAbsMin, y.attrAbsSum * x.attrAbsMin);
+        double maxProduct = std::min(x.attrAbsSum * y.attrAbsMax, y.attrAbsSum * x.attrAbsMax);
+        
+        // Distance squared = ||x||^2 + ||y||^2 - 2*<x,y>
+        // Distance bounds: [sumAttrSqr - 2*maxProduct, sumAttrSqr - 2*minProduct]
+        double lowerBound = sumAttrSqr - 2 * maxProduct;
+        double upperBound = sumAttrSqr - 2 * minProduct;
+        
+        // Ensure non-negative lower bound
+        lowerBound = std::max(0.0, lowerBound);
+        
+        if (upperBound < rr) return false;  // Distance definitely below threshold
+        if (lowerBound > rr) return true;   // Distance definitely above threshold
     } else {
-        double upperBound = sumAttrSqr + 2 * xyUpperBound;
+        // For vectors with negative values, use Cauchy-Schwarz inequality
+        // |<x,y>| <= ||x|| * ||y||
+        double normX = std::sqrt(x.attrSqr);
+        double normY = std::sqrt(y.attrSqr);
+        double maxAbsInnerProduct = normX * normY;
+        
+        // Inner product range: [-maxAbsInnerProduct, maxAbsInnerProduct]
+        double lowerBound = sumAttrSqr - 2 * maxAbsInnerProduct;
+        double upperBound = sumAttrSqr + 2 * maxAbsInnerProduct;
+        
+        // Ensure non-negative lower bound
+        lowerBound = std::max(0.0, lowerBound);
+        
         if (upperBound < rr) return false;
-        double lowerBound = sumAttrSqr - 2 * xyUpperBound;
         if (lowerBound > rr) return true;
     }
     
