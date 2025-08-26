@@ -361,8 +361,8 @@ class ExperimentRunner:
         if command_name in ["flm", "louvain"]:
             time_results[time_columns[0]] = main_time  # cal_time
         elif command_name in ["both", "bipolar", "hybrid"]:
-            time_results[time_columns[0]] = main_time  # cal_time
-            time_results[time_columns[1]] = preprocessing_time  # cal_preprocessing_time
+            time_results[time_columns[0]] = preprocessing_time  # preprocessing_time
+            time_results[time_columns[1]] = main_time  # cal_time
 
         # 为pruning率输出列赋值
         for column in pruning_columns:

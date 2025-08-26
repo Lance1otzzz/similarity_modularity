@@ -112,7 +112,7 @@ int main(int argc, char** argv)
 			cout<<"!!!!!start Louvain with Bipolar Pruning!!!!"<<endl;
 			// Bipolar pruning preprocessing
 			double preprocessing_time = build_bipolar_pruning_index(g, 10);
-			cout<<"Bipolar pruning preprocessing time: "<<preprocessing_time<<endl;
+			cout<<"Both pruning preprocessing time: "<<preprocessing_time<<endl;
 			
 			// Main algorithm
 			auto startMainAlgorithm = timeNow();
