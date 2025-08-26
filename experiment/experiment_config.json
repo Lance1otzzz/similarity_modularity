@@ -15,8 +15,7 @@
     },
     "table_columns": [
         "flm_cal_time",
-        "louvain_cal_time",
-        "both_cal_time",
+        "louvain_time",
         "both_preprocessing_time",
         "both_cal_time",
         "bipolar_preprocessing_time",
@@ -27,13 +26,15 @@
         "target_datasets": [
         "SinaNet",
         "Cora", 
+        "CiteSeer",
         "CoauthorCS",
         "CoauthorPhysics",
-        "Yelp"
+        "PubMed"
     ],
     "distance_percentiles": [5, 10, 20, 50, 80],
+    
     "sampling_config": {
-        "max_samples": 100000,
+        "max_samples": 10000,
         "use_edges_for_sampling": true,
         "cache_distance_data": true
     },

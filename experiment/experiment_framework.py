@@ -303,8 +303,8 @@ class ExperimentRunner:
         # 解析pruning率
         pruning_rate = -1.0
         
-        if command_name == "flm":
-            # FLM算法从"# check node to node:X and pruned Y"提取pruning率
+        if command_name == "flm" or command_name == "hybrid":
+            # FLM和hybrid算法从"# check node to node:X and pruned Y"提取pruning率
             flm_pruning_match = re.search(r'# check node to node:(\d+) and pruned (\d+)', output)
             if flm_pruning_match:
                 total_checks = int(flm_pruning_match.group(1))

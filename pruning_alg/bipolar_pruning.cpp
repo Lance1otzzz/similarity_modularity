@@ -263,8 +263,9 @@ bool checkDisSqr_with_bipolar_pruning(const Node& x, const Node& y, const double
 }
 
 bool checkDisSqr_with_hybrid_pruning(const Node& x, const Node& y, const double& rr) {
-    // Priority 1: Fast statistical pruning using precomputed attributes
     totchecknode++;
+    
+    // Priority 1: Fast statistical pruning using precomputed attributes
     double sumAttrSqr = x.attrSqr + y.attrSqr;
     double xyUpperBound = std::min(x.attrAbsSum * y.attrAbsMax, y.attrAbsSum * x.attrAbsMax);
     
@@ -282,7 +283,9 @@ bool checkDisSqr_with_hybrid_pruning(const Node& x, const Node& y, const double&
     // Priority 2: Bipolar pruning if statistical pruning failed
     if (g_bipolar_pruning) {
         double r = std::sqrt(rr);
-        return g_bipolar_pruning->query_distance_exceeds(x.id, y.id, r);
+        if (g_bipolar_pruning->query_distance_exceeds(x.id, y.id, r)) {
+            return true; // Bipolar pruning successful
+        }
     }
     
     // Priority 3: Exact calculation if both pruning methods failed
