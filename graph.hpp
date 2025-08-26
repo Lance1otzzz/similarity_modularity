@@ -540,71 +540,16 @@ inline bool graphCheckDis(const Graph<Node> &g, const std::vector<std::vector<in
 	return true;
 }
 
-
-// no use now. for minimum fu4gai4 hypersphere
-struct Hypersphere{
-	Node center; // id=-1; 
-	double r;
-	Hypersphere(){}
-	Hypersphere(const Hypersphere &H)
-	{
-		r=H.r;
-		center=H.center;
-	}
-	Hypersphere(Hypersphere &&H)
-	{
-		r=H.r;
-		center=std::move(H.center);
-	}
-	Hypersphere(const Node &C,const double &R)
-	{
-		center=C;
-		r=R;
-	}
-	Hypersphere(Node &&C, const double &R)
-	{
-		center=std::move(C);
-		r=R;
-	}
-	void printHypersphere()
-	{
-		std::cout<<"Hypersphere:center point:"<<std::endl;
-		center.printNode();
-		std::cout<<"r="<<r<<"\nend printing Hypersphere"<<std::endl;
-	}
+struct nodeToComEdge
+{
+	long long w;
+	int timeStamp; // the timestamp last time check the edge
+	Flag flag;
 };
 
-//Hypersphere calcHypersphere(std::vector<Node> points)
-//{
-//	/// IF the points are in a same hyperplane!!!!!!!!!!!!!!!!!!!
-//	int dimension=points[0].attributes.size();
-//	if (points.size()!=dimension+1) 
-//	{
-//		std::cerr<<"cannot calculate hypershphere because the dimension and the number of points does not match"<<std::endl;
-//		throw std::invalid_argument("Dimension mismatch");
-//	}
-//
-//	Matrix equations(dimension,dimension+1);
-//	for (int i=1;i<=dimension;i++) // i-th - 1st
-//	{
-//		for (int j=0;j<dimension;j++) 
-//			equations.a[i-1][dimension]+=sqr(points[0].attributes[j])-sqr(points[i].attributes[j]);
-//		for (int j=0;j<dimension;j++)
-//			equations.a[i-1][j]=2*(points[i].attributes[j]-points[0].attributes[j]);
-//	}
-//	if (!equations.gauss())
-//	{
-//		std::cerr<<"gauss err"<<std::endl;
-//		throw std::invalid_argument("Gauss Error");
-//	}
-//	std::vector<double> ans(dimension);
-//	for (int i=0;i<dimension;i++) ans[i]=equations.a[i][dimension];
-//	Node center(-1,std::move(ans));
-//	double r=0;
-//	for (int i=0;i<dimension;i++) r+=sqr(points[0].attributes[i]-center.attributes[i]);
-//	r=sqrt(r);
-//	Hypersphere res(std::move(center),r);
-//	return res;
-//}
-
+struct infoCom
+{
+	std::unordered_set<int> elements;
+	int comeTimeStamp,leaveTimeStamp;
+};
 

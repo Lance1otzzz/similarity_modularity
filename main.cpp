@@ -4,6 +4,7 @@
 #include "leiden.hpp"
 #include "louvain_heur.hpp"
 #include "louvain_plus.hpp"
+#include "louvain_pp.hpp"
 #include "louvain_pruning.hpp"
 #include "pure_louvain.hpp"
 #include "pruning_alg/kmeans_preprocessing.hpp"
@@ -20,9 +21,10 @@ std::mt19937 rng(seed);
 
 // ./main 1
 /*
-	algorithm 8: louvain_heur_latest
-	algorithm 9: louvain_with_heap_and_flm
-	algorithm 91: louvain_with_heap , without fast local move
+	algorithm 7: louvain_heur_latest
+	algorithm 8: louvain_pp (louvain plus plus)
+	algorithm 9: louvain_with_heap_and_flm (louvain_plus.hpp)
+	algorithm 91: louvain_with_heap , without fast local move (louvain_plus.hpp)
 	algorithm 10: louvain
 	algorithm 11: leiden
 	algorithm 12: louvain_flm_with_bipolar_pruning
@@ -62,11 +64,18 @@ int main(int argc, char** argv)
 	auto startMainAlg=timeNow();
 	switch(algorithm)
 	{
+		case 7:
+		{
+			cout<<"!!!!!start louvain plus plus!!!!!"<<endl;
+			louvain_heur(g,r);
+			cout<<"plus plus time: ";
+			break;
+		}
 		case 8:
 		{
-			cout<<"!!!!!start latest heur!!!!!"<<endl;
-			louvain_heur(g,r);
-			cout<<":latest time: ";
+			cout<<"!!!!!start louvain plus plus!!!!!"<<endl;
+			louvain_pp(g,r);
+			cout<<"plus plus time: ";
 			break;
 		}
 		case 9:

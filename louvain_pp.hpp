@@ -9,7 +9,8 @@
 #include <unordered_map>
 #include <unordered_set>
 
-void louvain_heur(Graph<Node> &g, double r) //edge node to community
+
+void louvain_pp(Graph<Node> &g, double r) //edge node to community
 {
 	const double rr=r*r;
 	double mm=g.m;
