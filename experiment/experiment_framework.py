@@ -265,7 +265,12 @@ class ExperimentRunner:
         modularity_results = {}
 
         # 根据算法命令名称直接定义输出列名
-        if command_name == "flm":
+        if command_name == "plusplus":
+            time_columns = ["plusplus_cal_time"]
+            pruning_columns = ["plusplus_pruning_rate"]
+            modularity_columns = ["plusplus_modularity"]
+            main_time_pattern = r'plus plus time:\s*([\d.]+)'
+        elif command_name == "flm":
             time_columns = ["flm_cal_time"]
             pruning_columns = ["flm_pruning_rate"]
             modularity_columns = ["flm_modularity"]
@@ -303,8 +308,8 @@ class ExperimentRunner:
         # 解析pruning率
         pruning_rate = -1.0
         
-        if command_name == "flm" or command_name == "hybrid":
-            # FLM和hybrid算法从"# check node to node:X and pruned Y"提取pruning率
+        if command_name == "flm" or command_name == "hybrid" or command_name == "plusplus":
+            # FLM、hybrid和plusplus算法从"# check node to node:X and pruned Y"提取pruning率
             flm_pruning_match = re.search(r'# check node to node:(\d+) and pruned (\d+)', output)
             if flm_pruning_match:
                 total_checks = int(flm_pruning_match.group(1))
@@ -317,7 +322,7 @@ class ExperimentRunner:
             # Louvain算法没有pruning功能
             pruning_rate = 0.0
         else:
-            # both和bipolar算法有标准的"Pruning rate"输出
+            # both、bipolar和plusplus算法有标准的"Pruning rate"输出
             pruning_match = re.search(r'Pruning rate:\s*([\d.]+)%', output)
             pruning_rate = float(pruning_match.group(1)) if pruning_match else -1.0
 
@@ -329,7 +334,7 @@ class ExperimentRunner:
             modularity_match = re.search(r'Louvain Modularity\s*=\s*([-\d.eE+-]+)', output)
             if modularity_match:
                 cal_modularity_value = float(modularity_match.group(1))
-        elif command_name == "flm":
+        elif command_name == "flm" or command_name == "plusplus":
             modularity_match = re.search(r'Louvain_heur Modularity\s*=\s*([-\d.eE+-]+)', output)
             if modularity_match:
                 cal_modularity_value = float(modularity_match.group(1))
@@ -358,7 +363,7 @@ class ExperimentRunner:
             preprocessing_time = float(preprocessing_match.group(1)) if preprocessing_match else -1.0
 
         # 为时间输出列赋值（使用主要函数时间）
-        if command_name in ["flm", "louvain"]:
+        if command_name in ["flm", "louvain", "plusplus"]:
             time_results[time_columns[0]] = main_time  # cal_time
         elif command_name in ["both", "bipolar", "hybrid"]:
             time_results[time_columns[0]] = preprocessing_time  # preprocessing_time
@@ -369,7 +374,7 @@ class ExperimentRunner:
             pruning_results[column] = pruning_rate
 
         # 为modularity输出列赋值 - 区分cal和pruning版本
-        if command_name in ["flm", "louvain"]:
+        if command_name in ["flm", "louvain", "plusplus"]:
             modularity_results[modularity_columns[0]] = cal_modularity_value  # cal_modularity
         elif command_name in ["both", "bipolar", "hybrid"]:
             modularity_results[modularity_columns[0]] = cal_modularity_value  # cal_modularity

@@ -1,5 +1,6 @@
 {
     "algorithm_commands": {
+        "8": "plusplus",
         "9": "flm",
         "10": "louvain", 
         "12": "both",
@@ -7,6 +8,7 @@
         "14": "hybrid"
     },
     "output_mapping": {
+        "plusplus": "plusplus",
         "flm": "flm",
         "louvain": "louvain",
         "both": "both",
@@ -14,6 +16,7 @@
         "hybrid": "hybrid"
     },
     "table_columns": [
+        "plusplus_cal_time",
         "flm_cal_time",
         "louvain_time",
         "both_preprocessing_time",
