@@ -269,36 +269,36 @@ class ExperimentRunner:
             time_columns = ["plusplus_cal_time"]
             pruning_columns = ["plusplus_pruning_rate"]
             modularity_columns = ["plusplus_modularity"]
-            main_time_pattern = r'plus plus time:\s*([\d.]+)'
+            main_time_pattern = r'plus plus time:\s*([-\d.eE+-]+)'
         elif command_name == "flm":
             time_columns = ["flm_cal_time"]
             pruning_columns = ["flm_pruning_rate"]
             modularity_columns = ["flm_modularity"]
-            main_time_pattern = r'with_heap_and_flm time:\s*([\d.]+)'
+            main_time_pattern = r'with_heap_and_flm time:\s*([-\d.eE+-]+)'
         elif command_name == "louvain":
             time_columns = ["louvain_time"]
             pruning_columns = ["louvain_pruning_rate"]
             modularity_columns = ["louvain_modularity", ]
-            main_time_pattern = r'Louvain time:\s*([\d.]+)'
+            main_time_pattern = r'Louvain time:\s*([-\d.eE+-]+)'
         elif command_name == "both":
             time_columns = ["both_preprocessing_time","both_cal_time"]
             pruning_columns = ["both_pruning_rate"]
             modularity_columns = ["both_modularity"]
-            main_time_pattern = r'Main algorithm time:\s*([\d.]+)'
+            main_time_pattern = r'Main algorithm time:\s*([-\d.eE+-]+)'
         elif command_name == "bipolar":
             time_columns = ["bipolar_preprocessing_time","bipolar_cal_time", ]
             pruning_columns = ["bipolar_pruning_rate",]
             modularity_columns = ["bipolar_modularity"]
-            main_time_pattern = r'Main algorithm time:\s*([\d.]+)'
+            main_time_pattern = r'Main algorithm time:\s*([-\d.eE+-]+)'
         elif command_name == "hybrid":
             time_columns = ["hybrid_preprocessing_time","hybrid_cal_time", ]
             pruning_columns = ["hybrid_pruning_rate",]
             modularity_columns = ["hybrid_modularity"]
-            main_time_pattern = r'Main algorithm time:\s*([\d.]+)'
+            main_time_pattern = r'Main algorithm time:\s*([-\d.eE+-]+)'
         
 
         # 解析建立索引时间 (LoadGraph time)
-        load_time_match = re.search(r'LoadGraph time:\s*([\d.]+)', output)
+        load_time_match = re.search(r'LoadGraph time:\s*([-\d.eE+-]+)', output)
         load_time = float(load_time_match.group(1)) if load_time_match else -1.0
 
         # 解析主要函数时间
@@ -323,7 +323,7 @@ class ExperimentRunner:
             pruning_rate = 0.0
         else:
             # both、bipolar和plusplus算法有标准的"Pruning rate"输出
-            pruning_match = re.search(r'Pruning rate:\s*([\d.]+)%', output)
+            pruning_match = re.search(r'Pruning rate:\s*([-\d.eE+-]+)%', output)
             pruning_rate = float(pruning_match.group(1)) if pruning_match else -1.0
 
         # 解析modularity值 (根据算法类型的不同模式)
@@ -357,9 +357,9 @@ class ExperimentRunner:
         preprocessing_time = -1.0
         if command_name in ["both", "bipolar","hybrid"]:
             if command_name == "both":
-                preprocessing_match = re.search(r'Both pruning preprocessing time:\s*([\d.]+)', output)
+                preprocessing_match = re.search(r'Both pruning preprocessing time:\s*([-\d.eE+-]+)', output)
             else:  # bipolar,hybrid
-                preprocessing_match = re.search(r'Bipolar pruning preprocessing time:\s*([\d.]+)', output)
+                preprocessing_match = re.search(r'Bipolar pruning preprocessing time:\s*([-\d.eE+-]+)', output)
             preprocessing_time = float(preprocessing_match.group(1)) if preprocessing_match else -1.0
 
         # 为时间输出列赋值（使用主要函数时间）
