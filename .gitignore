@@ -21,3 +21,5 @@ gmon.out
 analysis.txt
 */__pycache__
 !/experiment/experiment_config.json
+/experiment/distance_cache/
+/experiment/experiment_results/

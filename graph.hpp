@@ -545,6 +545,7 @@ struct nodeToComEdge
 	long long w;
 	int timeStamp; // the timestamp last time check the edge
 	Flag flag;
+	double d;
 };
 
 struct infoCom

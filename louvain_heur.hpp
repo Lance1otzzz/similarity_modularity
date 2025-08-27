@@ -57,6 +57,7 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 				t.w=edge.w;
 				t.flag=edge.flag;
 				t.timeStamp=0;
+				t.d=std::max(t.d,edge.d);
 			}
 		}
 
@@ -111,11 +112,11 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 					//+normSqr(communityAttrSum[c.first])/community[c.first].size();
 				//double delta_WCSS=delta_WCSS_leave+delta_WCSS_add;
 				//double delta_WCSS_norm=delta_WCSS/ref_attr_sqr;
-//const double lambda=0; //for test. To be deleted!!!!!!!!!!!!
+				//const double lambda=0; //for test. To be deleted!!!!!!!!!!!!
 				//double score=(1-lambda)*delta_Q*g.m+lambda*delta_WCSS_norm;///!!!!!!!! READ & UNDERSTAND
 				double score=delta_Q;
-//std::cout<<"WCSSleave="<<delta_WCSS_leave<<" WCSSadd="<<delta_WCSS_add<<std::endl;
-//std::cout<<"score="<<score<<" bestScore="<<bestScore<<std::endl;
+// !!!!!!!!!!!!!!!!!!!!  score based on delta_Q and c.second.d!!!!!!!!!!!!!!!!!
+	//std::cout<<"score="<<score<<" bestScore="<<bestScore<<std::endl;
 				if (score>eps) coms.emplace_back(score,c.first);
 			}
 

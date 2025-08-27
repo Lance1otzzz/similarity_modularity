@@ -133,7 +133,7 @@ int main(int argc, char** argv)
 			}
 			
 			// Cleanup
-			cleanup_bipolar_pruning_index();
+			//cleanup_bipolar_pruning_index();
 			cout<<"Louvain with Bipolar Pruning time: ";
 			break;
 		}
@@ -164,7 +164,7 @@ int main(int argc, char** argv)
 			}
 			
 			// Cleanup
-			cleanup_bipolar_pruning_index();
+			//cleanup_bipolar_pruning_index();
 			cout<<"Pure Louvain with Bipolar Pruning time: ";
 			break;
 		}
@@ -203,7 +203,7 @@ int main(int argc, char** argv)
 			}
 			
 			// Cleanup
-			cleanup_bipolar_pruning_index();
+			//cleanup_bipolar_pruning_index();
 			cout<<"Louvain with Hybrid Pruning time: ";
 			break;
 		}

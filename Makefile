@@ -18,7 +18,8 @@ HEADERS = graph.hpp \
           pruning_alg/triangle_pruning.hpp \
           pruning_alg/bipolar_pruning.hpp \
 		  louvain_plus.hpp \
-		  louvain_pruning.hpp
+		  louvain_pruning.hpp \
+		  louvain_pp.hpp
 
 # 定义可执行文件名
 TARGET = main
