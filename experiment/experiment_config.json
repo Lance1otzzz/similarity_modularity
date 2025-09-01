@@ -32,7 +32,13 @@
         "CiteSeer",
         "CoauthorCS",
         "CoauthorPhysics",
-        "PubMed"
+        "PubMed",
+	"AmazonPhoto",
+	"AmazonComputers",
+	"Yelp",
+	"Reddit",
+	"AmazonProducts",
+	"ogbn_papers100M"
     ],
     "distance_percentiles": [5, 10, 20, 50, 80],
     
