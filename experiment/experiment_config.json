@@ -33,12 +33,11 @@
         "CoauthorCS",
         "CoauthorPhysics",
         "PubMed",
-	"AmazonPhoto",
-	"AmazonComputers",
-	"Yelp",
-	"Reddit",
-	"AmazonProducts",
-	"ogbn_papers100M"
+        "AmazonPhoto",
+        "AmazonComputers",
+        "Yelp",
+        "Reddit",
+        "AmazonProducts"
     ],
     "distance_percentiles": [5, 10, 20, 50, 80],
     

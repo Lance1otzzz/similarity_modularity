@@ -8,6 +8,8 @@ import subprocess
 import time
 from typing import Dict, List, Tuple, Optional
 import pickle
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 
 
 class ExperimentConfig:
@@ -183,10 +185,12 @@ class DistanceSampler:
 
 
 class ExperimentRunner:
-    def __init__(self, config: ExperimentConfig, distance_sampler: DistanceSampler = None):
+    def __init__(self, config: ExperimentConfig, distance_sampler: DistanceSampler = None, max_workers: int = 48):
         self.config = config
         self.main_path = "../" + config.main_program_path
         self.distance_sampler = distance_sampler or DistanceSampler(config)
+        self.max_workers = max_workers
+        self.print_lock = threading.Lock()  # 用于保护打印输出
 
         # 创建结果目录
         self.results_dir = Path(config.results_dir)
@@ -207,6 +211,16 @@ class ExperimentRunner:
         except Exception as e:
             return f"ERROR: {str(e)}"
 
+    def run_single_algorithm_experiment(self, dataset_name: str, algo_code: str, command_name: str, r_value: float) -> Tuple[str, str, Dict[str, float], Dict[str, float], Dict[str, float]]:
+        """运行单个算法实验的辅助方法，用于多线程执行"""
+        with self.print_lock:
+            print(f"Running {command_name} (code {algo_code}) on {dataset_name} with r={r_value:.4f}")
+        
+        output = self.run_single_experiment(dataset_name, int(algo_code), r_value)
+        time_parsed, pruning_parsed, modularity_parsed = self.parse_multi_output(output, command_name)
+        
+        return algo_code, command_name, time_parsed, pruning_parsed, modularity_parsed
+
     def run_experiments_for_dataset(self, dataset_name: str, distance_percentiles: Dict[float, float]) -> pd.DataFrame:
         """为一个数据集运行所有实验，返回包含所有指标的综合表"""
         combined_results = []
@@ -220,23 +234,32 @@ class ExperimentRunner:
             for column in all_columns:
                 combined_row[column] = None
 
-            # 执行每个算法命令
-            for algo_code, command_name in algorithm_commands.items():
-                print(f"Running {command_name} (code {algo_code}) on {dataset_name} with r={r_value:.4f}")
-                output = self.run_single_experiment(dataset_name, int(algo_code), r_value)
+            # 使用多线程并行执行所有算法
+            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                # 提交所有任务
+                future_to_algo = {
+                    executor.submit(self.run_single_algorithm_experiment, dataset_name, algo_code, command_name, r_value): (algo_code, command_name)
+                    for algo_code, command_name in algorithm_commands.items()
+                }
 
-                # 解析输出，获取时间、pruning率和modularity结果
-                time_parsed, pruning_parsed, modularity_parsed = self.parse_multi_output(output, command_name)
+                # 收集结果
+                for future in as_completed(future_to_algo):
+                    try:
+                        algo_code, command_name, time_parsed, pruning_parsed, modularity_parsed = future.result()
+                        
+                        # 将所有结果填充到对应的列
+                        for output_column, value in time_parsed.items():
+                            combined_row[output_column] = value
 
-                # 将所有结果填充到对应的列
-                for output_column, value in time_parsed.items():
-                    combined_row[output_column] = value
+                        for output_column, value in pruning_parsed.items():
+                            combined_row[output_column] = value
 
-                for output_column, value in pruning_parsed.items():
-                    combined_row[output_column] = value
-
-                for output_column, value in modularity_parsed.items():
-                    combined_row[output_column] = value
+                        for output_column, value in modularity_parsed.items():
+                            combined_row[output_column] = value
+                            
+                    except Exception as e:
+                        with self.print_lock:
+                            print(f"Error in algorithm {future_to_algo[future][1]}: {str(e)}")
 
             combined_results.append(combined_row)
 
@@ -429,10 +452,12 @@ def main():
     # 加载配置
     config = ExperimentConfig()
 
-    # 初始化
-    runner = ExperimentRunner(config)
+    # 初始化（使用48线程）
+    max_workers = 48
+    runner = ExperimentRunner(config, max_workers=max_workers)
 
     print("Starting experiment framework...")
+    print(f"Max workers (threads): {max_workers}")
     print(f"Target datasets: {config.target_datasets}")
     print(f"Algorithm commands: {config.algorithm_commands}")
     print(f"Output mapping: {config.output_mapping}")
