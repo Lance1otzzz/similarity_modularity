@@ -22,9 +22,9 @@ void louvain_with_heap_and_flm_pruning(Graph<Node> &g, double r)
 	Graph<std::vector<int>> hg(g); //hypernode graph
 
 
-	int cntCalDelta_Q=0,skipped=0;
-	int iteration=0;
-	int cntCheck=0,cntMove=0;
+	unsigned long long cntCalDelta_Q=0,skipped=0;
+	unsigned int iteration=0;
+	unsigned long long cntCheck=0,cntMove=0;
 
 	double checkTime=0;
 
@@ -245,9 +245,9 @@ void louvain_with_heap_and_flm_hybrid_pruning(Graph<Node> &g, double r)
 	Graph<std::vector<int>> hg(g); //hypernode graph
 
 
-	int cntCalDelta_Q=0,skipped=0;
-	int iteration=0;
-	int cntCheck=0,cntMove=0;
+	unsigned long long cntCalDelta_Q=0,skipped=0;
+	unsigned int iteration=0;
+	unsigned long long cntCheck=0,cntMove=0;
 
 	double checkTime=0;
 

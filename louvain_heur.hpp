@@ -29,9 +29,9 @@ void louvain_heur(Graph<Node> &g, double r) //edge node to community
 
 	Graph<std::vector<int>> hg(g); //hypernode graph
 
-	int cntCalDelta_Q=0,skipped=0;
-	int iteration=0;
-	int cntCheck=0,cntMove=0;
+	unsigned long long cntCalDelta_Q=0,skipped=0;
+	unsigned int iteration=0;
+	unsigned long long cntCheck=0,cntMove=0;
 
 	double checkTime=0;
 
