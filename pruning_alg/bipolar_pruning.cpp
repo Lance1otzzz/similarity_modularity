@@ -43,7 +43,7 @@ double BipolarPruning::build(const Graph<Node>& g) {
     for (size_t i = 0; i < num_points; ++i) {
         for (int j = 0; j < k_; ++j) {
             precomputed_point_to_pivots_dists_[i][j] = 
-                std::sqrt(calc_distance_sqr(g.nodes[i].attributes, pivots_[j]));
+                calc_distance_sqr(g.nodes[i].attributes, pivots_[j]);
         }
     }
     
@@ -52,9 +52,9 @@ double BipolarPruning::build(const Graph<Node>& g) {
     precomputed_pivots_dists_.assign(k_, std::vector<double>(k_));
     for (int i = 0; i < k_; ++i) {
         for (int j = i; j < k_; ++j) {
-            double dist = std::sqrt(calc_distance_sqr(pivots_[i], pivots_[j]));
-            precomputed_pivots_dists_[i][j] = dist;
-            precomputed_pivots_dists_[j][i] = dist;
+            double dist_sq = calc_distance_sqr(pivots_[i], pivots_[j]);
+            precomputed_pivots_dists_[i][j] = dist_sq;
+            precomputed_pivots_dists_[j][i] = dist_sq;
         }
     }
     
@@ -64,7 +64,7 @@ double BipolarPruning::build(const Graph<Node>& g) {
     return timeElapsed(start_time, end_time);
 }
 
-bool BipolarPruning::query_distance_exceeds(int p_idx, int q_idx, double r) {
+bool BipolarPruning::query_distance_exceeds(int p_idx, int q_idx, double r_sq) {
     total_queries_++;
     
     int pivot_p_idx = point_to_pivot_map_[p_idx];
@@ -75,93 +75,74 @@ bool BipolarPruning::query_distance_exceeds(int p_idx, int q_idx, double r) {
     if (pivot_p_idx == pivot_q_idx) {
         const auto& p_dists = precomputed_point_to_pivots_dists_[p_idx];
         const auto& q_dists = precomputed_point_to_pivots_dists_[q_idx];
-        
-        // Use triangle inequality with all pivots
-        for (int i = 0; i < k_; ++i) {
-            if (std::abs(p_dists[i] - q_dists[i])>r)
-			{
-				pruning_count_++;
-				return true;
-			}
-        }
+		if (sqr(std::sqrt(p_dists[pivot_p_idx])-std::sqrt(q_dists[pivot_p_idx]))>r_sq) 
+		{
+			pruning_count_++;
+			return true;
+		}
+//        // Use triangle inequality with all pivots
+//        for (int i = 0; i < k_; ++i) if (i!=pivot_p_idx){
+//            if (std::abs(p_dists[i] - q_dists[i])>r)
+//			{
+//				pruning_count_++;
+//				return true;
+//			}
+//        }
     }
     // Case 2: Points belong to different clusters, use bipolar algorithm
     else {
         // P1 is p's pivot, P2 is q's pivot
-        double d_p1_p = precomputed_point_to_pivots_dists_[p_idx][pivot_p_idx];
-        double d_p1_q = precomputed_point_to_pivots_dists_[q_idx][pivot_p_idx];
-        double d_p2_p = precomputed_point_to_pivots_dists_[p_idx][pivot_q_idx];
-        double d_p2_q = precomputed_point_to_pivots_dists_[q_idx][pivot_q_idx];
-        double d_p1_p2 = precomputed_pivots_dists_[pivot_p_idx][pivot_q_idx];
+        double a1_sq = precomputed_point_to_pivots_dists_[p_idx][pivot_p_idx];
+        double a2_sq = precomputed_point_to_pivots_dists_[p_idx][pivot_q_idx];
+        double b1_sq = precomputed_point_to_pivots_dists_[q_idx][pivot_p_idx];
+        double b2_sq = precomputed_point_to_pivots_dists_[q_idx][pivot_q_idx];
+        double p_sq = precomputed_pivots_dists_[pivot_p_idx][pivot_q_idx];
         
-        auto bounds_sq = calculate_bipolar_bounds_sq(d_p1_p, d_p1_q, d_p2_p, d_p2_q, d_p1_p2);
-        double lower_bound_sq = bounds_sq.first;
-        double upper_bound_sq = bounds_sq.second;
-        double r_sq = r * r;
-        
-        // Lower bound pruning: if lower_bound > r, then d(p,q) > r
-        if (lower_bound_sq > r_sq) {
-            pruning_count_++;
-            return true;
-        }
-        
-        // Upper bound pruning: if upper_bound <= r, then d(p,q) <= r
-        if (upper_bound_sq <= r_sq) {
-            pruning_count_++;
-            return false;
-        }
-    }
+		if (p_sq > 1e-9)
+		{
+			// Calculate dot product terms using law of cosines
+			double dot_A_P2 = (a1_sq + p_sq - a2_sq) * 0.5;
+			double dot_B_P2 = (b1_sq + p_sq - b2_sq) * 0.5;
+			
+			// Calculate parallel component contribution
+			double parallel_term = (dot_A_P2 * dot_B_P2) / p_sq;
+			
+			// Calculate perpendicular component magnitudes squared
+			double r_A_sq = a1_sq - (dot_A_P2 * dot_A_P2)/ p_sq;
+			double r_B_sq = b1_sq - (dot_B_P2 * dot_B_P2)/ p_sq;
+			
+			// Handle floating point precision issues
+			r_A_sq = std::max(0.0, r_A_sq);
+			r_B_sq = std::max(0.0, r_B_sq);
+			
+			// Calculate final distance squared bounds
+			double fixed_part = a1_sq + b1_sq - 2.0 * parallel_term;
+			double perpendicular_part = 2.0 * std::sqrt(r_A_sq * r_B_sq);
+			
+			double lower_bound_sq = fixed_part - perpendicular_part;
+			double upper_bound_sq = fixed_part + perpendicular_part;
+			
+			
+			// Lower bound pruning: if lower_bound > r, then d(p,q) > r
+			if (lower_bound_sq > r_sq) {
+				pruning_count_++;
+				return true;
+			}
+			
+			// Upper bound pruning: if upper_bound <= r, then d(p,q) <= r
+			if (upper_bound_sq <= r_sq) {
+				pruning_count_++;
+				return false;
+			}
+		}
+	}
     
     // Pruning failed, perform exact calculation
     full_calculations_++;
     const auto& p = graph_->nodes[p_idx];
     const auto& q = graph_->nodes[q_idx];
 	notpruned++;
-    return calc_distance_sqr(p.attributes, q.attributes) > r*r;
-}
-
-std::pair<double, double> BipolarPruning::calculate_bipolar_bounds_sq(
-    double d_p1_a, double d_p1_b, 
-    double d_p2_a, double d_p2_b, 
-    double d_p1_p2
-) const {
-    // Avoid division by zero
-    if (d_p1_p2 < 1e-9) {
-        return {0.0, std::numeric_limits<double>::max()};
-    }
-    
-    double a1_sq = d_p1_a * d_p1_a;
-    double b1_sq = d_p1_b * d_p1_b;
-    double p_sq = d_p1_p2 * d_p1_p2;
-    double a2_sq = d_p2_a * d_p2_a;
-    double b2_sq = d_p2_b * d_p2_b;
-    
-    // Calculate dot product terms using law of cosines
-    double dot_A_P2 = (a1_sq + p_sq - a2_sq) * 0.5;
-    double dot_B_P2 = (b1_sq + p_sq - b2_sq) * 0.5;
-    
-    // Calculate parallel component contribution
-    double parallel_term = (dot_A_P2 * dot_B_P2) / p_sq;
-    
-    // Calculate perpendicular component magnitudes squared
-    double r_A_sq = a1_sq - (dot_A_P2 * dot_A_P2);// / p_sq;
-    double r_B_sq = b1_sq - (dot_B_P2 * dot_B_P2);// / p_sq;
-    
-    // Handle floating point precision issues
-    r_A_sq = std::max(0.0, r_A_sq);
-    r_B_sq = std::max(0.0, r_B_sq);
-    
-    // Calculate final distance squared bounds
-    double fixed_part = a1_sq + b1_sq - 2.0 * parallel_term;
-    double perpendicular_part = 2.0 * std::sqrt(r_A_sq * r_B_sq)/p_sq;
-    
-    double lower_bound_sq = fixed_part - perpendicular_part;
-    double upper_bound_sq = fixed_part + perpendicular_part;
-    
-    // Ensure non-negative lower bound
-    lower_bound_sq = std::max(0.0, lower_bound_sq);
-    
-    return {lower_bound_sq, upper_bound_sq};
+    return calcDisSqr(p,q)>r_sq;//calc_distance_sqr(p.attributes, q.attributes) > r*r;
 }
 
 void BipolarPruning::run_kmeans(const Graph<Node>& g) {
@@ -254,15 +235,14 @@ bool checkDisSqr_with_bipolar_pruning(const Node& x, const Node& y, const double
         return checkDisSqr(x, y, rr);
     }
     
-    double r = std::sqrt(rr);
-    return g_bipolar_pruning->query_distance_exceeds(x.id, y.id, r);
+    return g_bipolar_pruning->query_distance_exceeds(x.id, y.id, rr);
 }
 
-bool checkDisSqr_with_hybrid_pruning(const Node& x, const Node& y, const double& r) {
+bool checkDisSqr_with_hybrid_pruning(const Node& x, const Node& y, const double& rr) {
     totchecknode++;
     
     // Priority 1: Statistical pruning using precomputed attributes
-    double sumAttrSqr = x.attrSqr + y.attrSqr, rr=r*r;
+    double sumAttrSqr = x.attrSqr + y.attrSqr;
     
     if (!x.negative && !y.negative) {
         // For non-negative vectors, calculate proper inner product bounds
@@ -299,7 +279,7 @@ bool checkDisSqr_with_hybrid_pruning(const Node& x, const Node& y, const double&
     
     // Priority 2: Bipolar pruning if statistical pruning failed
     if (g_bipolar_pruning)
-        return (g_bipolar_pruning->query_distance_exceeds(x.id, y.id, r));
+        return (g_bipolar_pruning->query_distance_exceeds(x.id, y.id, rr));
     
     // Priority 3: Exact calculation if both pruning methods failed
     notpruned++;

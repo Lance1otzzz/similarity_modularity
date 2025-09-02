@@ -10,7 +10,7 @@
 #include <limits>
 #include <cmath>
 
-inline int totchecknode=0,notpruned=0;
+inline long long totchecknode=0,notpruned=0;
 
 // Node structure with ID and original attributes, not hypernode
 struct Node {
@@ -249,10 +249,11 @@ struct Graph<Node>:public GraphBase<Node> //graph with simple node (not hypernod
 			while (iss >> value) {
 				node.attributes.push_back(value);
 				// different from baseline
+				double absValue=std::abs(value);
 				node.attrSqr+=sqr(value); 
-				node.attrAbsSum+=std::abs(value);
-				node.attrAbsMax=std::max(node.attrAbsMax,value);
-				node.attrAbsMin=std::min(node.attrAbsMin,value);
+				node.attrAbsSum+=absValue;
+				node.attrAbsMax=std::max(node.attrAbsMax,absValue);
+				node.attrAbsMin=std::min(node.attrAbsMin,absValue);
 				if (value<0) node.negative=true;
 			}
 			if (node.attributes.empty()) {
@@ -296,6 +297,11 @@ struct Graph<Node>:public GraphBase<Node> //graph with simple node (not hypernod
 							 << ") in line: " << line << std::endl;
 					throw std::invalid_argument("invalid edge");
 				}
+				if (u==v) 
+				{
+					std::cerr<<"self loop of "<<u<<" and "<<v<< " in line "<<line<<std::endl;
+					throw std::invalid_argument("self loop");
+				}
 				addedge(u,v);
 			}
 			else 
@@ -329,7 +335,11 @@ struct Graph<Node>:public GraphBase<Node> //graph with simple node (not hypernod
 							 << ") in line: " << line << std::endl;
 					throw std::invalid_argument("invalid edge");
 				}
-				if (u==v) throw std::invalid_argument("self loop");
+				if (u==v) 
+				{
+					std::cerr<<"self loop of "<<u<<" and "<<v<< " in line "<<line<<std::endl;
+					throw std::invalid_argument("self loop");
+				}
 				addedge_loading(u,v,calcDisSqr(nodes[u],nodes[v]),rr); //different from baseline. precompute if the edge meet the restraint
 			}
 			else 
@@ -542,8 +552,7 @@ inline bool graphCheckDis(const Graph<Node> &g, const std::vector<std::vector<in
 
 struct nodeToComEdge
 {
-	long long w;
-	int timeStamp; // the timestamp last time check the edge
+	long long w,timeStamp; // the timestamp last time check the edge
 	Flag flag;
 	double d;
 };
@@ -551,6 +560,6 @@ struct nodeToComEdge
 struct infoCom
 {
 	std::unordered_set<int> elements;
-	int comeTimeStamp,leaveTimeStamp;
+	unsigned long long comeTimeStamp,leaveTimeStamp;
 };
 
