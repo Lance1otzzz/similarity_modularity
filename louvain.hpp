@@ -235,7 +235,8 @@ void pure_louvain_with_bipolar_pruning(Graph<Node> &g, double r)
                                     // 使用 bipolar pruning 优化距离计算
                                     bool distance_exceeds = false;
                                     if (g_bipolar_pruning) {
-                                        distance_exceeds = g_bipolar_pruning->query_distance_exceeds(uu, vv, r);
+                                        // Pass squared threshold to match internal comparisons
+                                        distance_exceeds = g_bipolar_pruning->query_distance_exceeds(uu, vv, rr);
                                     } else {
                                         distance_exceeds = calcDisSqr_baseline(g.nodes[uu], g.nodes[vv]) > rr;
                                     }
