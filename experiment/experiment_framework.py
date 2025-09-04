@@ -12,152 +12,25 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_compl
 import threading
 
 
-def _simple_parse_array(value: str):
-    """Parse a simple TOML array value into a Python list.
-    Supports strings, integers, floats, and booleans. Assumes no nested arrays or tables.
-    """
-    # Strip brackets
-    inner = value.strip()
-    if not (inner.startswith('[') and inner.endswith(']')):
-        raise ValueError("Invalid array syntax")
-    inner = inner[1:-1].strip()
-    if inner == "":
-        return []
-
-    items = []
-    current = []
-    in_str = False
-    escape = False
-    quote = ''
-    for ch in inner:
-        if in_str:
-            current.append(ch)
-            if escape:
-                escape = False
-            elif ch == '\\':
-                escape = True
-            elif ch == quote:
-                in_str = False
-        else:
-            if ch in ('"', "'"):
-                in_str = True
-                quote = ch
-                current.append(ch)
-            elif ch == ',':
-                item_str = ''.join(current).strip()
-                if item_str:
-                    items.append(item_str)
-                current = []
-            else:
-                current.append(ch)
-    if current:
-        items.append(''.join(current).strip())
-
-    def convert(token: str):
-        if token.startswith('"') and token.endswith('"'):
-            return token[1:-1]
-        if token.startswith("'") and token.endswith("'"):
-            return token[1:-1]
-        low = token.lower()
-        if low == 'true':
-            return True
-        if low == 'false':
-            return False
-        # try int, then float
-        try:
-            if token.startswith('+'):
-                token_num = token[1:]
-            else:
-                token_num = token
-            if token_num.isdigit() or (token_num.startswith('-') and token_num[1:].isdigit()):
-                return int(token)
-        except Exception:
-            pass
-        try:
-            return float(token)
-        except Exception:
-            pass
-        # fallback to raw string without quotes
-        return token
-
-    return [convert(t) for t in items]
-
-
 def load_simple_toml(path: Path) -> dict:
-    """Very small TOML loader for this project's config needs.
-    Supports:
-    - Comments starting with '#'
-    - [section] tables (single-level)
-    - key = value pairs with string, int, float, bool, and simple arrays
-    """
-    data: Dict[str, dict] = {}
-    current: Optional[dict] = data
-    current_section: Optional[str] = None
+    """Load TOML using Python's stdlib tomllib (Python 3.11+)."""
+    try:
+        import tomllib  # Python 3.11+
+    except Exception as e:
+        raise RuntimeError(f"TOML parsing requires Python 3.11+ (tomllib). Error: {e}")
 
-    text = path.read_text(encoding='utf-8')
-    for raw in text.splitlines():
-        line = raw.strip()
-        if not line or line.startswith('#'):
-            continue
-        if line.startswith('[') and line.endswith(']'):
-            section = line[1:-1].strip()
-            if not section:
-                raise ValueError('Empty TOML section header')
-            data.setdefault(section, {})
-            current = data[section]
-            current_section = section
-            continue
-        if '=' not in line:
-            continue
-        key, val = line.split('=', 1)
-        key = key.strip()
-        val = val.strip()
-        # strip trailing comment if present
-        if '#' in val:
-            # only treat as comment when not inside quotes
-            before_hash = []
-            in_str = False
-            quote = ''
-            for ch in val:
-                if in_str:
-                    before_hash.append(ch)
-                    if ch == quote:
-                        in_str = False
-                else:
-                    if ch in ('"', "'"):
-                        in_str = True
-                        quote = ch
-                        before_hash.append(ch)
-                    elif ch == '#':
-                        break
-                    else:
-                        before_hash.append(ch)
-            val = ''.join(before_hash).strip()
+    with open(path, 'rb') as f:
+        data = tomllib.load(f)
 
-        # parse value
-        parsed: object
-        if val.startswith('[') and val.endswith(']'):
-            parsed = _simple_parse_array(val)
-        elif (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
-            parsed = val[1:-1]
-        else:
-            low = val.lower()
-            if low == 'true':
-                parsed = True
-            elif low == 'false':
-                parsed = False
-            else:
-                # int or float
-                try:
-                    parsed = int(val)
-                except Exception:
-                    try:
-                        parsed = float(val)
-                    except Exception:
-                        parsed = val
-
-        target = current if current_section else data
-        target[key] = parsed
+    # Normalize: some keys might have been placed after a table header,
+    # which TOML assigns to that table. Promote expected root keys if needed.
+    root_keys = ("table_columns", "target_datasets", "distance_percentiles")
+    for section_name, section in list(data.items()):
+        if isinstance(section, dict):
+            for key in root_keys:
+                if key not in data and key in section:
+                    data[key] = section[key]
+                    # Do not delete from section to preserve original content
     return data
 
 
@@ -451,16 +324,62 @@ class ExperimentRunner:
         """获取pruning相关的列名"""
         pruning_columns = []
         for algo_name in ["flm", "louvain", "both", "bipolar","hybrid"]:
-                pruning_columns.extend([f"{algo_name}_pruning_rate"])
+            pruning_columns.extend([f"{algo_name}_pruning_rate"])
         return pruning_columns
 
-        def get_modularity_columns(self) -> List[str]:
-            """获取modularity相关的列名"""
-            modularity_columns = []
-            for algo_name in ["flm", "louvain", "both", "bipolar","hybrid"]:
-                    modularity_columns.extend([f"{algo_name}_modularity"])
-            return modularity_columns
- 
+    def get_modularity_columns(self) -> List[str]:
+        """获取modularity相关的列名"""
+        modularity_columns = []
+        for algo_name in ["flm", "louvain", "both", "bipolar","hybrid"]:
+            modularity_columns.extend([f"{algo_name}_modularity"])
+        return modularity_columns
+
+    def run_all_experiments(self) -> Dict[str, pd.DataFrame]:
+        """运行所有实验，返回包含所有指标的综合结果"""
+        all_results = {}
+
+        for dataset in self.config.target_datasets:
+            print(f"\nProcessing dataset: {dataset}")
+
+            # 获取距离分位数
+            percentiles = self.distance_sampler.get_distance_percentiles(dataset)
+            print(f"Distance percentiles for {dataset}: {percentiles}")
+
+            # 运行实验
+            combined_df = self.run_experiments_for_dataset(dataset, percentiles)
+            all_results[dataset] = combined_df
+
+            # 保存综合结果
+            combined_file = self.results_dir / f"{dataset}_combined_results.csv"
+            combined_df.to_csv(combined_file, index=False)
+
+            print(f"Combined results saved to {combined_file}")
+
+        # 保存汇总结果
+        self.save_summary_results(all_results)
+
+        return all_results
+
+    def save_summary_results(self, all_results: Dict[str, pd.DataFrame]):
+        """保存汇总结果"""
+        summary_file = self.results_dir / "combined_results_summary.md"
+
+        with open(summary_file, 'w') as f:
+            f.write("# Combined Results Summary\n\n")
+            f.write(
+                "This file contains comprehensive results including execution times, pruning rates, and modularity values.\n\n")
+
+            for dataset, df in all_results.items():
+                f.write(f"## {dataset}\n\n")
+                try:
+                    f.write(df.to_markdown(index=False))
+                except Exception:
+                    # Fallback if to_markdown is unavailable
+                    f.write(df.to_string(index=False))
+                f.write("\n\n---\n\n")
+
+        print(f"Combined summary saved to {summary_file}")
+
 
 def parse_multi_output(output: str, command_name: str) -> Tuple[
     Dict[str, float], Dict[str, float], Dict[str, float]]:
@@ -620,47 +539,7 @@ def _run_alg_experiment_worker(
         'modularity': modularity_parsed,
     }
 
-    def run_all_experiments(self) -> Dict[str, pd.DataFrame]:
-        """运行所有实验，返回包含所有指标的综合结果"""
-        all_results = {}
-
-        for dataset in self.config.target_datasets:
-            print(f"\nProcessing dataset: {dataset}")
-
-            # 获取距离分位数
-            percentiles = self.distance_sampler.get_distance_percentiles(dataset)
-            print(f"Distance percentiles for {dataset}: {percentiles}")
-
-            # 运行实验
-            combined_df = self.run_experiments_for_dataset(dataset, percentiles)
-            all_results[dataset] = combined_df
-
-            # 保存综合结果
-            combined_file = self.results_dir / f"{dataset}_combined_results.csv"
-            combined_df.to_csv(combined_file, index=False)
-
-            print(f"Combined results saved to {combined_file}")
-
-        # 保存汇总结果
-        self.save_summary_results(all_results)
-
-        return all_results
-
-    def save_summary_results(self, all_results: Dict[str, pd.DataFrame]):
-        """保存汇总结果"""
-        summary_file = self.results_dir / "combined_results_summary.md"
-
-        with open(summary_file, 'w') as f:
-            f.write("# Combined Results Summary\n\n")
-            f.write(
-                "This file contains comprehensive results including execution times, pruning rates, and modularity values.\n\n")
-
-            for dataset, df in all_results.items():
-                f.write(f"## {dataset}\n\n")
-                f.write(df.to_markdown(index=False))
-                f.write("\n\n---\n\n")
-
-        print(f"Combined summary saved to {summary_file}")
+ 
 
 
 def main():
