@@ -34,7 +34,7 @@
 similarity_modularity/
 ├── experiment/
 │   ├── experiment_framework.py      # 主框架代码
-│   ├── experiment_config.json       # 配置文件
+│   ├── experiment_config.toml       # 配置文件（支持注释）
 │   ├── test_sampling.py            # 测试脚本
 │   └── README_experiments.md        # 详细说明
 ├── dataset/                        # 数据集文件夹
@@ -45,27 +45,24 @@ similarity_modularity/
 ## 使用方法
 
 ### 1. 配置调整
-编辑 `experiment/experiment_config.json`:
-```json
-{
-    "algorithm_commands": {
-        "9": "flm",
-        "10": "louvain", 
-        "12": "both",
-        "13": "bipolar"
-    },
-    "output_mapping": {
-        "flm": ["flm_cal", "flm_pruning"],
-        "louvain": ["louvain_cal", "louvain_pruning"],
-        "both": ["both_cal", "both_pruning"],
-        "bipolar": ["bipolar_cal", "bipolar_pruning"]
-    },
-    "experiment_config": {
-        "enable_timeout": false,  // 超时开关
-        "timeout_seconds": 300,
-        "main_program_path": "./main"
-    }
-}
+编辑 `experiment/experiment_config.toml`（可添加注释`# ...`）:
+```toml
+[algorithm_commands]
+9  = "flm"
+10 = "louvain"
+12 = "both"
+13 = "bipolar"
+
+[output_mapping]
+flm = "flm"
+louvain = "louvain"
+both = "both"
+bipolar = "bipolar"
+
+[experiment_config]
+enable_timeout = false
+timeout_seconds = 300
+main_program_path = "./main"
 ```
 
 ### 2. 测试采样功能
