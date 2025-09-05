@@ -552,7 +552,8 @@ inline bool graphCheckDis(const Graph<Node> &g, const std::vector<std::vector<in
 
 struct nodeToComEdge
 {
-	long long w,timeStamp; // the timestamp last time check the edge
+	long long w;
+	int timeStamp; // the timestamp last time check the edge
 	Flag flag;
 	double d;
 };
@@ -560,6 +561,6 @@ struct nodeToComEdge
 struct infoCom
 {
 	std::unordered_set<int> elements;
-	unsigned long long comeTimeStamp,leaveTimeStamp;
+	int comeTimeStamp,leaveTimeStamp;
 };
 
