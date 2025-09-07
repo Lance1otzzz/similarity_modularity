@@ -57,7 +57,9 @@
         "max_workers": 0,
         "omp_threads_per_proc": 1,
         "pin_workers": false,
-        "cpu_affinity_list": []
+        "cpu_affinity_list": [],
+        "use_numactl": false,
+        "numa_nodes": []
     },
     "output_config": {
         "results_dir": "experiment_results",

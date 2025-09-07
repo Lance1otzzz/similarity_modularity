@@ -10,6 +10,7 @@ from typing import Dict, List, Tuple, Optional
 import pickle
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 import threading
+import shutil
 
 
 def load_simple_toml(path: Path) -> dict:
@@ -166,6 +167,28 @@ class ExperimentConfig:
             except Exception:
                 return None
         return None
+
+    @property
+    def use_numactl(self) -> bool:
+        return bool(self.config.get("experiment_config", {}).get("use_numactl", False))
+
+    @property
+    def numa_nodes(self) -> List[int]:
+        # Prefer explicit list
+        arr = self.config.get("experiment_config", {}).get("numa_nodes")
+        if isinstance(arr, list) and arr:
+            try:
+                return [int(x) for x in arr]
+            except Exception:
+                pass
+        # Fallback to single socket value
+        sock = self.config.get("experiment_config", {}).get("numa_socket")
+        if sock is not None:
+            try:
+                return [int(sock)]
+            except Exception:
+                pass
+        return []
 
     @property
     def pruning_columns(self) -> List[str]:
@@ -417,9 +440,19 @@ class ExperimentRunner:
         else:
             affinity_groups = [None] * (self.max_workers or 1)
 
+        # Prepare NUMA node mapping per slot if enabled
+        numa_nodes_by_slot: List[Optional[int]] = []
+        if self.config.use_numactl and self.config.numa_nodes:
+            base_nodes = list(self.config.numa_nodes)
+            for i in range(self.max_workers or 1):
+                numa_nodes_by_slot.append(base_nodes[i % len(base_nodes)])
+        else:
+            numa_nodes_by_slot = [None] * (self.max_workers or 1)
+
         def _submit(pool, task, slot_idx: int):
             p, r_val, a_code, cmd_name = task
             affinity = affinity_groups[slot_idx % len(affinity_groups)] if affinity_groups else None
+            numa_node = numa_nodes_by_slot[slot_idx % len(numa_nodes_by_slot)] if numa_nodes_by_slot else None
             return pool.submit(
                 _run_alg_experiment_worker,
                 self.main_path,
@@ -433,6 +466,8 @@ class ExperimentRunner:
                 str(self.logs_dir),
                 int(self.config.omp_threads_per_proc),
                 affinity,
+                bool(self.config.use_numactl and shutil.which('numactl') is not None),
+                numa_node,
             )
 
         # 使用进程池并行执行，限制在 max_workers 并复用槽位，实现稳定的亲和性绑定
@@ -677,11 +712,20 @@ def _run_alg_experiment_worker(
     logs_dir: str,
     omp_threads_per_proc: int,
     affinity_cpus: Optional[List[int]],
+    use_numactl: bool,
+    numa_node: Optional[int],
 ) -> dict:
     """Worker function to execute a single algorithm run and parse output. Runs in a separate process."""
     from pathlib import Path
     import datetime
     cmd = [main_path, str(algorithm_code), f"../dataset/{dataset_name}", str(r_value)]
+    if use_numactl and numa_node is not None:
+        # Wrap with numactl for CPU+memory binding on the given NUMA node
+        cmd = [
+            "numactl",
+            f"--cpunodebind={numa_node}",
+            f"--membind={numa_node}",
+        ] + cmd
     try:
         import os as _os
         env = dict(_os.environ)
