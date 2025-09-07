@@ -23,3 +23,4 @@ analysis.txt
 !/experiment/experiment_config.json
 /experiment/distance_cache/
 /experiment/experiment_results/
+/experiment/experiment_logs/

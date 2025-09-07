@@ -110,6 +110,14 @@ class ExperimentConfig:
         return self.config["experiment_config"]["main_program_path"]
 
     @property
+    def compile_before_run(self) -> bool:
+        return self.config.get("experiment_config", {}).get("compile_before_run", True)
+
+    @property
+    def build_command(self) -> str:
+        return self.config.get("experiment_config", {}).get("build_command", "make -j")
+
+    @property
     def results_dir(self) -> str:
         return self.config["output_config"]["results_dir"]
 
@@ -244,6 +252,39 @@ class ExperimentRunner:
         # 创建日志目录
         self.logs_dir = Path(config.logs_dir)
         self.logs_dir.mkdir(exist_ok=True)
+
+        # 编译检查/自动构建
+        if self.config.compile_before_run:
+            self.ensure_compiled()
+
+    def ensure_compiled(self):
+        """Ensure the C++ main program is compiled. If not, attempt to build with make."""
+        repo_root = Path(__file__).resolve().parent.parent
+        binary_rel = Path(self.config.main_program_path)
+        binary = (repo_root / binary_rel)
+
+        # If binary missing, or obviously not executable, attempt to build
+        needs_build = not binary.exists()
+        if not needs_build and os.name != 'nt':
+            try:
+                st = os.stat(binary)
+                if not (st.st_mode & 0o111):
+                    needs_build = True
+            except Exception:
+                needs_build = True
+
+        if needs_build:
+            print(f"Binary {binary} missing or not executable. Building with: {self.config.build_command}")
+            try:
+                # Prefer make in repo root
+                result = subprocess.run(self.config.build_command, shell=True, cwd=str(repo_root), text=True)
+                if result.returncode != 0:
+                    raise RuntimeError(f"Build failed with exit code {result.returncode}")
+            except Exception as e:
+                raise RuntimeError(f"Failed to build main program: {e}")
+
+        if not binary.exists():
+            raise FileNotFoundError(f"Expected binary not found after build: {binary}")
 
     def run_single_experiment(self, dataset_name: str, algorithm_code: int, distance_constraint: float) -> str:
         """运行单个实验"""

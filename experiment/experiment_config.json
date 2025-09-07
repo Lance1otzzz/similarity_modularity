@@ -50,7 +50,9 @@
         "enable_timeout": false,
         "timeout_seconds": 300,
         "sleep_between_runs": 0.1,
-        "main_program_path": "./main"
+        "main_program_path": "./main",
+        "compile_before_run": true,
+        "build_command": "make -j"
     },
     "output_config": {
         "results_dir": "experiment_results",
