@@ -685,11 +685,11 @@ def _run_alg_experiment_worker(
     try:
         import os as _os
         env = dict(_os.environ)
-        # Limit OpenMP threads per process to avoid oversubscription
-        env.setdefault('OMP_NUM_THREADS', str(omp_threads_per_proc))
-        # Help OpenMP pinning behavior
-        env.setdefault('OMP_PROC_BIND', 'close')
-        env.setdefault('OMP_PLACES', 'cores')
+        # Limit OpenMP threads per process to avoid oversubscription (force override)
+        env['OMP_NUM_THREADS'] = str(omp_threads_per_proc)
+        # Help OpenMP pinning behavior (force override)
+        env['OMP_PROC_BIND'] = 'close'
+        env['OMP_PLACES'] = 'cores'
         # Set CPU affinity if requested and supported (Linux)
         if affinity_cpus:
             try:
