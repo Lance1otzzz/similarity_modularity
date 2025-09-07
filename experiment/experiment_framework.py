@@ -37,7 +37,7 @@ def load_simple_toml(path: Path) -> dict:
 class ExperimentConfig:
     def __init__(self, config_file: Optional[str] = None):
         base_dir = Path(__file__).parent
-        default_toml = base_dir / "experiment_config.toml"
+        default_toml = base_dir / "experiment_config.server.toml"
         default_json = base_dir / "experiment_config.json"
         cfg_path: Path
 
