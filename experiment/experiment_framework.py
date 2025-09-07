@@ -136,6 +136,38 @@ class ExperimentConfig:
         return self.config.get("output_config", {}).get("logs_dir", "experiment_logs")
 
     @property
+    def max_workers(self) -> Optional[int]:
+        mw = self.config.get("experiment_config", {}).get("max_workers")
+        try:
+            return int(mw) if mw not in (None, "", 0) else None
+        except Exception:
+            return None
+
+    @property
+    def omp_threads_per_proc(self) -> int:
+        # For C++ code that uses OpenMP; default to 1 to avoid oversubscription when using many processes
+        val = self.config.get("experiment_config", {}).get("omp_threads_per_proc", 1)
+        try:
+            iv = int(val)
+            return iv if iv >= 1 else 1
+        except Exception:
+            return 1
+
+    @property
+    def pin_workers(self) -> bool:
+        return bool(self.config.get("experiment_config", {}).get("pin_workers", False))
+
+    @property
+    def cpu_affinity_list(self) -> Optional[List[int]]:
+        arr = self.config.get("experiment_config", {}).get("cpu_affinity_list")
+        if isinstance(arr, list):
+            try:
+                return [int(x) for x in arr]
+            except Exception:
+                return None
+        return None
+
+    @property
     def pruning_columns(self) -> List[str]:
         """获取pruning相关的列名"""
         pruning_columns = []
@@ -247,7 +279,7 @@ class ExperimentRunner:
         self.config = config
         self.main_path = "../" + config.main_program_path
         self.distance_sampler = distance_sampler or DistanceSampler(config)
-        self.max_workers = max_workers or os.cpu_count() or 4
+        self.max_workers = max_workers or config.max_workers or os.cpu_count() or 4
         self.print_lock = threading.Lock()  # 用于保护打印输出
 
         # 创建结果目录
@@ -362,8 +394,32 @@ class ExperimentRunner:
             for algo_code, command_name in algorithm_commands.items():
                 tasks.append((percentile, r_value, algo_code, command_name))
 
-        def _submit(pool, task):
+        # Prepare CPU affinity groups if enabled
+        affinity_groups: List[Optional[List[int]]] = []
+        if self.config.pin_workers:
+            # Choose CPU pool
+            if self.config.cpu_affinity_list:
+                cpu_pool = list(self.config.cpu_affinity_list)
+            else:
+                cpu_pool = list(range(os.cpu_count() or 1))
+            group_size = max(1, int(self.config.omp_threads_per_proc))
+            # Chunk into groups
+            affinity_groups = [cpu_pool[i:i+group_size] for i in range(0, len(cpu_pool), group_size)]
+            if not affinity_groups:
+                affinity_groups = [cpu_pool]
+            # Ensure at least max_workers groups by cycling if needed
+            if len(affinity_groups) < self.max_workers:
+                base = list(affinity_groups)
+                idx = 0
+                while len(affinity_groups) < self.max_workers:
+                    affinity_groups.append(base[idx % len(base)])
+                    idx += 1
+        else:
+            affinity_groups = [None] * (self.max_workers or 1)
+
+        def _submit(pool, task, slot_idx: int):
             p, r_val, a_code, cmd_name = task
+            affinity = affinity_groups[slot_idx % len(affinity_groups)] if affinity_groups else None
             return pool.submit(
                 _run_alg_experiment_worker,
                 self.main_path,
@@ -375,30 +431,50 @@ class ExperimentRunner:
                 float(r_val),
                 p,
                 str(self.logs_dir),
+                int(self.config.omp_threads_per_proc),
+                affinity,
             )
 
-        # 使用进程池并行执行
+        # 使用进程池并行执行，限制在 max_workers 并复用槽位，实现稳定的亲和性绑定
         with ProcessPoolExecutor(max_workers=self.max_workers) as pool:
-            future_to_task = { _submit(pool, t): t for t in tasks }
-            for future in as_completed(future_to_task):
+            in_flight: Dict[object, Tuple[Tuple, int]] = {}
+            task_iter = iter(tasks)
+            # Prime initial submissions up to max_workers
+            for slot in range(min(self.max_workers, len(tasks))):
                 try:
-                    res = future.result()
-                    p = res['percentile']
-                    time_parsed = res['time']
-                    pruning_parsed = res['pruning']
-                    modularity_parsed = res['modularity']
+                    t = next(task_iter)
+                except StopIteration:
+                    break
+                fut = _submit(pool, t, slot)
+                in_flight[fut] = (t, slot)
 
-                    row = rows_by_p[p]
-                    for k, v in time_parsed.items():
-                        row[k] = v
-                    for k, v in pruning_parsed.items():
-                        row[k] = v
-                    for k, v in modularity_parsed.items():
-                        row[k] = v
-                except Exception as e:
-                    with self.print_lock:
-                        task = future_to_task[future]
-                        print(f"Error in task {task}: {e}")
+            while in_flight:
+                for future in as_completed(list(in_flight.keys())):
+                    t, slot = in_flight.pop(future)
+                    try:
+                        res = future.result()
+                        p = res['percentile']
+                        time_parsed = res['time']
+                        pruning_parsed = res['pruning']
+                        modularity_parsed = res['modularity']
+
+                        row = rows_by_p[p]
+                        for k, v in time_parsed.items():
+                            row[k] = v
+                        for k, v in pruning_parsed.items():
+                            row[k] = v
+                        for k, v in modularity_parsed.items():
+                            row[k] = v
+                    except Exception as e:
+                        with self.print_lock:
+                            print(f"Error in task {t}: {e}")
+                    # Submit next task into the freed slot
+                    try:
+                        t_next = next(task_iter)
+                        fut = _submit(pool, t_next, slot)
+                        in_flight[fut] = (t_next, slot)
+                    except StopIteration:
+                        pass
 
         combined_results = [rows_by_p[p] for p in sorted(rows_by_p.keys())]
         return pd.DataFrame(combined_results)
@@ -599,16 +675,31 @@ def _run_alg_experiment_worker(
     r_value: float,
     percentile: float,
     logs_dir: str,
+    omp_threads_per_proc: int,
+    affinity_cpus: Optional[List[int]],
 ) -> dict:
     """Worker function to execute a single algorithm run and parse output. Runs in a separate process."""
     from pathlib import Path
     import datetime
     cmd = [main_path, str(algorithm_code), f"../dataset/{dataset_name}", str(r_value)]
     try:
+        import os as _os
+        env = dict(_os.environ)
+        # Limit OpenMP threads per process to avoid oversubscription
+        env.setdefault('OMP_NUM_THREADS', str(omp_threads_per_proc))
+        # Help OpenMP pinning behavior
+        env.setdefault('OMP_PROC_BIND', 'close')
+        env.setdefault('OMP_PLACES', 'cores')
+        # Set CPU affinity if requested and supported (Linux)
+        if affinity_cpus:
+            try:
+                _os.sched_setaffinity(0, set(affinity_cpus))
+            except Exception:
+                pass
         if enable_timeout:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_seconds)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_seconds, env=env)
         else:
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            result = subprocess.run(cmd, capture_output=True, text=True, env=env)
         output = result.stdout + result.stderr
     except subprocess.TimeoutExpired:
         output = "TIMEOUT"
