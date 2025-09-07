@@ -61,6 +61,7 @@ sleep_between_runs = 0.1
 main_program_path = "./main"
 compile_before_run = true
 build_command = "make -j"
+rebuild_on_source_change = true
 
 [output_config]
 results_dir = "experiment_results"

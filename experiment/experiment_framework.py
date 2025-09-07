@@ -118,6 +118,11 @@ class ExperimentConfig:
         return self.config.get("experiment_config", {}).get("build_command", "make -j")
 
     @property
+    def rebuild_on_source_change(self) -> bool:
+        # Rebuild when any C/C++ source is newer than the binary
+        return self.config.get("experiment_config", {}).get("rebuild_on_source_change", True)
+
+    @property
     def results_dir(self) -> str:
         return self.config["output_config"]["results_dir"]
 
@@ -262,6 +267,12 @@ class ExperimentRunner:
         repo_root = Path(__file__).resolve().parent.parent
         binary_rel = Path(self.config.main_program_path)
         binary = (repo_root / binary_rel)
+        # Also consider Windows .exe if configured path without suffix doesn't exist
+        exe_candidate = None
+        if not binary.exists() and binary.suffix == "":
+            exe_candidate = binary.with_suffix(binary.suffix + ".exe")
+            if exe_candidate.exists():
+                binary = exe_candidate
 
         # If binary missing, or obviously not executable, attempt to build
         needs_build = not binary.exists()
@@ -273,8 +284,29 @@ class ExperimentRunner:
             except Exception:
                 needs_build = True
 
+        # Rebuild if any source file newer than binary
+        if not needs_build and self.config.rebuild_on_source_change:
+            try:
+                bin_mtime = os.path.getmtime(binary)
+            except Exception:
+                bin_mtime = 0.0
+
+            src_exts = {'.cpp', '.c', '.hpp', '.hh', '.h', '.cxx', '.cc'}
+            latest_src_mtime = 0.0
+            for p in repo_root.rglob('*'):
+                try:
+                    if p.is_file() and p.suffix in src_exts:
+                        m = p.stat().st_mtime
+                        if m > latest_src_mtime:
+                            latest_src_mtime = m
+                except Exception:
+                    pass
+
+            if latest_src_mtime > bin_mtime:
+                needs_build = True
+
         if needs_build:
-            print(f"Binary {binary} missing or not executable. Building with: {self.config.build_command}")
+            print(f"Building main program with: {self.config.build_command}")
             try:
                 # Prefer make in repo root
                 result = subprocess.run(self.config.build_command, shell=True, cwd=str(repo_root), text=True)
