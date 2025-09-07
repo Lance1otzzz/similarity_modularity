@@ -55,6 +55,7 @@
     "output_config": {
         "results_dir": "experiment_results",
         "cache_dir": "distance_cache",
-        "save_intermediate": true
+        "save_intermediate": true,
+        "logs_dir": "experiment_logs"
     }
 }

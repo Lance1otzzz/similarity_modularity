@@ -64,4 +64,4 @@ main_program_path = "./main"
 results_dir = "experiment_results"
 cache_dir = "distance_cache"
 save_intermediate = true
-
+logs_dir = "experiment_logs"

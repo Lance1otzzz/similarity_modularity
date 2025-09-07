@@ -118,6 +118,11 @@ class ExperimentConfig:
         return self.config["output_config"]["cache_dir"]
 
     @property
+    def logs_dir(self) -> str:
+        # Optional; default if missing
+        return self.config.get("output_config", {}).get("logs_dir", "experiment_logs")
+
+    @property
     def pruning_columns(self) -> List[str]:
         """获取pruning相关的列名"""
         pruning_columns = []
@@ -236,6 +241,10 @@ class ExperimentRunner:
         self.results_dir = Path(config.results_dir)
         self.results_dir.mkdir(exist_ok=True)
 
+        # 创建日志目录
+        self.logs_dir = Path(config.logs_dir)
+        self.logs_dir.mkdir(exist_ok=True)
+
     def run_single_experiment(self, dataset_name: str, algorithm_code: int, distance_constraint: float) -> str:
         """运行单个实验"""
         cmd = [self.main_path, str(algorithm_code), f"../dataset/{dataset_name}", str(distance_constraint)]
@@ -292,6 +301,7 @@ class ExperimentRunner:
                 cmd_name,
                 float(r_val),
                 p,
+                str(self.logs_dir),
             )
 
         # 使用进程池并行执行
@@ -515,8 +525,11 @@ def _run_alg_experiment_worker(
     command_name: str,
     r_value: float,
     percentile: float,
+    logs_dir: str,
 ) -> dict:
     """Worker function to execute a single algorithm run and parse output. Runs in a separate process."""
+    from pathlib import Path
+    import datetime
     cmd = [main_path, str(algorithm_code), f"../dataset/{dataset_name}", str(r_value)]
     try:
         if enable_timeout:
@@ -528,6 +541,28 @@ def _run_alg_experiment_worker(
         output = "TIMEOUT"
     except Exception as e:
         output = f"ERROR: {str(e)}"
+
+    # Write per-run log file: logs_dir/<dataset>/<command>_p<percentile>_r<r>.log
+    try:
+        ds_dir = Path(logs_dir) / dataset_name
+        ds_dir.mkdir(parents=True, exist_ok=True)
+        # Normalize percentile and r for filename
+        p_str = ("%g" % float(percentile)).replace(".", "_")
+        r_str = ("%g" % float(r_value)).replace(".", "_")
+        log_name = f"{command_name}_p{p_str}_r{r_str}.log"
+        log_path = ds_dir / log_name
+        timestamp = datetime.datetime.now().isoformat()
+        with open(log_path, 'w', encoding='utf-8') as f:
+            f.write(f"# Dataset: {dataset_name}\n")
+            f.write(f"# Command: {command_name} (code {algorithm_code})\n")
+            f.write(f"# Percentile: {percentile}\n")
+            f.write(f"# r value: {r_value}\n")
+            f.write(f"# Timestamp: {timestamp}\n")
+            f.write("\n")
+            f.write(output)
+    except Exception:
+        # Logging should not fail the computation path
+        pass
 
     time_parsed, pruning_parsed, modularity_parsed = parse_multi_output(output, command_name)
     return {
