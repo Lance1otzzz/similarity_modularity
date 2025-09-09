@@ -720,12 +720,20 @@ def _run_alg_experiment_worker(
     import datetime
     cmd = [main_path, str(algorithm_code), f"../dataset/{dataset_name}", str(r_value)]
     if use_numactl and numa_node is not None:
-        # Wrap with numactl for CPU+memory binding on the given NUMA node
-        cmd = [
-            "numactl",
-            f"--cpunodebind={numa_node}",
-            f"--membind={numa_node}",
-        ] + cmd
+        # Wrap with numactl for memory binding and, if available, precise CPU binding
+        if affinity_cpus:
+            cpu_list = ",".join(str(c) for c in affinity_cpus)
+            cmd = [
+                "numactl",
+                f"--physcpubind={cpu_list}",  # exact CPUs, avoid expanding to whole node
+                f"--membind={numa_node}",
+            ] + cmd
+        else:
+            cmd = [
+                "numactl",
+                f"--cpunodebind={numa_node}",  # fallback: all CPUs in node
+                f"--membind={numa_node}",
+            ] + cmd
     try:
         import os as _os
         env = dict(_os.environ)
