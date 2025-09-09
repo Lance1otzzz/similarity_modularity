@@ -1,13 +1,15 @@
 CC=g++
 #CC=clang++
-CFLAGS = -O3 -Wall -Wno-sign-compare -Wextra
-DEBUGFLAGS = -O0 -g -Wall -Wextra -Wno-sign-compare -Ddebug
+CFLAGS = -std=c++17 -O3 -Wall -Wno-sign-compare -Wextra
+DEBUGFLAGS = -std=c++17 -O0 -g -Wall -Wextra -Wno-sign-compare -Ddebug
 
 # 定义源文件和头文件
 SRCS = main.cpp \
        pruning_alg/kmeans_preprocessing.cpp \
        pruning_alg/triangle_pruning.cpp \
-       pruning_alg/bipolar_pruning.cpp
+       pruning_alg/bipolar_pruning.cpp \
+       pruning_alg/s0_fast_kmeans.cpp \
+       pruning_alg/s1_autok_lite.cpp
 
 HEADERS = graph.hpp \
           defines.hpp \
@@ -17,9 +19,12 @@ HEADERS = graph.hpp \
           pruning_alg/kmeans_preprocessing.hpp \
           pruning_alg/triangle_pruning.hpp \
           pruning_alg/bipolar_pruning.hpp \
-		  louvain_plus.hpp \
-		  louvain_pruning.hpp \
-		  louvain_pp.hpp
+          louvain_plus.hpp \
+          louvain_pruning.hpp \
+          louvain_pp.hpp \
+          pruning_alg/s0_fast_kmeans.hpp \
+          pruning_alg/s1_autok_lite.hpp \
+          pruning_alg/fast_clustering_lib.hpp
 
 # 定义可执行文件名
 TARGET = main
@@ -66,6 +71,21 @@ compare: $(TARGET)
 
 clean:
 	rm -f ./test ./$(TARGET) ./debug
+
+# ---------- Optional library-backed build (Eigen + OpenCV) ----------
+# These targets do NOT change the default build; they compile a variant that
+# links Eigen and OpenCV so you can call the lib-backed S0 from your code.
+
+OPENCV_CFLAGS := $(shell pkg-config --cflags opencv4 2>/dev/null || pkg-config --cflags opencv 2>/dev/null)
+OPENCV_LIBS   := $(shell pkg-config --libs opencv4 2>/dev/null || pkg-config --libs opencv 2>/dev/null)
+EIGEN_CFLAGS  := $(shell pkg-config --cflags eigen3 2>/dev/null)
+
+# Build an alternate binary with lib-based fast clustering available
+TARGET_FASTLIB = main_fastlib
+SRCS_FASTLIB = $(SRCS) pruning_alg/fast_clustering_lib.cpp
+
+fastlib:
+	$(CC) $(SRCS_FASTLIB) $(CFLAGS) -DFASTCL_USE_EIGEN -DFASTCL_USE_OPENCV $(EIGEN_CFLAGS) $(OPENCV_CFLAGS) -o $(TARGET_FASTLIB) $(OPENCV_LIBS)
 
 
 #######python config#########
