@@ -674,10 +674,7 @@ def parse_multi_output(output: str, command_name: str) -> Tuple[
     # 解析bipolar/both pruning预处理时间 (只有指令12、13有)
     preprocessing_time = -1.0
     if command_name in ["both", "bipolar","hybrid"]:
-        if command_name == "both":
-            preprocessing_match = re.search(r'Both pruning preprocessing time:\s*([-\d.eE+-]+)', output)
-        else:  # bipolar,hybrid
-            preprocessing_match = re.search(r'Bipolar pruning preprocessing time:\s*([-\d.eE+-]+)', output)
+        preprocessing_match = re.search(r'pruning preprocessing time:\s*([-\d.eE+-]+)', output)
         preprocessing_time = float(preprocessing_match.group(1)) if preprocessing_match else -1.0
 
     # 为时间输出列赋值（使用主要函数时间）
