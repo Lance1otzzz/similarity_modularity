@@ -583,37 +583,32 @@ def parse_multi_output(output: str, command_name: str) -> Tuple[
     pruning_results: Dict[str, float] = {}
     modularity_results: Dict[str, float] = {}
 
+    main_time_pattern = r'Main algorithm time:\s*([-\d.eE+-]+)'
     # 根据算法命令名称直接定义输出列名
     if command_name == "plusplus":
         time_columns = ["plusplus_cal_time"]
         pruning_columns = ["plusplus_pruning_rate"]
         modularity_columns = ["plusplus_modularity"]
-        main_time_pattern = r'plus plus time:\s*([-\d.eE+-]+)'
     elif command_name == "flm":
         time_columns = ["flm_cal_time"]
         pruning_columns = ["flm_pruning_rate"]
         modularity_columns = ["flm_modularity"]
-        main_time_pattern = r'with_heap_and_flm time:\s*([-\d.eE+-]+)'
     elif command_name == "louvain":
         time_columns = ["louvain_time"]
         pruning_columns = ["louvain_pruning_rate"]
         modularity_columns = ["louvain_modularity", ]
-        main_time_pattern = r'Louvain time:\s*([-\d.eE+-]+)'
     elif command_name == "both":
         time_columns = ["both_preprocessing_time","both_cal_time"]
         pruning_columns = ["both_pruning_rate"]
         modularity_columns = ["both_modularity"]
-        main_time_pattern = r'Main algorithm time:\s*([-\d.eE+-]+)'
     elif command_name == "bipolar":
         time_columns = ["bipolar_preprocessing_time","bipolar_cal_time", ]
         pruning_columns = ["bipolar_pruning_rate",]
         modularity_columns = ["bipolar_modularity"]
-        main_time_pattern = r'Main algorithm time:\s*([-\d.eE+-]+)'
     elif command_name == "hybrid":
         time_columns = ["hybrid_preprocessing_time","hybrid_cal_time", ]
         pruning_columns = ["hybrid_pruning_rate",]
         modularity_columns = ["hybrid_modularity"]
-        main_time_pattern = r'Main algorithm time:\s*([-\d.eE+-]+)'
 
     # 解析建立索引时间 (LoadGraph time)
     load_time_match = re.search(r'LoadGraph time:\s*([-\d.eE+-]+)', output)

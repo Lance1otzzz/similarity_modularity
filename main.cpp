@@ -21,12 +21,12 @@ std::mt19937 rng(seed);
 
 // ./main 1
 /*
-	algorithm 7: louvain_heur_latest
+	algorithm 7: louvain_pp_hybrid
 	algorithm 8: louvain_pp (louvain plus plus)
 	algorithm 9: louvain_with_heap_and_flm (louvain_plus.hpp)
 	algorithm 91: louvain_with_heap , without fast local move (louvain_plus.hpp)
 	algorithm 10: louvain
-	algorithm 11: leiden
+	algorithm 11: louvain_flm
 	algorithm 12: louvain_flm_with_bipolar_pruning
 	algorithm 13: louvain_with_bipolar_pruning
 	algorithm 14: louvain_with_hybrid_pruning (exchange the priority of the two pruning methods)
@@ -78,43 +78,46 @@ int main(int argc, char** argv)
 		{
 			cout<<"!!!!!start louvain plus plus hybrid pruning!!!!!"<<endl;
 			louvain_pp(g,r,checkDisSqr_with_hybrid_pruning);
-			cout<<"plus plus hybrid time: ";
+			cout<<"plus plus hybrid";
 			break;
 		}
 		case 8:
 		{
 			cout<<"!!!!!start louvain plus plus!!!!!"<<endl;
 			louvain_pp(g,r,checkDisSqr);
-			cout<<"plus plus time: ";
+			cout<<"plus plus";
 			break;
 		}
 		case 9:
 		{
 			cout<<"!!!!!start heap & flm heur!!!!!"<<endl;
 			louvain_with_heap_and_flm(g,r);
-			cout<<"with_heap_and_flm time: ";
+			cout<<"with_heap_and_flm";
 			break;
 		}
 		case 91:
 		{
 			cout<<"!!!!!start heap heur!!!!!"<<endl;
 			louvain_with_heap(g,r);
-			cout<<"with_heap_without_flm time: ";
+			cout<<"with_heap_without_flm";
 			break;
 		}
 		case 10:
 		{
 			cout<<"!!!!!start baseline louvain!!!!!"<<endl;
 			louvain(g,r);
-			cout<<"Louvain time: ";
+			cout<<"Louvain";
 			break;
 		}
 		case 11:
 		{
-			cout<<"!!!!!start Leiden!!!!!"<<endl;
-			ConstrainedLeiden leiden_solver(g, r);
-			leiden_solver.run();
-			cout<<"Leiden time: ";
+			cout<<"!!!!!start louvain flm!!!!!"<<endl;
+			louvain_with_flm(g,r);
+			cout<<"Louvain flm";
+			//cout<<"!!!!!start Leiden!!!!!"<<endl;
+			//ConstrainedLeiden leiden_solver(g, r);
+			//leiden_solver.run();
+			//cout<<"Leiden";
 			break;
 		}
 		case 12:
@@ -122,14 +125,9 @@ int main(int argc, char** argv)
 			cout<<"!!!!!start Louvain with Bipolar Pruning!!!!"<<endl;
 			
 			// Main algorithm
-			auto startMainAlgorithm = timeNow();
 			louvain_with_heap_and_flm_pruning(g,r);
-			auto endMainAlgorithm = timeNow();
-			cout<<"Main algorithm time: "<<timeElapsed(startMainAlgorithm, endMainAlgorithm)<<endl;
 			
-			// Cleanup
-			//cleanup_bipolar_pruning_index();
-			cout<<"Louvain with Bipolar Pruning time: ";
+			cout<<"Louvain with Bipolar Pruning";
 			break;
 		}
 		case 13:
@@ -138,35 +136,29 @@ int main(int argc, char** argv)
 			// Bipolar pruning preprocessing
 			
 			// Main algorithm
-			auto startMainAlgorithm = timeNow();
 			pure_louvain_with_bipolar_pruning(g,r);//it's baseline louvain,not pure louvain
-			auto endMainAlgorithm = timeNow();
-			cout<<"Main algorithm time: "<<timeElapsed(startMainAlgorithm, endMainAlgorithm)<<endl;
 			
 			// Cleanup
 			//cleanup_bipolar_pruning_index();
-			cout<<"Pure Louvain with Bipolar Pruning time: ";
+			cout<<"Pure Louvain with Bipolar Pruning";
 			break;
 		}
 		case 20:
 		{
 			cout<<"!!!!!start pure Louvain!!!!!"<<endl;
 			louvain_pure(g);
-			cout<<"louvain_pure time: ";
+			cout<<"louvain_pure";
 			break;
 		}
 		case 14:
 		{
 			cout<<"!!!!!start Louvain with Hybrid Pruning!!!!!"<<endl;
 			// Main algorithm
-			auto startMainAlgorithm = timeNow();
 			louvain_with_heap_and_flm_hybrid_pruning(g,r);
-			auto endMainAlgorithm = timeNow();
-			cout<<"Main algorithm time: "<<timeElapsed(startMainAlgorithm, endMainAlgorithm)<<endl;
 			
 			// Cleanup
 			//cleanup_bipolar_pruning_index();
-			cout<<"Louvain with Hybrid Pruning time: ";
+			cout<<"Louvain with Hybrid Pruning";
 			break;
 		}
 		case 114514:
@@ -183,6 +175,8 @@ int main(int argc, char** argv)
 	}
 	auto endMainAlg=timeNow();
 
+	cout<<" Main algorithm time: "<<timeElapsed(startMainAlg, endMainAlg)<<endl;
+
 	if (algorithm==7||algorithm==12||algorithm==13||algorithm==14)
 	{
 		// Output detailed pruning statistics
@@ -197,7 +191,6 @@ int main(int argc, char** argv)
 		}
 	}
 
-	cout<<timeElapsed(startMainAlg, endMainAlg)<<endl;
-	cout<<"Total time cost: "<<timeElapsed(startMainAlg, endMainAlg)+preprocessing_time+timeElapsed(startLoadingGraph,endLoadingGraph)<<endl;
+	cout<<"Total time cost: "<<timeElapsed(startLoadingGraph, endMainAlg)<<endl;
 	return 0;
 }
