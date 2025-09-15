@@ -12,14 +12,16 @@ SRCS = main.cpp \
 HEADERS = graph.hpp \
           defines.hpp \
           louvain.hpp \
-          leiden.hpp \
-          louvain_heur.hpp \
           pruning_alg/kmeans_preprocessing.hpp \
           pruning_alg/triangle_pruning.hpp \
           pruning_alg/bipolar_pruning.hpp \
 		  louvain_plus.hpp \
-		  louvain_pruning.hpp \
 		  louvain_pp.hpp
+
+
+          #louvain_heur.hpp \
+          #leiden.hpp \
+		  #louvain_pruning.hpp \
 
 # 定义可执行文件名
 TARGET = main

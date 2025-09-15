@@ -186,18 +186,18 @@ void louvain_with_flm(Graph<Node> &g, double r)
     while (improvement) 
 	{
 		iteration++;
-		int it_pushQueue=0,it_trieMove=0,it_moveSucc=0,it_deltaQViolate=0; // every iteration, how many times pushing into the queue, how many times moving a node, how many times moving successfully, how many times not meeting the delta_Q>0 requirement
+		//int it_pushQueue=0,it_trieMove=0,it_moveSucc=0,it_deltaQViolate=0; // every iteration, how many times pushing into the queue, how many times moving a node, how many times moving successfully, how many times not meeting the delta_Q>0 requirement
 		int cntNeiCom=0,cntU=0;
 		std::vector<long long> communityDegreeSum(hg.degree); // The degree sum of every node in community (not just degree of hypernodes)
 
         improvement=false;
 
         // Phase 1: Optimize modularity by moving nodes
-		auto startPhase1=timeNow();
+		//auto startPhase1=timeNow();
 
 		std::queue<int> q;
 		for (int u=0;u<hg.n;++u) q.push(u);
-		it_pushQueue+=hg.n;
+		//it_pushQueue+=hg.n;
 		std::vector<bool> inq(hg.n,true);
 
 		//bool imp=true; // imp for phase 1
@@ -209,7 +209,7 @@ void louvain_with_flm(Graph<Node> &g, double r)
 			inq[u]=false;
 
 			cntU++;
-			it_trieMove++;
+			//it_trieMove++;
 			//double bestDelta_Q=0;// if not move
 			double bestScore=0;
 			int cu=communityAssignments[u];
@@ -273,7 +273,7 @@ void louvain_with_flm(Graph<Node> &g, double r)
 #ifdef debug
 				//std::cerr<<bestCommunity<<' '<<bestDelta_Q<<std::endl;
 #endif
-				it_moveSucc++;
+				//it_moveSucc++;
 				community[communityAssignments[u]].erase(u);
 				communityDegreeSum[cu]-=hg.degree[u];
 
@@ -283,7 +283,7 @@ void louvain_with_flm(Graph<Node> &g, double r)
 				communityDegreeSum[bestCommunity]+=hg.degree[u];
 
 				inq[u]=true;
-				it_pushQueue++;
+				//it_pushQueue++;
 				q.push(u);
 				for (const Edge& edge:hg.edges[u]) 
 				{
@@ -291,7 +291,7 @@ void louvain_with_flm(Graph<Node> &g, double r)
 					{
 						inq[edge.v]=true;
 						q.push(edge.v);
-						it_pushQueue++;
+						//it_pushQueue++;
 					}
 				}
 				//imp=true;
@@ -300,17 +300,17 @@ void louvain_with_flm(Graph<Node> &g, double r)
 		}
 
 
-		std::cout<<std::endl<<"iteration "<<iteration<<std::endl;
+		std::cout<<"iteration "<<iteration<<" running"<<std::endl;
 		//std::cout<<"neighbor community average "<<(double)cntNeiCom/cntU<<" degree"<<std::endl;
-		std::cout<<"number of (hyper)nodes: "<<hg.n<<std::endl;
+		//std::cout<<"number of (hyper)nodes: "<<hg.n<<std::endl;
 		
-		std::cout<<"pushQueue: "<<it_pushQueue<<std::endl;
-		std::cout<<"triesMove: "<<it_trieMove<<std::endl;
-		std::cout<<"moveSucc: "<<it_moveSucc<<std::endl;
-		std::cout<<"deltaQViolate: "<<it_deltaQViolate<<std::endl;
+		//std::cout<<"pushQueue: "<<it_pushQueue<<std::endl;
+		//std::cout<<"triesMove: "<<it_trieMove<<std::endl;
+		//std::cout<<"moveSucc: "<<it_moveSucc<<std::endl;
+		//std::cout<<"deltaQViolate: "<<it_deltaQViolate<<std::endl;
 
-		auto endPhase1=timeNow();
-		std::cout<<"phase 1 time:"<<timeElapsed(startPhase1,endPhase1)<<std::endl;
+		//auto endPhase1=timeNow();
+		//std::cout<<"phase 1 time:"<<timeElapsed(startPhase1,endPhase1)<<std::endl;
 
         // Phase 2: Create a new graph
 		std::vector<std::vector<int>> newNode;
@@ -359,8 +359,8 @@ void louvain_with_flm(Graph<Node> &g, double r)
 		newhg.nodes=std::move(newNode);
 		hg=std::move(newhg);
 
-		auto endPhase2=timeNow();
-		std::cout<<"phase 2 time:"<<timeElapsed(endPhase1, endPhase2)<<std::endl;
+		//auto endPhase2=timeNow();
+		//std::cout<<"phase 2 time:"<<timeElapsed(endPhase1, endPhase2)<<std::endl;
 	}
 
 	std::cout<<"# tries to move:"<<cntMove<<"\n# check hypornode to community:"<<cntCheck<<'\n';
@@ -371,226 +371,3 @@ void louvain_with_flm(Graph<Node> &g, double r)
 	//std::cout<<"check if graph similarity meets the restraint: "<<graphCheckDis(g,hg.nodes,rr)<<std::endl;
 }
 
-void pure_louvain_with_bipolar_pruning(Graph<Node> &g, double r)
-{
-		auto startLouvainPure=timeNow();
-    double mm = g.m;  // 图中边权和，用于模块度计算
-    double rr = r * r;  // 距离阈值的平方，用于距离比较优化
-
-    // 初始化：一开始每个超点（hypernode）都在自己的社区中
-    std::vector<int> communityAssignments(g.n);
-    for (int i = 0; i < g.n; ++i)
-        communityAssignments[i] = i;
-
-    // community[i] 中存储第 i 个社区包含的超点索引
-    std::vector<std::unordered_set<int>> community(g.n);
-    for (int i = 0; i < g.n; i++)
-        community[i].insert(i);
-
-    // 将原始图转换为超点图
-    Graph<std::vector<int>> hg(g);
-
-    int cnt_it = 0;
-    bool improvement = true;
-    //auto startfirst = timeNow();
-    
-    while (improvement)
-    {
-        cnt_it++;
-
-        std::vector<long long> communityDegreeSum(hg.degree);
-        improvement = false;
-
-#ifdef debug
-        //std::cerr<<"phase1"<<std::endl;
-#endif
-        // Phase 1: Optimize modularity by moving nodes
-        bool imp = true;
-        while (imp)
-        {
-            imp = false;
-            for (int u = 0; u < hg.n; ++u)
-            {
-                double bestDelta_Q = 0; // if not move
-                int cu = communityAssignments[u];
-                int bestCommunity = cu;
-                
-                // Try to move the node to a neighboring community
-                std::unordered_map<int, long long> uToCom;
-                long long uDegreeSum = hg.degree[u]; // just normal degree
-                for (const Edge& edge : hg.edges[u])
-                {
-                    int cv = communityAssignments[edge.v];
-                    uToCom[cv] += edge.w;
-                }
-
-                // Find the community that gives the best modularity gain
-                double delta_Q_static = -uToCom[cu] / mm + (double)uDegreeSum * (communityDegreeSum[cu] - uDegreeSum) / mm / mm / 2;
-                for (auto &c : uToCom) // id,value
-                {
-                    double delta_Q_ = (c.second - (double)uDegreeSum * communityDegreeSum[c.first] / mm / 2) / mm;
-                    double delta_Q = delta_Q_static + delta_Q_;
-                    if (delta_Q > bestDelta_Q)
-                    {
-                        bool sim = true;
-                        for (auto &uu : hg.nodes[u]) // uu: every node in the hypernode u
-                        {
-                            for (auto &hnodev : community[c.first]) // every hypernode in the community
-                            {
-                                for (auto &vv : hg.nodes[hnodev])
-                                {
-                                    // 使用 bipolar pruning 优化距离计算
-                                    bool distance_exceeds = false;
-                                    if (g_bipolar_pruning) {
-                                        // Pass squared threshold to match internal comparisons
-                                        distance_exceeds = g_bipolar_pruning->query_distance_exceeds(uu, vv, rr);
-                                    } else {
-                                        distance_exceeds = calcDisSqr_baseline(g.nodes[uu], g.nodes[vv]) > rr;
-                                    }
-                                    
-                                    if (distance_exceeds)
-                                    {
-                                        sim = false;
-                                        break;
-                                    }
-                                }
-                                if (!sim) break;
-                            }
-                            if (!sim) break;
-                        }
-                        if (sim)
-                        {
-                            bestDelta_Q = delta_Q;
-                            bestCommunity = c.first;
-                        }
-                    }
-                }
-
-                // If moving to a new community improves the modularity, assign the best community to node u
-                if (bestCommunity != communityAssignments[u] && bestDelta_Q > eps)
-                {
-#ifdef debug
-                    //std::cerr<<bestCommunity<<' '<<bestDelta_Q<<std::endl;
-#endif
-                    community[communityAssignments[u]].erase(u);
-                    communityDegreeSum[cu] -= hg.degree[u];
-                    communityAssignments[u] = bestCommunity;
-                    community[bestCommunity].insert(u);
-                    communityDegreeSum[bestCommunity] += hg.degree[u];
-                    imp = true;
-                    improvement = true;
-                }
-            }
-        }
-
-#ifdef debug
-        //std::cerr<<"phase2"<<std::endl;
-#endif
-        // Phase 2: Create a new graph by merging communities
-        std::vector<std::vector<int>> newNode;
-        std::vector<int> idToNewid(hg.n);
-        int numNew = 0;
-        for (int i = 0; i < community.size(); i++) // each community
-        {
-            if (!community[i].empty())
-            {
-                std::vector<int> merged;
-                for (int hnode : community[i]) // each hypernode
-                {
-                    idToNewid[hnode] = numNew;
-                    for (int node : hg.nodes[hnode])
-                        merged.push_back(node);
-                }
-                newNode.push_back(merged);
-                numNew++;
-            }
-        }
-
-        // Initialize new communities, community assignments, and hypernodes
-        Graph<std::vector<int>> newhg(numNew);
-        std::unordered_map<std::pair<int, int>, int, pair_hash> toAdd;
-        for (int u = 0; u < hg.n; u++)
-        {
-            for (auto &e : hg.edges[u]) if (e.v>=u)
-            {
-                int uu = idToNewid[u];
-                int vv = idToNewid[e.v];
-                if (uu < vv)
-                    toAdd[std::make_pair(uu, vv)] += e.w;
-                else
-                    toAdd[std::make_pair(vv, uu)] += e.w;
-            }
-        }
-
-        for (auto &x : toAdd)
-            newhg.addedge(x.first.first, x.first.second, x.second);
-
-        community.resize(numNew);
-        communityAssignments.resize(numNew);
-        for (int i = 0; i < numNew; i++)
-        {
-            community[i].clear();
-            community[i].insert(i);
-            communityAssignments[i] = i;
-        }
-        newhg.nodes = newNode;
-        hg = newhg;
-    }
-
-    // 计算每个社区中的最大两点间距离
-    std::cout << "========== Community Max Distance Analysis ==========" << std::endl;
-    std::vector<double> communityMaxDistances;
-    
-    for (int comm = 0; comm < hg.n; ++comm) 
-    {
-        const std::vector<int>& nodesInCommunity = hg.nodes[comm];
-        double maxDistance = 0.0;
-//        int maxPair1 = -1, maxPair2 = -1;
-        
-        // 计算社区内所有节点对之间的距离，找到最大值
-        for (int i = 0; i < nodesInCommunity.size(); ++i) 
-        {
-            for (int j = i + 1; j < nodesInCommunity.size(); ++j) 
-            {
-                double distance = std::sqrt(calcDisSqr(g.nodes[nodesInCommunity[i]], g.nodes[nodesInCommunity[j]]));
-                
-                if (distance > maxDistance) 
-                {
-                    maxDistance = distance;
-//                    maxPair1 = nodesInCommunity[i];
-//                    maxPair2 = nodesInCommunity[j];
-                }
-            }
-        }
-        
-        communityMaxDistances.push_back(maxDistance);
-		/*
-        std::cout << "Community " << comm << ": " << nodesInCommunity.size() << " nodes, max distance = " << maxDistance;
-        if (maxPair1 != -1) {
-            std::cout << " (between nodes " << maxPair1 << " and " << maxPair2 << ")";
-        }
-        std::cout << std::endl;
-		 */
-    }
-    
-    if (!communityMaxDistances.empty()) {
-        double avgMaxDistance = 0.0;
-        double globalMaxDistance = 0.0;
-        for (double dist : communityMaxDistances) {
-            avgMaxDistance += dist;
-            globalMaxDistance = std::max(globalMaxDistance, dist);
-        }
-        avgMaxDistance /= communityMaxDistances.size();
-        
-        std::cout << "Average max distance per community: " << avgMaxDistance << std::endl;
-        std::cout << "Global maximum distance: " << globalMaxDistance << std::endl;
-    }
-    
-    std::cout << "=================================================" << std::endl;
-
-    // 打印最终模块度
-    std::cout << "pure_louvain Modularity = " << calcModularity(g, hg.nodes) << std::endl;
-    
-    auto endLouvainPure = timeNow();
-    std::cout << "pure_louvain total time: " << timeElapsed(startLouvainPure, endLouvainPure) << std::endl;
-}

@@ -1,13 +1,13 @@
 #include "graph.hpp"
 #include "defines.hpp"
 #include "louvain.hpp"
-#include "leiden.hpp"
-#include "louvain_heur.hpp"
+//#include "leiden.hpp"
+//#include "louvain_heur.hpp"
 #include "louvain_plus.hpp"
 #include "louvain_pp.hpp"
-#include "louvain_pruning.hpp"
+//#include "louvain_pruning.hpp"
 #include "pure_louvain.hpp"
-#include "pruning_alg/kmeans_preprocessing.hpp"
+//#include "pruning_alg/kmeans_preprocessing.hpp"
 #include "pruning_alg/bipolar_pruning.hpp"
 #include <iostream>
 #include <chrono>
@@ -18,23 +18,19 @@ using namespace std;
 // Define the global random number generator
 std::mt19937 rng(seed);
 
-
-// ./main 1
 /*
-	algorithm 7: louvain_pp_hybrid
 	algorithm 8: louvain_pp (louvain plus plus)
 	algorithm 9: louvain_with_heap_and_flm (louvain_plus.hpp)
 	algorithm 91: louvain_with_heap , without fast local move (louvain_plus.hpp)
 	algorithm 10: louvain
 	algorithm 11: louvain_flm
-	algorithm 12: louvain_flm_with_bipolar_pruning
-	algorithm 13: louvain_with_bipolar_pruning
-	algorithm 14: louvain_with_hybrid_pruning (exchange the priority of the two pruning methods)
+	algorithm 12: pp_with_both
+	algorithm 13: pp_with_bipolar
+	algorithm 14: pp_with_hybrid
 	algorithm 20: pure_louvain
     algorithm 114514: try and test sth
-    
-
 */
+
 int main(int argc, char** argv)
 {
 	ios::sync_with_stdio(false);
@@ -74,13 +70,6 @@ int main(int argc, char** argv)
 	auto startMainAlg=timeNow();
 	switch(algorithm)
 	{
-		case 7:
-		{
-			cout<<"!!!!!start louvain plus plus hybrid pruning!!!!!"<<endl;
-			louvain_pp(g,r,checkDisSqr_with_hybrid_pruning);
-			cout<<"plus plus hybrid";
-			break;
-		}
 		case 8:
 		{
 			cout<<"!!!!!start louvain plus plus!!!!!"<<endl;
@@ -91,7 +80,7 @@ int main(int argc, char** argv)
 		case 9:
 		{
 			cout<<"!!!!!start heap & flm heur!!!!!"<<endl;
-			louvain_with_heap_and_flm(g,r);
+			louvain_with_heap_and_flm(g,r);//louvain plus
 			cout<<"with_heap_and_flm";
 			break;
 		}
@@ -122,25 +111,39 @@ int main(int argc, char** argv)
 		}
 		case 12:
 		{
-			cout<<"!!!!!start Louvain with Bipolar Pruning!!!!"<<endl;
+			cout<<"!!!!!start pp with Both Pruning!!!!"<<endl;
 			
 			// Main algorithm
-			louvain_with_heap_and_flm_pruning(g,r);
-			
-			cout<<"Louvain with Bipolar Pruning";
+			//louvain_with_heap_and_flm_pruning(g,r);
+			louvain_pp(g,r,checkDisSqr_with_bipolar_pruning);
+
+			cout<<"pp with Both Pruning";
 			break;
 		}
 		case 13:
 		{
-			cout<<"!!!!!start baseline Louvain with Bipolar Pruning!!!!!"<<endl;
+			cout<<"!!!!!start pp with Bipolar Pruning!!!!!"<<endl;
 			// Bipolar pruning preprocessing
 			
 			// Main algorithm
-			pure_louvain_with_bipolar_pruning(g,r);//it's baseline louvain,not pure louvain
+			//pure_louvain_with_bipolar_pruning(g,r);//it's baseline louvain,not pure louvain
+			louvain_pp(g,r,checkDisSqr_with_both_pruning);
 			
 			// Cleanup
 			//cleanup_bipolar_pruning_index();
-			cout<<"Pure Louvain with Bipolar Pruning";
+			cout<<"pp with Bipolar Pruning";
+			break;
+		}
+		case 14:
+		{
+			cout<<"!!!!!start pp with Hybrid Pruning!!!!!"<<endl;
+			// Main algorithm
+			//louvain_with_heap_and_flm_hybrid_pruning(g,r);
+			
+			louvain_pp(g,r,checkDisSqr_with_hybrid_pruning);
+			// Cleanup
+			//cleanup_bipolar_pruning_index();
+			cout<<"pp with Hybrid Pruning";
 			break;
 		}
 		case 20:
@@ -148,17 +151,6 @@ int main(int argc, char** argv)
 			cout<<"!!!!!start pure Louvain!!!!!"<<endl;
 			louvain_pure(g);
 			cout<<"louvain_pure";
-			break;
-		}
-		case 14:
-		{
-			cout<<"!!!!!start Louvain with Hybrid Pruning!!!!!"<<endl;
-			// Main algorithm
-			louvain_with_heap_and_flm_hybrid_pruning(g,r);
-			
-			// Cleanup
-			//cleanup_bipolar_pruning_index();
-			cout<<"Louvain with Hybrid Pruning";
 			break;
 		}
 		case 114514:

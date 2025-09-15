@@ -39,7 +39,8 @@ void louvain_pp(Graph<Node> &g, double r, bool (*checkDisSqr)(const Node&,const 
     while (improvement) 
 	{
 		iteration++;
-		int cntNeiCom=0,cntU=0;
+		//int cntNeiCom=0;
+		int cntU=0;
 		std::vector<long long> communityDegreeSum(hg.degree); // The degree sum of every node in community (not just degree of hypernodes)
 
 		//std::vector<std::vector<double>> communityAttrSum(hg.n);
@@ -61,7 +62,7 @@ void louvain_pp(Graph<Node> &g, double r, bool (*checkDisSqr)(const Node&,const 
 		}
 
         // Phase 1: Optimize modularity by moving nodes
-		auto startPhase1=timeNow();
+		//auto startPhase1=timeNow();
 
 		std::queue<int> q;
 		for (int u=0;u<hg.n;++u) q.push(u);
@@ -93,7 +94,7 @@ void louvain_pp(Graph<Node> &g, double r, bool (*checkDisSqr)(const Node&,const 
 			for (auto &c:eToOtherC[u]) //id,value
 			{
 				if (c.first==cu) continue;
-				cntNeiCom++;
+				//cntNeiCom++;
 				cntCalDelta_Q++;
 				// check if the edge is with flag violated and no node leaves from cv after the flag set
 				// just check if u can move to cv, so no need to check the timestamp of cu
@@ -101,7 +102,6 @@ void louvain_pp(Graph<Node> &g, double r, bool (*checkDisSqr)(const Node&,const 
 				{
 					//how many?
 					skipped++;
-					//if (iteration==1&&c.first!=cu) std::cout<<c.second.flag<<' '<<c.second.timeStamp<<' '<<community[c.first].leaveTimeStamp<<' '<<community[c.first].comeTimeStamp<<std::endl;
 					continue;
 				}
 				double delta_Q_=(c.second.w-(double)uDegreeSum*communityDegreeSum[c.first]/mm/2)/mm;
@@ -123,7 +123,7 @@ void louvain_pp(Graph<Node> &g, double r, bool (*checkDisSqr)(const Node&,const 
 
 			cntMove++;
 
-			auto startCheckTime=timeNow();
+			//auto startCheckTime=timeNow();
 			while (!coms.empty())
 			{
 				cntCheck++;
@@ -160,8 +160,8 @@ void louvain_pp(Graph<Node> &g, double r, bool (*checkDisSqr)(const Node&,const 
 					coms.pop_back();
 				}
 			}
-			auto endCheckTime=timeNow();
-			checkTime+=timeElapsed(startCheckTime, endCheckTime);
+			//auto endCheckTime=timeNow();
+			//checkTime+=timeElapsed(startCheckTime, endCheckTime);
 
 			// If moving to a new community improves the modularity, assign the best community to node u
 			if (bestCommunity != communityAssignments[u] && bestScore>eps) 
@@ -216,12 +216,12 @@ void louvain_pp(Graph<Node> &g, double r, bool (*checkDisSqr)(const Node&,const 
 		}
 
 
-		std::cout<<"iteration "<<iteration<<std::endl;
-		std::cout<<"neighbor community average "<<(double)cntNeiCom/cntU<<" degree"<<std::endl;
+		std::cout<<"iteration "<<iteration<<" running"<<std::endl;
+		//std::cout<<"neighbor community average "<<(double)cntNeiCom/cntU<<" degree"<<std::endl;
 
-		auto endPhase1=timeNow();
-		std::cout<<"mm="<<mm<<" and hg.m="<<hg.m<<std::endl;
-		std::cout<<"phase 1 time:"<<timeElapsed(startPhase1,endPhase1)<<std::endl;
+		//auto endPhase1=timeNow();
+		//std::cout<<"mm="<<mm<<" and hg.m="<<hg.m<<std::endl;
+		//std::cout<<"phase 1 time:"<<timeElapsed(startPhase1,endPhase1)<<std::endl;
 
 
         // Phase 2: Create a new graph
@@ -297,8 +297,8 @@ void louvain_pp(Graph<Node> &g, double r, bool (*checkDisSqr)(const Node&,const 
 		newhg.nodes=std::move(newNode);
 		hg=std::move(newhg);
 
-		auto endPhase2=timeNow();
-		std::cout<<"phase 2 time:"<<timeElapsed(endPhase1, endPhase2)<<std::endl;
+		//auto endPhase2=timeNow();
+		//std::cout<<"phase 2 time:"<<timeElapsed(endPhase1, endPhase2)<<std::endl;
 
 		//////test
 		//std::cout<<"modularity now is "<<calcModularity(g, hg.nodes)<<std::endl;

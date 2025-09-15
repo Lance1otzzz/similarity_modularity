@@ -64,6 +64,80 @@ double BipolarPruning::build(const Graph<Node>& g) {
     return timeElapsed(start_time, end_time);
 }
 
+int BipolarPruning::query_distance_exceeds_1(int p_idx, int q_idx, double r_sq) {
+    total_queries_++;
+    
+    int pivot_p_idx = point_to_pivot_map_[p_idx];
+    int pivot_q_idx = point_to_pivot_map_[q_idx];
+    
+    // Case 1: Both points belong to the same cluster
+    // Bipolar algorithm degenerates, fall back to A-La-Carte (multi-pivot) pruning
+    if (pivot_p_idx == pivot_q_idx) {
+        const auto& p_dists = precomputed_point_to_pivots_dists_[p_idx];
+        const auto& q_dists = precomputed_point_to_pivots_dists_[q_idx];
+		if (sqr(std::sqrt(p_dists[pivot_p_idx])-std::sqrt(q_dists[pivot_p_idx]))>r_sq) 
+		{
+			pruning_count_++;
+			return true;
+		}
+//        // Use triangle inequality with all pivots
+//        for (int i = 0; i < k_; ++i) if (i!=pivot_p_idx){
+//            if (std::abs(p_dists[i] - q_dists[i])>r)
+//			{
+//				pruning_count_++;
+//				return true;
+//			}
+//        }
+    }
+    // Case 2: Points belong to different clusters, use bipolar algorithm
+    else {
+        // P1 is p's pivot, P2 is q's pivot
+        double a1_sq = precomputed_point_to_pivots_dists_[p_idx][pivot_p_idx];
+        double a2_sq = precomputed_point_to_pivots_dists_[p_idx][pivot_q_idx];
+        double b1_sq = precomputed_point_to_pivots_dists_[q_idx][pivot_p_idx];
+        double b2_sq = precomputed_point_to_pivots_dists_[q_idx][pivot_q_idx];
+        double p_sq = precomputed_pivots_dists_[pivot_p_idx][pivot_q_idx];
+        
+		if (p_sq > 1e-9)
+		{
+			// Calculate dot product terms using law of cosines
+			double dot_A_P2 = (a1_sq + p_sq - a2_sq) * 0.5;
+			double dot_B_P2 = (b1_sq + p_sq - b2_sq) * 0.5;
+			
+			// Calculate parallel component contribution
+			double parallel_term = (dot_A_P2 * dot_B_P2) / p_sq;
+			
+			// Calculate perpendicular component magnitudes squared
+			double r_A_sq = a1_sq - (dot_A_P2 * dot_A_P2)/ p_sq;
+			double r_B_sq = b1_sq - (dot_B_P2 * dot_B_P2)/ p_sq;
+			
+			// Handle floating point precision issues
+			r_A_sq = std::max(0.0, r_A_sq);
+			r_B_sq = std::max(0.0, r_B_sq);
+			
+			// Calculate final distance squared bounds
+			double fixed_part = a1_sq + b1_sq - 2.0 * parallel_term;
+			double perpendicular_part = 2.0 * std::sqrt(r_A_sq * r_B_sq);
+			
+			double lower_bound_sq = fixed_part - perpendicular_part;
+			double upper_bound_sq = fixed_part + perpendicular_part;
+			
+			
+			// Lower bound pruning: if lower_bound > r, then d(p,q) > r
+			if (lower_bound_sq > r_sq) {
+				pruning_count_++;
+				return true;
+			}
+			
+			// Upper bound pruning: if upper_bound <= r, then d(p,q) <= r
+			if (upper_bound_sq <= r_sq) {
+				pruning_count_++;
+				return false;
+			}
+		}
+	}
+    return 2;
+}
 bool BipolarPruning::query_distance_exceeds(int p_idx, int q_idx, double r_sq) {
     total_queries_++;
     
@@ -284,6 +358,12 @@ bool checkDisSqr_with_hybrid_pruning(const Node& x, const Node& y, const double&
     // Priority 3: Exact calculation if both pruning methods failed
     notpruned++;
     return calcDisSqr(x, y) > rr;
+}
+bool checkDisSqr_with_both_pruning(const Node& x, const Node& y, const double& rr)
+{
+	int res=g_bipolar_pruning->query_distance_exceeds_1(x.id, y.id, rr);
+	if (res<2) return res;
+	else return checkDisSqr(x,y,rr);
 }
 
 double build_bipolar_pruning_index(const Graph<Node>& g, int k) {
