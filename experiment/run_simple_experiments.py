@@ -119,6 +119,10 @@ class ExperimentConfig:
     def cache_dir(self) -> str:
         return str(self.config.get("output_config", {}).get("cache_dir", "distance_cache"))
 
+    @property
+    def logs_dir(self) -> str:
+        return str(self.config.get("output_config", {}).get("logs_dir", "experiment_logs"))
+
 
 # ----------------------
 # Distance sampler (local)
@@ -295,6 +299,8 @@ def run_worker(
     algorithm_code: int,
     command_name: str,
     r_value: float,
+    percentile: float,
+    logs_dir: str,
     enable_timeout: bool,
     timeout_seconds: int,
     omp_threads_per_proc: int,
@@ -317,6 +323,28 @@ def run_worker(
         output = "TIMEOUT"
     except Exception as e:
         output = f"ERROR: {str(e)}"
+
+    # Write per-run log file immediately
+    try:
+        from pathlib import Path as _Path
+        import datetime as _dt
+        ds_dir = _Path(logs_dir) / dataset_name
+        ds_dir.mkdir(parents=True, exist_ok=True)
+        p_str = ("%g" % float(percentile)).replace('.', '_')
+        r_str = ("%g" % float(r_value)).replace('.', '_')
+        log_name = f"{command_name}_p{p_str}_r{r_str}.log"
+        log_path = ds_dir / log_name
+        timestamp = _dt.datetime.now().isoformat()
+        with open(log_path, 'w', encoding='utf-8') as f:
+            f.write(f"# Dataset: {dataset_name}\n")
+            f.write(f"# Command: {command_name} (code {algorithm_code})\n")
+            f.write(f"# Percentile: {percentile}\n")
+            f.write(f"# r value: {r_value}\n")
+            f.write(f"# Timestamp: {timestamp}\n\n")
+            f.write(output)
+    except Exception:
+        # Do not fail the computation on logging errors
+        pass
 
     time_parsed, modularity_parsed = parse_output(output, command_name)
     return command_name, time_parsed, modularity_parsed
@@ -391,6 +419,8 @@ def main():
                     code,
                     name,
                     float(r_val),
+                    float(p),
+                    config.logs_dir,
                     config.enable_timeout,
                     config.timeout_seconds,
                     config.omp_threads_per_proc,
