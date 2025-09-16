@@ -609,7 +609,7 @@ def parse_multi_output(output: str, command_name: str) -> Tuple[
         time_columns = ["hybrid_preprocessing_time","hybrid_cal_time", ]
         pruning_columns = ["hybrid_pruning_rate",]
         modularity_columns = ["hybrid_modularity"]
-    elif command_name in ("tri_kmeans", "tri_random"):
+    elif command_name in ("tri_kmeans", "tri_random", "tri_s0", "tri_s1"):
         # Triangle pruning variants (we treat them like 'both' for timing columns)
         time_columns = [f"{command_name}_preprocessing_time", f"{command_name}_cal_time"]
         pruning_columns = [f"{command_name}_pruning_rate"]
@@ -626,7 +626,7 @@ def parse_multi_output(output: str, command_name: str) -> Tuple[
     # 解析pruning率
     pruning_rate = -1.0
 
-    if command_name in ("flm", "hybrid", "plusplus", "tri_kmeans", "tri_random"):
+    if command_name in ("flm", "hybrid", "plusplus", "tri_kmeans", "tri_random", "tri_s0", "tri_s1"):
         # FLM、hybrid和plusplus算法从"# check node to node:X and pruned Y"提取pruning率
         flm_pruning_match = re.search(r'# check node to node:(\d+) and pruned (\d+)', output)
         if flm_pruning_match:
@@ -673,14 +673,14 @@ def parse_multi_output(output: str, command_name: str) -> Tuple[
             cal_modularity_value = float(cal_mod_match.group(1))
     # 解析bipolar/both pruning预处理时间 (只有指令12、13有)
     preprocessing_time = -1.0
-    if command_name in ["both", "bipolar","hybrid", "tri_kmeans", "tri_random"]:
+    if command_name in ["both", "bipolar","hybrid", "tri_kmeans", "tri_random", "tri_s0", "tri_s1"]:
         preprocessing_match = re.search(r'pruning preprocessing time:\s*([-\d.eE+-]+)', output)
         preprocessing_time = float(preprocessing_match.group(1)) if preprocessing_match else -1.0
 
     # 为时间输出列赋值（使用主要函数时间）
     if command_name in ["flm", "louvain", "plusplus"]:
         time_results[time_columns[0]] = main_time  # cal_time
-    elif command_name in ["both", "bipolar", "hybrid", "tri_kmeans", "tri_random"]:
+    elif command_name in ["both", "bipolar", "hybrid", "tri_kmeans", "tri_random", "tri_s0", "tri_s1"]:
         time_results[time_columns[0]] = preprocessing_time  # preprocessing_time
         time_results[time_columns[1]] = main_time  # cal_time
 
@@ -691,7 +691,7 @@ def parse_multi_output(output: str, command_name: str) -> Tuple[
     # 为modularity输出列赋值 - 区分cal和pruning版本
     if command_name in ["flm", "louvain", "plusplus"]:
         modularity_results[modularity_columns[0]] = cal_modularity_value  # cal_modularity
-    elif command_name in ["both", "bipolar", "hybrid", "tri_kmeans", "tri_random"]:
+    elif command_name in ["both", "bipolar", "hybrid", "tri_kmeans", "tri_random", "tri_s0", "tri_s1"]:
         modularity_results[modularity_columns[0]] = cal_modularity_value  # cal_modularity
 
     return time_results, pruning_results, modularity_results

@@ -10,6 +10,8 @@
 #include "pruning_alg/kmeans_preprocessing.hpp"
 #include "pruning_alg/triangle_pruning.hpp"
 #include "pruning_alg/bipolar_pruning.hpp"
+#include "pruning_alg/s0_fast_kmeans.hpp"
+#include "pruning_alg/s1_autok_lite.hpp"
 #include <iostream>
 #include <chrono>
 #include <cstdlib>
@@ -168,6 +170,40 @@ int main(int argc, char** argv)
 			cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
 			louvain_pp(g,r,checkDisSqr_with_pruning);
 			cout<<"pp with Triangle (Random)";
+			break;
+		}
+		case 17:
+		{
+			cout<<"!!!!!start pp with Triangle (S0 fast kmeans)!!!!!"<<endl;
+			// Read S0 params from env with defaults
+			int m = 128; double c = 0.5; int iters = 1; int batch = 512; unsigned seedv = 42;
+			if (const char* v = std::getenv("S0_M")) { try { m = std::max(1, std::stoi(v)); } catch (...) {} }
+			if (const char* v = std::getenv("S0_C")) { try { c = std::max(0.0, std::stod(v)); } catch (...) {} }
+			if (const char* v = std::getenv("S0_ITERS")) { try { iters = std::max(1, std::stoi(v)); } catch (...) {} }
+			if (const char* v = std::getenv("S0_BATCH")) { try { batch = std::max(1, std::stoi(v)); } catch (...) {} }
+			if (const char* v = std::getenv("S0_SEED")) { try { seedv = (unsigned)std::stoul(v); } catch (...) {} }
+			double preprocessing_time = build_s0_fast_kmeans_index(g, m, c, iters, batch, seedv);
+			cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
+			louvain_pp(g,r,checkDisSqr_with_pruning);
+			cout<<"pp with Triangle (S0)";
+			break;
+		}
+		case 18:
+		{
+			cout<<"!!!!!start pp with Triangle (S1 autok)!!!!!"<<endl;
+			// Read S1 params from env with defaults
+			int m = 128; double sample_frac = 0.005; int sample_cap = 100000; int K_max = -1; int post_mb_iters = 1; unsigned seedv = 42;
+			if (const char* v = std::getenv("S1_M")) { try { m = std::max(1, std::stoi(v)); } catch (...) {} }
+			if (const char* v = std::getenv("S1_SAMPLE_FRAC")) { try { sample_frac = std::max(0.0, std::stod(v)); } catch (...) {} }
+			if (const char* v = std::getenv("S1_SAMPLE_CAP")) { try { sample_cap = std::max(1, std::stoi(v)); } catch (...) {} }
+			if (const char* v = std::getenv("S1_K_MAX")) { try { K_max = std::stoi(v); } catch (...) {} }
+			if (const char* v = std::getenv("S1_POST_MB_ITERS")) { try { post_mb_iters = std::max(0, std::stoi(v)); } catch (...) {} }
+			if (const char* v = std::getenv("S1_SEED")) { try { seedv = (unsigned)std::stoul(v); } catch (...) {} }
+			double lambda = 0.0;
+			double preprocessing_time = build_s1_autok_index(g, m, sample_frac, sample_cap, K_max, post_mb_iters, seedv, &lambda);
+			cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
+			louvain_pp(g,r,checkDisSqr_with_pruning);
+			cout<<"pp with Triangle (S1)";
 			break;
 		}
 		case 20:
