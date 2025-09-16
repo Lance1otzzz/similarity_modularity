@@ -36,5 +36,12 @@ double build_kmeans_index(const Graph<Node>& g, int k = 2);
 // Function to preprocess k-means index and return preprocessing time
 double preprocess_kmeans_index(const Graph<Node>& g, int k = 2);
 
+// Function to build a random-centers index (pick k random nodes as centers)
+// Other computations (assignment, centroid-distance precompute) remain unchanged
+double build_random_index(const Graph<Node>& g, int k = 2);
+
+// Convenience wrapper matching the naming of preprocess_kmeans_index
+double preprocess_random_index(const Graph<Node>& g, int k = 2);
+
 // Function to cleanup the distance index
 void cleanup_distance_index();
