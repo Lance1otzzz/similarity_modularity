@@ -62,8 +62,8 @@ main_program_path = "./main"
 compile_before_run = true
 build_command = "make -j"
 rebuild_on_source_change = true
-max_workers = 0  # 0 or unset = auto (use CPU count)
-omp_threads_per_proc = 6  # OpenMP threads per C++ process
+max_workers = 6  # 0 or unset = auto (use CPU count)
+omp_threads_per_proc = 1  # OpenMP threads per C++ process
 pin_workers = false  # set true to pin each process to fixed logical cores
 # cpu_affinity_list = [0,1,2,3,4,5,6,7,8,9,10,11, 24,25,26,27,28,29,30,31,32,33,34,35] # optional subset
 use_numactl = false  # bind CPU+memory to NUMA node(s) using numactl, if available
