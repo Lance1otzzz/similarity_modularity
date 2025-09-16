@@ -7,9 +7,7 @@ DEBUGFLAGS = -O0 -g -Wall -Wextra -Wno-sign-compare -Ddebug
 SRCS = main.cpp \
        pruning_alg/kmeans_preprocessing.cpp \
        pruning_alg/triangle_pruning.cpp \
-       pruning_alg/bipolar_pruning.cpp \
-       pruning_alg/s0_fast_kmeans.cpp \
-       pruning_alg/s1_autok_lite.cpp
+       pruning_alg/bipolar_pruning.cpp
 
 HEADERS = graph.hpp \
           defines.hpp \
@@ -19,8 +17,7 @@ HEADERS = graph.hpp \
           pruning_alg/bipolar_pruning.hpp \
 		  louvain_plus.hpp \
 		  louvain_pp.hpp \
-          pruning_alg/s0_fast_kmeans.hpp \
-          pruning_alg/s1_autok_lite.hpp
+          
 
 
           #louvain_heur.hpp \

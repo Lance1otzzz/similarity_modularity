@@ -10,9 +10,6 @@
 13 = "bipolar"
 14 = "hybrid"
 15 = "tri_kmeans"
-16 = "tri_random"
-17 = "tri_s0"
-18 = "tri_s1"
 
 [output_mapping]
 louvain = "louvain"
@@ -22,9 +19,6 @@ both = "both"
 bipolar = "bipolar"
 hybrid = "hybrid"
 tri_kmeans = "tri_kmeans"
-tri_random = "tri_random"
-tri_s0 = "tri_s0"
-tri_s1 = "tri_s1"
 
 # Columns for timing results in the output table
 table_columns = [
@@ -39,12 +33,6 @@ table_columns = [
   "hybrid_cal_time",
   "tri_kmeans_preprocessing_time",
   "tri_kmeans_cal_time",
-  "tri_random_preprocessing_time",
-  "tri_random_cal_time",
-  "tri_s0_preprocessing_time",
-  "tri_s0_cal_time",
-  "tri_s1_preprocessing_time",
-  "tri_s1_cal_time",
 ]
 
 # Datasets to run experiments on

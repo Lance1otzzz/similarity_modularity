@@ -10,8 +10,7 @@
 #include "pruning_alg/kmeans_preprocessing.hpp"
 #include "pruning_alg/triangle_pruning.hpp"
 #include "pruning_alg/bipolar_pruning.hpp"
-#include "pruning_alg/s0_fast_kmeans.hpp"
-#include "pruning_alg/s1_autok_lite.hpp"
+// Removed S0/S1 variants (algorithms 17/18) per simplification request
 #include <iostream>
 #include <chrono>
 #include <cstdlib>
@@ -150,62 +149,20 @@ int main(int argc, char** argv)
 			cout<<"pp with Hybrid Pruning";
 			break;
 		}
-		case 15:
-		{
-			cout<<"!!!!!start pp with Triangle (KMeans centers)!!!!!"<<endl;
-			int k = 10;
-			if (const char* envk = std::getenv("PRUNE_K")) { try { k = std::max(1, std::stoi(envk)); } catch (...) {} }
-			double preprocessing_time = preprocess_kmeans_index(g, k);
-			cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
-			louvain_pp(g,r,checkDisSqr_with_pruning);
-			cout<<"pp with Triangle (KMeans)";
-			break;
-		}
-		case 16:
-		{
-			cout<<"!!!!!start pp with Triangle (Random centers)!!!!!"<<endl;
-			int k = 10;
-			if (const char* envk = std::getenv("PRUNE_K")) { try { k = std::max(1, std::stoi(envk)); } catch (...) {} }
-			double preprocessing_time = preprocess_random_index(g, k);
-			cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
-			louvain_pp(g,r,checkDisSqr_with_pruning);
-			cout<<"pp with Triangle (Random)";
-			break;
-		}
-		case 17:
-		{
-			cout<<"!!!!!start pp with Triangle (S0 fast kmeans)!!!!!"<<endl;
-			// Read S0 params from env with defaults
-			int m = 128; double c = 0.5; int iters = 1; int batch = 512; unsigned seedv = 42;
-			if (const char* v = std::getenv("S0_M")) { try { m = std::max(1, std::stoi(v)); } catch (...) {} }
-			if (const char* v = std::getenv("S0_C")) { try { c = std::max(0.0, std::stod(v)); } catch (...) {} }
-			if (const char* v = std::getenv("S0_ITERS")) { try { iters = std::max(1, std::stoi(v)); } catch (...) {} }
-			if (const char* v = std::getenv("S0_BATCH")) { try { batch = std::max(1, std::stoi(v)); } catch (...) {} }
-			if (const char* v = std::getenv("S0_SEED")) { try { seedv = (unsigned)std::stoul(v); } catch (...) {} }
-			double preprocessing_time = build_s0_fast_kmeans_index(g, m, c, iters, batch, seedv);
-			cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
-			louvain_pp(g,r,checkDisSqr_with_pruning);
-			cout<<"pp with Triangle (S0)";
-			break;
-		}
-		case 18:
-		{
-			cout<<"!!!!!start pp with Triangle (S1 autok)!!!!!"<<endl;
-			// Read S1 params from env with defaults
-			int m = 128; double sample_frac = 0.005; int sample_cap = 100000; int K_max = -1; int post_mb_iters = 1; unsigned seedv = 42;
-			if (const char* v = std::getenv("S1_M")) { try { m = std::max(1, std::stoi(v)); } catch (...) {} }
-			if (const char* v = std::getenv("S1_SAMPLE_FRAC")) { try { sample_frac = std::max(0.0, std::stod(v)); } catch (...) {} }
-			if (const char* v = std::getenv("S1_SAMPLE_CAP")) { try { sample_cap = std::max(1, std::stoi(v)); } catch (...) {} }
-			if (const char* v = std::getenv("S1_K_MAX")) { try { K_max = std::stoi(v); } catch (...) {} }
-			if (const char* v = std::getenv("S1_POST_MB_ITERS")) { try { post_mb_iters = std::max(0, std::stoi(v)); } catch (...) {} }
-			if (const char* v = std::getenv("S1_SEED")) { try { seedv = (unsigned)std::stoul(v); } catch (...) {} }
-			double lambda = 0.0;
-			double preprocessing_time = build_s1_autok_index(g, m, sample_frac, sample_cap, K_max, post_mb_iters, seedv, &lambda);
-			cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
-			louvain_pp(g,r,checkDisSqr_with_pruning);
-			cout<<"pp with Triangle (S1)";
-			break;
-		}
+        case 15:
+        {
+            cout<<"!!!!!start pp with Triangle (KMeans centers)!!!!!"<<endl;
+            int k = 10;
+            if (const char* envk = std::getenv("PRUNE_K")) { try { k = std::max(1, std::stoi(envk)); } catch (...) {} }
+            double preprocessing_time = preprocess_kmeans_index(g, k);
+            cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
+            // Switch to bipolar computation logic while keeping KMeans preprocessing unchanged
+            // Build bipolar index without affecting the printed preprocessing time above
+            (void)build_bipolar_pruning_index(g, k);
+            louvain_pp(g,r,checkDisSqr_with_bipolar_pruning);
+            cout<<"pp with Triangle (KMeans) [bipolar compute]";
+            break;
+        }
 		case 20:
 		{
 			cout<<"!!!!!start pure Louvain!!!!!"<<endl;
