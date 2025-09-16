@@ -7,10 +7,12 @@
 #include "louvain_pp.hpp"
 //#include "louvain_pruning.hpp"
 #include "pure_louvain.hpp"
-//#include "pruning_alg/kmeans_preprocessing.hpp"
+#include "pruning_alg/kmeans_preprocessing.hpp"
+#include "pruning_alg/triangle_pruning.hpp"
 #include "pruning_alg/bipolar_pruning.hpp"
 #include <iostream>
 #include <chrono>
+#include <cstdlib>
 
 #include "test_trial.hpp"
 using namespace std;
@@ -68,8 +70,8 @@ int main(int argc, char** argv)
 	}
 
 	auto startMainAlg=timeNow();
-	switch(algorithm)
-	{
+		switch(algorithm)
+		{
 		case 8:
 		{
 			cout<<"!!!!!start louvain plus plus!!!!!"<<endl;
@@ -144,6 +146,28 @@ int main(int argc, char** argv)
 			// Cleanup
 			//cleanup_bipolar_pruning_index();
 			cout<<"pp with Hybrid Pruning";
+			break;
+		}
+		case 15:
+		{
+			cout<<"!!!!!start pp with Triangle (KMeans centers)!!!!!"<<endl;
+			int k = 10;
+			if (const char* envk = std::getenv("PRUNE_K")) { try { k = std::max(1, std::stoi(envk)); } catch (...) {} }
+			double preprocessing_time = preprocess_kmeans_index(g, k);
+			cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
+			louvain_pp(g,r,checkDisSqr_with_pruning);
+			cout<<"pp with Triangle (KMeans)";
+			break;
+		}
+		case 16:
+		{
+			cout<<"!!!!!start pp with Triangle (Random centers)!!!!!"<<endl;
+			int k = 10;
+			if (const char* envk = std::getenv("PRUNE_K")) { try { k = std::max(1, std::stoi(envk)); } catch (...) {} }
+			double preprocessing_time = preprocess_random_index(g, k);
+			cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
+			louvain_pp(g,r,checkDisSqr_with_pruning);
+			cout<<"pp with Triangle (Random)";
 			break;
 		}
 		case 20:

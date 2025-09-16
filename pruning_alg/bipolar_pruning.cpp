@@ -1,5 +1,6 @@
 #include "bipolar_pruning.hpp"
 #include "../defines.hpp"
+#include "triangle_pruning.hpp" // for g_distance_index and calc_distance_sqr
 #include <algorithm>
 #include <chrono>
 #include <random>
@@ -361,9 +362,29 @@ bool checkDisSqr_with_hybrid_pruning(const Node& x, const Node& y, const double&
 }
 bool checkDisSqr_with_both_pruning(const Node& x, const Node& y, const double& rr)
 {
-	int res=g_bipolar_pruning->query_distance_exceeds_1(x.id, y.id, rr);
-	if (res<2) return res;
-	else return checkDisSqr(x,y,rr);
+    int res=g_bipolar_pruning->query_distance_exceeds_1(x.id, y.id, rr);
+    if (res<2) return res;
+    // Try triangle pruning if k-means distance index is available
+    if (g_distance_index) {
+        int cluster_x = g_distance_index->node_to_cluster[x.id];
+        int cluster_y = g_distance_index->node_to_cluster[y.id];
+        if (cluster_x >= 0 && cluster_y >= 0 &&
+            cluster_x < (int)g_distance_index->clusters.size() &&
+            cluster_y < (int)g_distance_index->clusters.size()) {
+            double dist_x_to_cx = std::sqrt(calc_distance_sqr(x.attributes, g_distance_index->clusters[cluster_x].centroid));
+            double dist_y_to_cx = std::sqrt(calc_distance_sqr(y.attributes, g_distance_index->clusters[cluster_x].centroid));
+            double dist_x_to_cy = std::sqrt(calc_distance_sqr(x.attributes, g_distance_index->clusters[cluster_y].centroid));
+            double dist_y_to_cy = std::sqrt(calc_distance_sqr(y.attributes, g_distance_index->clusters[cluster_y].centroid));
+
+            double lower_bound1 = std::abs(dist_x_to_cx - dist_y_to_cx);
+            double lower_bound2 = std::abs(dist_x_to_cy - dist_y_to_cy);
+            double lower_bound = std::max(lower_bound1, lower_bound2);
+            double r = std::sqrt(rr);
+            if (lower_bound > r) return true; // pruned: distance > r
+        }
+    }
+    // Fall back to exact computation
+    return checkDisSqr(x,y,rr);
 }
 
 double build_bipolar_pruning_index(const Graph<Node>& g, int k) {

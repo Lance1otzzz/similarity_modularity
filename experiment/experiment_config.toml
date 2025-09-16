@@ -9,6 +9,8 @@
 12 = "both"
 13 = "bipolar"
 14 = "hybrid"
+15 = "tri_kmeans"
+16 = "tri_random"
 
 [output_mapping]
 louvain = "louvain"
@@ -17,6 +19,8 @@ plusplus = "plusplus"
 both = "both"
 bipolar = "bipolar"
 hybrid = "hybrid"
+tri_kmeans = "tri_kmeans"
+tri_random = "tri_random"
 
 # Columns for timing results in the output table
 table_columns = [
@@ -29,6 +33,10 @@ table_columns = [
   "bipolar_cal_time",
   "hybrid_preprocessing_time",
   "hybrid_cal_time",
+  "tri_kmeans_preprocessing_time",
+  "tri_kmeans_cal_time",
+  "tri_random_preprocessing_time",
+  "tri_random_cal_time",
 ]
 
 # Datasets to run experiments on
