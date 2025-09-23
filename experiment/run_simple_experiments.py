@@ -3,6 +3,7 @@ import json
 import pickle
 import subprocess
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from decimal import Decimal
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
@@ -275,11 +276,16 @@ def parse_output(
     # Total distance calculation per algorithm (if reported)
     td = re.search(rf"Total distance calculation:\s*({NUM})", output)
     if td:
+        raw_total = td.group(1)
         try:
-            total_distance = float(td.group(1))
+            total_distance = int(Decimal(raw_total))
             distance_results[f"{command_name}_total_distance"] = total_distance
         except Exception:
-            pass
+            try:
+                total_distance = int(float(raw_total))
+                distance_results[f"{command_name}_total_distance"] = total_distance
+            except Exception:
+                pass
 
     return time_results, modularity_results, distance_results
 
