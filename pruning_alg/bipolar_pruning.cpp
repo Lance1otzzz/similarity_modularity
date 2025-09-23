@@ -8,6 +8,8 @@
 #include <cmath>
 #include <iostream>
 
+extern int totDisCal;
+
 // Global bipolar pruning instance
 BipolarPruning* g_bipolar_pruning = nullptr;
 
@@ -282,6 +284,7 @@ void BipolarPruning::run_kmeans(const Graph<Node>& g) {
 }
 
 double BipolarPruning::calc_distance_sqr(const std::vector<double>& a, const std::vector<double>& b) const {
+	totDisCal++;
     double dist_sqr = 0.0;
     for (size_t i = 0; i < a.size(); ++i) {
         double diff = a[i] - b[i];

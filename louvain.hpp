@@ -33,7 +33,7 @@ void louvain(Graph<Node> &g, double r)
 		improvement=false;
 
 		std::cout<<"phase1"<<std::endl;
-		std::cout<<"mm="<<mm<<" and hg.m="<<hg.m<<std::endl;
+		//std::cout<<"mm="<<mm<<" and hg.m="<<hg.m<<std::endl;
         // Phase 1: Optimize modularity by moving nodes
 		bool imp=true; // imp for phase 1
 		while (imp)
@@ -178,16 +178,17 @@ void louvain_with_flm(Graph<Node> &g, double r)
 	Graph<std::vector<int>> hg(g); //hypernode graph
 
 
-	unsigned long long cntCalDelta_Q=0,skipped=0;
+	//unsigned long long cntCalDelta_Q=0,skipped=0;
 	unsigned int iteration=0;
-	unsigned long long cntCheck=0,cntMove=0;
+	//unsigned long long cntCheck=0,cntMove=0;
 
     bool improvement=true;
     while (improvement) 
 	{
 		iteration++;
 		//int it_pushQueue=0,it_trieMove=0,it_moveSucc=0,it_deltaQViolate=0; // every iteration, how many times pushing into the queue, how many times moving a node, how many times moving successfully, how many times not meeting the delta_Q>0 requirement
-		int cntNeiCom=0,cntU=0;
+		//int cntNeiCom=0;
+		int cntU=0;
 		std::vector<long long> communityDegreeSum(hg.degree); // The degree sum of every node in community (not just degree of hypernodes)
 
         improvement=false;
@@ -229,12 +230,12 @@ void louvain_with_flm(Graph<Node> &g, double r)
 
 			for (auto &c:uToCom) //id,value
 			{
-				cntNeiCom++;
-				cntCalDelta_Q++;
+				//cntNeiCom++;
+				//cntCalDelta_Q++;
 				if (c.second==-1||c.first==cu) 
 				{
 					//how many?
-					skipped++;
+					//skipped++;
 					continue;
 				}
 				double delta_Q_=(c.second-(double)uDegreeSum*communityDegreeSum[c.first]/mm/2)/mm;
@@ -242,7 +243,7 @@ void louvain_with_flm(Graph<Node> &g, double r)
 				double score=delta_Q;
 				if (score-bestScore>eps) 
 				{
-					cntCheck++;
+					//cntCheck++;
 					bool sim=true;
 					for (auto &uu:hg.nodes[u]) //uu: every node in the hypernode u
 					{
@@ -265,7 +266,7 @@ void louvain_with_flm(Graph<Node> &g, double r)
 					}
 				}
 			}
-			cntMove++;
+			//cntMove++;
 
 			// If moving to a new community improves the modularity, assign the best community to node u
 			if (bestCommunity != communityAssignments[u] && bestScore>eps) 
@@ -363,9 +364,9 @@ void louvain_with_flm(Graph<Node> &g, double r)
 		//std::cout<<"phase 2 time:"<<timeElapsed(endPhase1, endPhase2)<<std::endl;
 	}
 
-	std::cout<<"# tries to move:"<<cntMove<<"\n# check hypornode to community:"<<cntCheck<<'\n';
-	std::cout<<"# check node to node:"<<totchecknode<<" and pruned "<<totchecknode-notpruned<<std::endl;
-	std::cout<<"calculated delta_Q: "<<cntCalDelta_Q<<" and skipped "<<skipped<<" times"<<std::endl;
+	//std::cout<<"# tries to move:"<<cntMove<<"\n# check hypornode to community:"<<cntCheck<<'\n';
+	//std::cout<<"# check node to node:"<<totchecknode<<" and pruned "<<totchecknode-notpruned<<std::endl;
+	//std::cout<<"calculated delta_Q: "<<cntCalDelta_Q<<" and skipped "<<skipped<<" times"<<std::endl;
 
 	std::cout<<"Louvain_heur Modularity = "<<calcModularity(g,hg.nodes)<<std::endl;
 	//std::cout<<"check if graph similarity meets the restraint: "<<graphCheckDis(g,hg.nodes,rr)<<std::endl;

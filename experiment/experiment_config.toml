@@ -6,33 +6,33 @@
 10 = "louvain"
 11 = "flm" # louvain with flm, without other optimizations
 8 = "plusplus"
-12 = "both"
-13 = "bipolar"
+# 12 = "both"
+# 13 = "bipolar"
 14 = "hybrid"
-15 = "tri_kmeans"
+# 15 = "tri_kmeans"
 
 [output_mapping]
 louvain = "louvain"
 flm = "flm"
 plusplus = "plusplus"
-both = "both"
-bipolar = "bipolar"
+# both = "both"
+# bipolar = "bipolar"
 hybrid = "hybrid"
-tri_kmeans = "tri_kmeans"
+# tri_kmeans = "tri_kmeans"
 
 # Columns for timing results in the output table
 table_columns = [
   "louvain_time",
   "flm_cal_time",
   "plusplus_cal_time",
-  "both_preprocessing_time",
-  "both_cal_time",
-  "bipolar_preprocessing_time",
-  "bipolar_cal_time",
-  "hybrid_preprocessing_time",
+  # "both_preprocessing_time",
+  # "both_cal_time",
+  # "bipolar_preprocessing_time",
+  # "bipolar_cal_time",
+ "hybrid_preprocessing_time",
   "hybrid_cal_time",
-  "tri_kmeans_preprocessing_time",
-  "tri_kmeans_cal_time",
+  # "tri_kmeans_preprocessing_time",
+  # "tri_kmeans_cal_time",
 ]
 
 # Datasets to run experiments on
@@ -59,7 +59,7 @@ use_edges_for_sampling = true
 cache_distance_data = true
 
 [experiment_config]
-enable_timeout = false
+enable_timeout = true
 timeout_seconds = 100000
 sleep_between_runs = 0.1
 main_program_path = "./main"

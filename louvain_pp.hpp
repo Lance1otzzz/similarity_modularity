@@ -29,11 +29,11 @@ void louvain_pp(Graph<Node> &g, double r, bool (*checkDisSqr)(const Node&,const 
 
 	Graph<std::vector<int>> hg(g); //hypernode graph
 
-	unsigned long long cntCalDelta_Q=0,skipped=0;
+	//unsigned long long cntCalDelta_Q=0,skipped=0;
 	unsigned int iteration=0;
-	unsigned long long cntCheck=0,cntMove=0;
+	//unsigned long long cntCheck=0,cntMove=0;
 
-	double checkTime=0;
+	//double checkTime=0;
 
     bool improvement=true;
     while (improvement) 
@@ -95,13 +95,13 @@ void louvain_pp(Graph<Node> &g, double r, bool (*checkDisSqr)(const Node&,const 
 			{
 				if (c.first==cu) continue;
 				//cntNeiCom++;
-				cntCalDelta_Q++;
+				//cntCalDelta_Q++;
 				// check if the edge is with flag violated and no node leaves from cv after the flag set
 				// just check if u can move to cv, so no need to check the timestamp of cu
 				if (c.second.flag==violated&&c.second.timeStamp>=community[c.first].leaveTimeStamp)
 				{
 					//how many?
-					skipped++;
+					//skipped++;
 					continue;
 				}
 				double delta_Q_=(c.second.w-(double)uDegreeSum*communityDegreeSum[c.first]/mm/2)/mm;
@@ -121,12 +121,12 @@ void louvain_pp(Graph<Node> &g, double r, bool (*checkDisSqr)(const Node&,const 
 
 			std::make_heap(coms.begin(),coms.end());
 
-			cntMove++;
+			//cntMove++;
 
 			//auto startCheckTime=timeNow();
 			while (!coms.empty())
 			{
-				cntCheck++;
+				//cntCheck++;
 				auto x=coms.front(); //if hypernode u can move to community x
 				auto &t=eToOtherC[u][x.second];
 				bool sim=true;
@@ -304,11 +304,11 @@ void louvain_pp(Graph<Node> &g, double r, bool (*checkDisSqr)(const Node&,const 
 		//std::cout<<"modularity now is "<<calcModularity(g, hg.nodes)<<std::endl;
 	}
 
-	std::cout<<"\ncheck time:"<<checkTime<<std::endl;
+	//std::cout<<"\ncheck time:"<<checkTime<<std::endl;
 
-	std::cout<<"# tries to move:"<<cntMove<<"\n# check hypornode to community:"<<cntCheck<<'\n';
-	std::cout<<"# check node to node:"<<totchecknode<<" and pruned "<<totchecknode-notpruned<<std::endl;
-	std::cout<<"calculated delta_Q: "<<cntCalDelta_Q<<" and skipped "<<skipped<<" times"<<std::endl;
+	//std::cout<<"# tries to move:"<<cntMove<<"\n# check hypornode to community:"<<cntCheck<<'\n';
+	//std::cout<<"# check node to node:"<<totchecknode<<" and pruned "<<totchecknode-notpruned<<std::endl;
+	//std::cout<<"calculated delta_Q: "<<cntCalDelta_Q<<" and skipped "<<skipped<<" times"<<std::endl;
 
 	std::cout<<"Louvain_heur Modularity = "<<calcModularity(g,hg.nodes)<<std::endl;
 	//std::cout<<"check if graph similarity meets the restraint: "<<graphCheckDis(g,hg.nodes,rr)<<std::endl;

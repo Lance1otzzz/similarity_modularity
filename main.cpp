@@ -33,6 +33,7 @@ std::mt19937 rng(seed);
 	algorithm 20: pure_louvain
     algorithm 114514: try and test sth
 */
+int totDisCal=0;
 
 int main(int argc, char** argv)
 {
@@ -69,10 +70,10 @@ int main(int argc, char** argv)
 		preprocessing_time = build_bipolar_pruning_index(g, 10);
 		cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
 	}
-
+	totDisCal=0;
 	auto startMainAlg=timeNow();
-		switch(algorithm)
-		{
+	switch(algorithm)
+	{
 		case 8:
 		{
 			cout<<"!!!!!start louvain plus plus!!!!!"<<endl;
@@ -82,14 +83,14 @@ int main(int argc, char** argv)
 		}
 		case 9:
 		{
-			cout<<"!!!!!start heap & flm heur!!!!!"<<endl;
+			cout<<"!!!!!start heap & flm!!!!!"<<endl;
 			louvain_with_heap_and_flm(g,r);//louvain plus
 			cout<<"with_heap_and_flm";
 			break;
 		}
 		case 91:
 		{
-			cout<<"!!!!!start heap heur!!!!!"<<endl;
+			cout<<"!!!!!start heap!!!!!"<<endl;
 			louvain_with_heap(g,r);
 			cout<<"with_heap_without_flm";
 			break;
@@ -185,7 +186,9 @@ int main(int argc, char** argv)
 	auto endMainAlg=timeNow();
 
 	cout<<" Main algorithm time: "<<timeElapsed(startMainAlg, endMainAlg)<<endl;
+	cout<<"Total distance calculation: "<<totDisCal<<endl;
 
+	/*
 	if (algorithm==7||algorithm==12||algorithm==13||algorithm==14)
 	{
 		// Output detailed pruning statistics
@@ -199,6 +202,7 @@ int main(int argc, char** argv)
 			}
 		}
 	}
+	*/
 
 	cout<<"Total time cost: "<<timeElapsed(startLoadingGraph, endMainAlg)<<endl;
 	return 0;

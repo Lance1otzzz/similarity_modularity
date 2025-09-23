@@ -217,14 +217,15 @@ class DistanceSampler:
 NUM = r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?"  # supports negative and scientific notation
 
 
-def parse_output(output: str, command_name: str) -> Tuple[Dict[str, float], Dict[str, float]]:
-    """Parse program output; return (time_results, modularity_results).
-    Only time + modularity are parsed; pruning is ignored.
-    """
+def parse_output(
+    output: str, command_name: str
+) -> Tuple[Dict[str, float], Dict[str, float], Dict[str, float]]:
+    """Parse program output and collect time, modularity, and total distance metrics."""
     import re
 
     time_results: Dict[str, float] = {}
     modularity_results: Dict[str, float] = {}
+    distance_results: Dict[str, float] = {}
 
     # Common times
     main_time = -1.0
@@ -271,7 +272,16 @@ def parse_output(output: str, command_name: str) -> Tuple[Dict[str, float], Dict
 
     modularity_results[f"{command_name}_modularity"] = modularity_val
 
-    return time_results, modularity_results
+    # Total distance calculation per algorithm (if reported)
+    td = re.search(rf"Total distance calculation:\s*({NUM})", output)
+    if td:
+        try:
+            total_distance = float(td.group(1))
+            distance_results[f"{command_name}_total_distance"] = total_distance
+        except Exception:
+            pass
+
+    return time_results, modularity_results, distance_results
 
 
 def ensure_compiled_simple(config: ExperimentConfig) -> None:
@@ -304,8 +314,8 @@ def run_worker(
     enable_timeout: bool,
     timeout_seconds: int,
     omp_threads_per_proc: int,
-) -> Tuple[str, Dict[str, float], Dict[str, float]]:
-    """Run a single algorithm and parse only time + modularity (no pruning)."""
+) -> Tuple[str, Dict[str, float], Dict[str, float], Dict[str, float]]:
+    """Run a single algorithm and parse time, modularity, and total distance metrics."""
     cmd = [main_path, str(algorithm_code), f"../dataset/{dataset_name}", str(r_value)]
     try:
         env = dict(os.environ)
@@ -346,8 +356,8 @@ def run_worker(
         # Do not fail the computation on logging errors
         pass
 
-    time_parsed, modularity_parsed = parse_output(output, command_name)
-    return command_name, time_parsed, modularity_parsed
+    time_parsed, modularity_parsed, distance_parsed = parse_output(output, command_name)
+    return command_name, time_parsed, modularity_parsed, distance_parsed
 
 
 def main():
@@ -361,6 +371,8 @@ def main():
     # Prepare dirs
     results_dir = Path(config.results_dir)
     results_dir.mkdir(exist_ok=True)
+
+    print("Reminder: run `make` before executing this script to ensure the binary is up to date.")
 
     # Compile if requested
     if config.compile_before_run:
@@ -379,12 +391,28 @@ def main():
     algo_names = list(config.algorithm_commands.values())
     modularity_columns: List[str] = [f"{name}_modularity" for name in algo_names]
 
+    # Extend timing columns with total distance metrics placed after each algorithm's time columns
+    time_columns: List[str] = list(config.table_columns)
+    for name in algo_names:
+        insert_at = -1
+        prefix = f"{name}_"
+        for idx, column in enumerate(time_columns):
+            if column.startswith(prefix):
+                insert_at = idx
+        distance_column = f"{name}_total_distance"
+        if distance_column in time_columns:
+            continue
+        if insert_at >= 0:
+            time_columns.insert(insert_at + 1, distance_column)
+        else:
+            time_columns.append(distance_column)
+
     all_results: Dict[str, pd.DataFrame] = {}
 
     print("Running simplified experiments:")
     print(f"Datasets: {config.target_datasets}")
     print(f"Algorithms: {config.algorithm_commands}")
-    print(f"Time columns: {config.table_columns}")
+    print(f"Time columns: {time_columns}")
     print(f"Modularity columns: {modularity_columns}")
 
     for dataset in config.target_datasets:
@@ -396,7 +424,7 @@ def main():
         rows_by_p: Dict[float, Dict[str, object]] = {}
         for p, r_val in percentiles.items():
             row: Dict[str, object] = {'r': f'{p}%'}
-            for col in config.table_columns:
+            for col in time_columns:
                 row[col] = None
             for col in modularity_columns:
                 row[col] = None
@@ -430,12 +458,15 @@ def main():
             for fut in as_completed(future_map):
                 p = future_map[fut]
                 try:
-                    name, time_vals, mod_vals = fut.result()
+                    name, time_vals, mod_vals, distance_vals = fut.result()
                     row = rows_by_p[p]
                     for k, v in time_vals.items():
                         if k in row:
                             row[k] = v
                     for k, v in mod_vals.items():
+                        if k in row:
+                            row[k] = v
+                    for k, v in distance_vals.items():
                         if k in row:
                             row[k] = v
                 except Exception as e:

@@ -39,8 +39,10 @@ struct Node {
 	}
 };
 
+extern int totDisCal;
 inline double calcDisSqr_baseline(const Node &x, const Node &y)
 {
+	totDisCal++;
 	double res=0;
 	for (int i=0;i<x.attributes.size();i++)
 		res+=sqr(x.attributes[i]-y.attributes[i]);
@@ -49,6 +51,7 @@ inline double calcDisSqr_baseline(const Node &x, const Node &y)
 
 inline double calcDisSqr(const Node &x, const Node &y)
 {
+	totDisCal++;
 	double res=0;
 	//for (int i=0;i<x.attributes.size();i++)
 		//res+=sqr(x.attributes[i]-y.attributes[i]);
