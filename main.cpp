@@ -67,7 +67,14 @@ int main(int argc, char** argv)
 	if (algorithm==7||algorithm==12||algorithm==13||algorithm==14)
 	{
 		// Bipolar pruning preprocessing
-		preprocessing_time = build_bipolar_pruning_index(g, 10);
+		const int prune_k = 10;
+		preprocessing_time = build_bipolar_pruning_index(g, prune_k);
+		cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
+	}
+	else if (algorithm==15)
+	{
+		const int prune_k = 10;
+		preprocessing_time = preprocess_kmeans_index(g, prune_k);
 		cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
 	}
 	totDisCal=0;
@@ -150,7 +157,14 @@ int main(int argc, char** argv)
 			cout<<"pp with Hybrid Pruning";
 			break;
 		}
-        case 15:
+		case 15:
+		{
+			cout<<"!!!!!start pp with Triangle Pruning!!!!!"<<endl;
+			louvain_pp(g,r,checkDisSqr_with_pruning);
+			cout<<"pp with Triangle Pruning";
+			break;
+		}
+        case 16:
         {
             cout<<"!!!!!start pp with Triangle (KMeans centers)!!!!!"<<endl;
             int k = 10;

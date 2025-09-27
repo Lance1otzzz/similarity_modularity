@@ -51,7 +51,7 @@ target_datasets = [
 ]
 
 # Percentiles used to derive distance constraints r
-distance_percentiles = [5, 10, 20, 50, 80]
+distance_percentiles = [5, 10, 20, 40, 80]
 
 [sampling_config]
 max_samples = 10000
