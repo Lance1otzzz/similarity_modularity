@@ -1,22 +1,9 @@
 #include "triangle_pruning.hpp"
 #include "../graph.hpp"
-#include "bipolar_pruning.hpp"
 #include <algorithm>
 #include <cmath>
 
 // Global counters for pruning statistics are defined in graph.hpp
-
-// Function to get cached distance between two nodes using cluster information
-double get_cached_distance(const Node& x, const Node& y) {
-    if (!g_distance_index) {
-        // Fallback to direct calculation if no index available
-        return std::sqrt(calcDisSqr(x, y));
-    }
-    
-    // For simplicity, use direct calculation for now
-    // In a full implementation, you would maintain proper node-to-cluster mapping
-    return std::sqrt(calcDisSqr(x, y));
-}
 
 // Function to check distance with triangle inequality pruning
 bool checkDisSqr_with_pruning(const Node& x, const Node& y, const double& rr) {
@@ -54,28 +41,36 @@ bool checkDisSqr_with_pruning(const Node& x, const Node& y, const double& rr) {
         const int cluster_x = g_distance_index->node_to_cluster[x.id];
         const int cluster_y = g_distance_index->node_to_cluster[y.id];
         const auto clusterCount = static_cast<int>(g_distance_index->clusters.size());
+        const auto nodeCount = g_distance_index->point_to_centroids.size();
 
-        if (cluster_x >= 0 && cluster_x < clusterCount &&
-            cluster_y >= 0 && cluster_y < clusterCount) {
-            const auto& centroid_x = g_distance_index->clusters[cluster_x].centroid;
-            const auto& centroid_y = g_distance_index->clusters[cluster_y].centroid;
+        if (cluster_x >= 0 && cluster_y >= 0 &&
+            cluster_x < clusterCount && cluster_y < clusterCount &&
+            static_cast<size_t>(x.id) < nodeCount &&
+            static_cast<size_t>(y.id) < nodeCount) {
+            const auto& dist_x = g_distance_index->point_to_centroids[x.id];
+            const auto& dist_y = g_distance_index->point_to_centroids[y.id];
 
-            const double dist_x_to_cx = std::sqrt(calc_distance_sqr(x.attributes, centroid_x));
-            const double dist_y_to_cx = std::sqrt(calc_distance_sqr(y.attributes, centroid_x));
-            const double dist_x_to_cy = std::sqrt(calc_distance_sqr(x.attributes, centroid_y));
-            const double dist_y_to_cy = std::sqrt(calc_distance_sqr(y.attributes, centroid_y));
+            if (static_cast<size_t>(cluster_x) < dist_x.size() &&
+                static_cast<size_t>(cluster_y) < dist_x.size() &&
+                static_cast<size_t>(cluster_x) < dist_y.size() &&
+                static_cast<size_t>(cluster_y) < dist_y.size()) {
+                const double dist_x_to_cx = dist_x[cluster_x];
+                const double dist_y_to_cx = dist_y[cluster_x];
+                const double dist_x_to_cy = dist_x[cluster_y];
+                const double dist_y_to_cy = dist_y[cluster_y];
 
-            const double lower_bound1 = std::abs(dist_x_to_cx - dist_y_to_cx);
-            const double lower_bound2 = std::abs(dist_x_to_cy - dist_y_to_cy);
-            const double lower_bound = std::max(lower_bound1, lower_bound2);
-            const double r = std::sqrt(rr);
+                const double lower_bound1 = std::abs(dist_x_to_cx - dist_y_to_cx);
+                const double lower_bound2 = std::abs(dist_x_to_cy - dist_y_to_cy);
+                const double lower_bound = std::max(lower_bound1, lower_bound2);
+                const double r = std::sqrt(rr);
 
-            if (lower_bound > r) return true;
+                if (lower_bound > r) return true;
 
-            if (!g_distance_index->cluster_distances.empty()) {
-                const double centroid_dist = g_distance_index->cluster_distances[cluster_x][cluster_y];
-                const double upper_bound = dist_x_to_cx + centroid_dist + dist_y_to_cy;
-                if (upper_bound * upper_bound <= rr) return false;
+                if (!g_distance_index->cluster_distances.empty()) {
+                    const double centroid_dist = g_distance_index->cluster_distances[cluster_x][cluster_y];
+                    const double upper_bound = dist_x_to_cx + centroid_dist + dist_y_to_cy;
+                    if (upper_bound * upper_bound <= rr) return false;
+                }
             }
         }
     }

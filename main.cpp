@@ -33,7 +33,7 @@ std::mt19937 rng(seed);
 	algorithm 20: pure_louvain
     algorithm 114514: try and test sth
 */
-int totDisCal=0;
+long long totDisCal=0;
 
 int main(int argc, char** argv)
 {

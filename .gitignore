@@ -24,4 +24,7 @@ analysis.txt
 /experiment/distance_cache/
 /experiment/experiment_results/
 /experiment/experiment_logs/
+/experiment/triangle/logs/
+/experiment/triangle/results/
+/experiment/triangle/cache/
 /tools/prof_results/

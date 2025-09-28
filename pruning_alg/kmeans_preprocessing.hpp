@@ -19,8 +19,9 @@ struct DistanceIndex {
     std::vector<KMeansCluster> clusters;
     std::vector<int> node_to_cluster;
     std::vector<std::vector<double>> cluster_distances;
+    std::vector<std::vector<double>> point_to_centroids;
     int num_clusters;
-    
+
     DistanceIndex(int k) : node_to_cluster(0), num_clusters(k) {
         clusters.reserve(k);
         cluster_distances.resize(k, std::vector<double>(k, 0.0));

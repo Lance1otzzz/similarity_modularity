@@ -39,7 +39,7 @@ struct Node {
 	}
 };
 
-extern int totDisCal;
+extern long long totDisCal;
 inline double calcDisSqr_baseline(const Node &x, const Node &y)
 {
 	totDisCal++;

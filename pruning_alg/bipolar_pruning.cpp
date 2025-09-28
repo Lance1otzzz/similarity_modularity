@@ -8,7 +8,7 @@
 #include <cmath>
 #include <iostream>
 
-extern int totDisCal;
+extern long long totDisCal;
 
 // Global bipolar pruning instance
 BipolarPruning* g_bipolar_pruning = nullptr;
@@ -368,22 +368,34 @@ bool checkDisSqr_with_both_pruning(const Node& x, const Node& y, const double& r
     int res=g_bipolar_pruning->query_distance_exceeds_1(x.id, y.id, rr);
     if (res<2) return res;
     // Try triangle pruning if k-means distance index is available
-    if (g_distance_index) {
+    if (g_distance_index && !g_distance_index->point_to_centroids.empty()) {
         int cluster_x = g_distance_index->node_to_cluster[x.id];
         int cluster_y = g_distance_index->node_to_cluster[y.id];
-        if (cluster_x >= 0 && cluster_y >= 0 &&
-            cluster_x < (int)g_distance_index->clusters.size() &&
-            cluster_y < (int)g_distance_index->clusters.size()) {
-            double dist_x_to_cx = std::sqrt(calc_distance_sqr(x.attributes, g_distance_index->clusters[cluster_x].centroid));
-            double dist_y_to_cx = std::sqrt(calc_distance_sqr(y.attributes, g_distance_index->clusters[cluster_x].centroid));
-            double dist_x_to_cy = std::sqrt(calc_distance_sqr(x.attributes, g_distance_index->clusters[cluster_y].centroid));
-            double dist_y_to_cy = std::sqrt(calc_distance_sqr(y.attributes, g_distance_index->clusters[cluster_y].centroid));
+        const auto clusterCount = static_cast<int>(g_distance_index->clusters.size());
+        const auto nodeCount = g_distance_index->point_to_centroids.size();
 
-            double lower_bound1 = std::abs(dist_x_to_cx - dist_y_to_cx);
-            double lower_bound2 = std::abs(dist_x_to_cy - dist_y_to_cy);
-            double lower_bound = std::max(lower_bound1, lower_bound2);
-            double r = std::sqrt(rr);
-            if (lower_bound > r) return true; // pruned: distance > r
+        if (cluster_x >= 0 && cluster_y >= 0 &&
+            cluster_x < clusterCount && cluster_y < clusterCount &&
+            static_cast<size_t>(x.id) < nodeCount &&
+            static_cast<size_t>(y.id) < nodeCount) {
+            const auto& dist_x = g_distance_index->point_to_centroids[x.id];
+            const auto& dist_y = g_distance_index->point_to_centroids[y.id];
+
+            if (static_cast<size_t>(cluster_x) < dist_x.size() &&
+                static_cast<size_t>(cluster_y) < dist_x.size() &&
+                static_cast<size_t>(cluster_x) < dist_y.size() &&
+                static_cast<size_t>(cluster_y) < dist_y.size()) {
+                double dist_x_to_cx = dist_x[cluster_x];
+                double dist_y_to_cx = dist_y[cluster_x];
+                double dist_x_to_cy = dist_x[cluster_y];
+                double dist_y_to_cy = dist_y[cluster_y];
+
+                double lower_bound1 = std::abs(dist_x_to_cx - dist_y_to_cx);
+                double lower_bound2 = std::abs(dist_x_to_cy - dist_y_to_cy);
+                double lower_bound = std::max(lower_bound1, lower_bound2);
+                double r = std::sqrt(rr);
+                if (lower_bound > r) return true; // pruned: distance > r
+            }
         }
     }
     // Fall back to exact computation

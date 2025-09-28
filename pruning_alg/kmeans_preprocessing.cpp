@@ -28,6 +28,7 @@ double build_kmeans_index(const Graph<Node>& g, int k) {
     // Initialize distance index
     g_distance_index = new DistanceIndex(k);
     g_distance_index->node_to_cluster.resize(g.n);
+    g_distance_index->point_to_centroids.assign(g.n, std::vector<double>(k, 0.0));
     
     if (g.n == 0) {
         auto end_time = timeNow();
@@ -89,6 +90,14 @@ double build_kmeans_index(const Graph<Node>& g, int k) {
         }
     }
     
+    // Precompute distances from every node to each centroid
+    for (int i = 0; i < g.n; ++i) {
+        for (int j = 0; j < k; ++j) {
+            double dist_sq = calc_distance_sqr(g.nodes[i].attributes, g_distance_index->clusters[j].centroid);
+            g_distance_index->point_to_centroids[i][j] = std::sqrt(dist_sq);
+        }
+    }
+
     // Precompute distances between cluster centroids
     for (int i = 0; i < k; ++i) {
         for (int j = i; j < k; ++j) {
@@ -129,6 +138,7 @@ double build_random_index(const Graph<Node>& g, int k) {
     // Initialize distance index (follow existing style in this file)
     g_distance_index = new DistanceIndex(k);
     g_distance_index->node_to_cluster.resize(g.n);
+    g_distance_index->point_to_centroids.assign(g.n, std::vector<double>(k, 0.0));
 
     const int attr_dim = (int)g.nodes[0].attributes.size();
     for (int i = 0; i < k; ++i) {
@@ -161,6 +171,14 @@ double build_random_index(const Graph<Node>& g, int k) {
         }
         g_distance_index->node_to_cluster[i] = best_cluster;
         g_distance_index->clusters[best_cluster].node_indices.push_back(i);
+    }
+
+    // Precompute distances from every node to each centroid
+    for (int i = 0; i < g.n; ++i) {
+        for (int j = 0; j < k; ++j) {
+            double dist_sq = calc_distance_sqr(g.nodes[i].attributes, g_distance_index->clusters[j].centroid);
+            g_distance_index->point_to_centroids[i][j] = std::sqrt(dist_sq);
+        }
     }
 
     // Precompute distances between cluster centroids (no centroid update; use sampled centroids)
