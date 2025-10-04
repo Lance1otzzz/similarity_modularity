@@ -33,7 +33,7 @@ std::mt19937 rng(seed);
 	algorithm 20: pure_louvain
     algorithm 114514: try and test sth
 */
-long long totDisCal=0;
+long long totDisCal=0,sucDisCal=0;
 
 int main(int argc, char** argv)
 {
@@ -67,13 +67,13 @@ int main(int argc, char** argv)
 	if (algorithm==7||algorithm==12||algorithm==13||algorithm==14)
 	{
 		// Bipolar pruning preprocessing
-		const int prune_k = 10;
+		const int prune_k = sqrt(g.n);
 		preprocessing_time = build_bipolar_pruning_index(g, prune_k);
 		cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
 	}
 	else if (algorithm==15)
 	{
-		const int prune_k = 10;
+		const int prune_k = sqrt(g.n);
 		preprocessing_time = preprocess_kmeans_index(g, prune_k);
 		cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
 	}
@@ -201,6 +201,7 @@ int main(int argc, char** argv)
 
 	cout<<" Main algorithm time: "<<timeElapsed(startMainAlg, endMainAlg)<<endl;
 	cout<<"Total distance calculation: "<<totDisCal<<endl;
+	cout<<"distance calculation that meets restraint: "<<sucDisCal<<endl;
 
 	/*
 	if (algorithm==7||algorithm==12||algorithm==13||algorithm==14)

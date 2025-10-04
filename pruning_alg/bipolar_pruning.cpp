@@ -8,7 +8,7 @@
 #include <cmath>
 #include <iostream>
 
-extern long long totDisCal;
+extern long long totDisCal,sucDisCal;
 
 // Global bipolar pruning instance
 BipolarPruning* g_bipolar_pruning = nullptr;
@@ -218,8 +218,10 @@ bool BipolarPruning::query_distance_exceeds(int p_idx, int q_idx, double r_sq) {
     full_calculations_++;
     const auto& p = graph_->nodes[p_idx];
     const auto& q = graph_->nodes[q_idx];
-	notpruned++;
-    return calcDisSqr(p,q)>r_sq;//calc_distance_sqr(p.attributes, q.attributes) > r*r;
+	//notpruned++;
+	bool res=calcDisSqr(p,q)>r_sq;
+	sucDisCal+=res^1;
+    return res;//calc_distance_sqr(p.attributes, q.attributes) > r*r;
 }
 
 void BipolarPruning::run_kmeans(const Graph<Node>& g) {
@@ -284,7 +286,7 @@ void BipolarPruning::run_kmeans(const Graph<Node>& g) {
 }
 
 double BipolarPruning::calc_distance_sqr(const std::vector<double>& a, const std::vector<double>& b) const {
-	totDisCal++;
+	//totDisCal++;
     double dist_sqr = 0.0;
     for (size_t i = 0; i < a.size(); ++i) {
         double diff = a[i] - b[i];
@@ -407,7 +409,7 @@ double build_bipolar_pruning_index(const Graph<Node>& g, int k) {
         delete g_bipolar_pruning;
     }
     
-    g_bipolar_pruning = new BipolarPruning(k, 1);
+    g_bipolar_pruning = new BipolarPruning(k, 20);
     return g_bipolar_pruning->build(g);
 }
 

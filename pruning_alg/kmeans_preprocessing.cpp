@@ -49,7 +49,7 @@ double build_kmeans_index(const Graph<Node>& g, int k) {
     }
     
     // K-means iterations
-    const int max_iterations = 1;
+    const int max_iterations = 20;
     for (int iter = 0; iter < max_iterations; ++iter) {
         // Clear previous assignments
         for (auto& cluster : g_distance_index->clusters) {

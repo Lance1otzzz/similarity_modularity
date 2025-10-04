@@ -34,6 +34,7 @@ void louvain_pp(Graph<Node> &g, double r, bool (*checkDisSqr)(const Node&,const 
 	//unsigned long long cntCheck=0,cntMove=0;
 
 	//double checkTime=0;
+	long long lastDisCal=0,lastSucDisCal=0;
 
     bool improvement=true;
     while (improvement) 
@@ -217,6 +218,10 @@ void louvain_pp(Graph<Node> &g, double r, bool (*checkDisSqr)(const Node&,const 
 
 
 		std::cout<<"iteration "<<iteration<<" running"<<std::endl;
+		std::cout<<"distance calculations during current iteration: "<<totDisCal-lastDisCal<<std::endl;
+		std::cout<<"successful distance calculations during current iteration: "<<sucDisCal-lastSucDisCal<<std::endl;
+		lastDisCal=totDisCal;
+		lastSucDisCal=sucDisCal;
 		//std::cout<<"neighbor community average "<<(double)cntNeiCom/cntU<<" degree"<<std::endl;
 
 		//auto endPhase1=timeNow();
@@ -225,6 +230,7 @@ void louvain_pp(Graph<Node> &g, double r, bool (*checkDisSqr)(const Node&,const 
 
 
         // Phase 2: Create a new graph
+		auto startPhase2=timeNow();
 		std::vector<std::vector<int>> newNode;
 
 		std::vector<int> idToNewid(hg.n);
@@ -297,8 +303,8 @@ void louvain_pp(Graph<Node> &g, double r, bool (*checkDisSqr)(const Node&,const 
 		newhg.nodes=std::move(newNode);
 		hg=std::move(newhg);
 
-		//auto endPhase2=timeNow();
-		//std::cout<<"phase 2 time:"<<timeElapsed(endPhase1, endPhase2)<<std::endl;
+		auto endPhase2=timeNow();
+		std::cout<<"phase 2 time:"<<timeElapsed(startPhase2, endPhase2)<<std::endl;
 
 		//////test
 		//std::cout<<"modularity now is "<<calcModularity(g, hg.nodes)<<std::endl;

@@ -12,6 +12,7 @@
 
 inline long long totchecknode=0,notpruned=0;
 
+
 // Node structure with ID and original attributes, not hypernode
 struct Node {
 	int id; //linenumber as ID
@@ -39,7 +40,7 @@ struct Node {
 	}
 };
 
-extern long long totDisCal;
+extern long long totDisCal,sucDisCal;
 inline double calcDisSqr_baseline(const Node &x, const Node &y)
 {
 	totDisCal++;
@@ -67,7 +68,7 @@ inline double calcDis(const Node &x, const Node &y) // nouse
 
 inline bool checkDisSqr(const Node &x,const Node &y,const double &rr) // true for fail
 {
-	totchecknode++;
+	//totchecknode++;
 	double sumAttrSqr=x.attrSqr+y.attrSqr;
 	double xyUpperBound=std::min(x.attrAbsSum*y.attrAbsMax,y.attrAbsSum*x.attrAbsMax);
 	if (!x.negative&&!y.negative)
@@ -83,8 +84,10 @@ inline bool checkDisSqr(const Node &x,const Node &y,const double &rr) // true fo
 		double lowerBound=sumAttrSqr-2*xyUpperBound;
 		if (lowerBound>rr) return true;
 	}
-	notpruned++;
-	return calcDisSqr(x,y)>rr;
+	//notpruned++;
+	bool res=calcDisSqr(x,y)>rr;
+	sucDisCal+=res^1;
+	return res;
 }
 
 
