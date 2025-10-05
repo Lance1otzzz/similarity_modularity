@@ -29,7 +29,6 @@ DATASET_NAME = "Reddit"
 MAIN_RELATIVE = Path("main")
 BUILD_COMMAND = ["make", "-j"]
 OMP_THREADS = 1
-PRUNE_K = 10
 
 
 EXPERIMENT_DIR = Path(__file__).resolve().parent
@@ -203,10 +202,6 @@ def main() -> None:
     ensure_directories()
     binary = ensure_binary()
 
-    # Warm up k-means preprocessing for triangle runs
-    # (Value is unused directly but consistent with config expectations.)
-    _ = PRUNE_K
-
     r_map = compute_r_values(DATASET_NAME, DISTANCE_PERCENTILES)
 
     rows: List[Dict[str, float]] = []
@@ -216,7 +211,6 @@ def main() -> None:
             "dataset": DATASET_NAME,
             "percentile": float(percentile),
             "r_value": float(r_value),
-            "prune_k": float(PRUNE_K),
         }
         for alg_code, alg_name in ALGORITHMS:
             print(f"Running {alg_name} (percentile={percentile}, r={r_value:.6f})...", flush=True)
@@ -237,7 +231,7 @@ def main() -> None:
         sf.write(f"Generated: {_dt.datetime.now().isoformat()}\n")
         sf.write(f"Main binary: {binary}\n")
         sf.write(f"Percentiles: {DISTANCE_PERCENTILES}\n")
-        sf.write(f"prune_k: {PRUNE_K}\n")
+        sf.write("prune_k: automatic (configured in main binary)\n")
         sf.write(f"Results CSV: {results_path}\n")
 
     print("Experiment finished. Results saved to:")
