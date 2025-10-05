@@ -53,11 +53,12 @@ int main(int argc, char** argv)
 
 	
 	Graph<Node> g;
+	const std::string dataset_path = argv[2];
 	double r=std::stod(argv[3]);
     cout<<"r is "<<r<<endl;
-    cout<<"the graph is in "<<argv[2]<<endl;
+    cout<<"the graph is in "<<dataset_path<<endl;
 	auto startLoadingGraph=timeNow();
-	g.loadGraph(argv[2],r,algorithm);
+	g.loadGraph(dataset_path,r,algorithm);
 	auto endLoadingGraph=timeNow();
     cout<<"there are "<<g.n<<" nodes and "<<g.m<<" edges"<<endl;
 	cout<<"LoadGraph time: "<<timeElapsed(startLoadingGraph,endLoadingGraph)<<endl;
@@ -68,15 +69,17 @@ int main(int argc, char** argv)
 	{
 		// Bipolar pruning preprocessing
 		const int prune_k = sqrt(g.n);
-		preprocessing_time = build_bipolar_pruning_index(g, prune_k);
+		preprocessing_time = build_bipolar_pruning_index(g, dataset_path, prune_k);
 		cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
 	}
-	else if (algorithm==15)
-	{
-		const int prune_k = sqrt(g.n);
-		preprocessing_time = preprocess_kmeans_index(g, prune_k);
-		cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
-	}
+else if (algorithm==15)
+{
+	const int prune_k = sqrt(g.n);
+	preprocessing_time = preprocess_kmeans_index(g, prune_k);
+	cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
+	// Reuse the bipolar preprocessing so triangle hybrid pruning has pivot bounds
+	build_bipolar_pruning_index(g, dataset_path, prune_k);
+}
 	totDisCal=0;
 	auto startMainAlg=timeNow();
 	switch(algorithm)
@@ -159,9 +162,9 @@ int main(int argc, char** argv)
 		}
 		case 15:
 		{
-			cout<<"!!!!!start pp with Triangle Pruning!!!!!"<<endl;
-			louvain_pp(g,r,checkDisSqr_with_pruning);
-			cout<<"pp with Triangle Pruning";
+			cout<<"!!!!!start pp with Triangle Hybrid Pruning!!!!!"<<endl;
+			louvain_pp(g,r,checkDisSqr_with_triangle_hybrid);
+			cout<<"pp with Triangle Hybrid Pruning";
 			break;
 		}
         case 16:
@@ -173,7 +176,7 @@ int main(int argc, char** argv)
             cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
             // Switch to bipolar computation logic while keeping KMeans preprocessing unchanged
             // Build bipolar index without affecting the printed preprocessing time above
-            (void)build_bipolar_pruning_index(g, k);
+            (void)build_bipolar_pruning_index(g, dataset_path, k);
             louvain_pp(g,r,checkDisSqr_with_bipolar_pruning);
             cout<<"pp with Triangle (KMeans) [bipolar compute]";
             break;

@@ -4,6 +4,7 @@
 #include "kmeans_preprocessing.hpp"
 #include <vector>
 #include <utility>
+#include <string>
 
 // Bipolar pruning algorithm using two-pivot bounds
 class BipolarPruning {
@@ -12,11 +13,15 @@ public:
     
     // Build the bipolar pruning index
     double build(const Graph<Node>& g);
+
+    bool load_from_cache(const Graph<Node>& g, const std::string& cache_path, double& preprocessing_time);
+    void save_to_cache(const Graph<Node>& g, const std::string& cache_path, double preprocessing_time) const;
     
     // Query if distance between two nodes exceeds threshold r
     // Returns true if d(p, q) > r, false if d(p, q) <= r
     bool query_distance_exceeds(int p_idx, int q_idx, double r);
     int query_distance_exceeds_1(int p_idx, int q_idx, double r);
+    int triangle_prune(int p_idx, int q_idx, double r) const;
     
     // Get pruning statistics
     int get_pruning_count() const { return pruning_count_; }
@@ -69,11 +74,14 @@ bool checkDisSqr_with_bipolar_pruning(const Node& x, const Node& y, const double
 // Function to check distance with hybrid pruning (statistical + bipolar)
 bool checkDisSqr_with_hybrid_pruning(const Node& x, const Node& y, const double& rr);
 
+// Function to check distance with triangle bounds derived from bipolar preprocessing
+bool checkDisSqr_with_triangle_hybrid(const Node& x, const Node& y, const double& rr);
+
 //
 bool checkDisSqr_with_both_pruning(const Node& x, const Node& y, const double& rr);
 
 // Function to build bipolar pruning index and return preprocessing time
-double build_bipolar_pruning_index(const Graph<Node>& g, int k = 10);
+double build_bipolar_pruning_index(const Graph<Node>& g, const std::string& dataset_path, int k = 10);
 
 // Function to cleanup bipolar pruning index
 void cleanup_bipolar_pruning_index();
