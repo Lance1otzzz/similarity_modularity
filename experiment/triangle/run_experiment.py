@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Run triangle-vs-hybrid pruning experiments on the Reddit dataset."""
+"""Run triangle pruning experiments on multiple datasets."""
 
 from __future__ import annotations
 
@@ -18,14 +18,13 @@ import pandas as pd
 
 # Fixed configuration derived from experiment_config.toml
 ALGORITHMS: List[Tuple[int, str]] = [
-    (14, "hybrid"),   # Bipolar hybrid pruning
     (15, "triangle"), # Triangle hybrid pruning
 ]
 DISTANCE_PERCENTILES: List[float] = [5, 10, 20, 40, 80]
 MAX_SAMPLES = 10000
 USE_EDGES_FOR_SAMPLING = True
 CACHE_DISTANCE_DATA = True
-DATASET_NAME = "Reddit"
+DATASETS: List[str] = ["AmazonProducts", "Reddit", "Yelp"]
 MAIN_RELATIVE = Path("main")
 BUILD_COMMAND = ["make", "-j"]
 OMP_THREADS = 1
@@ -163,13 +162,13 @@ def parse_run_output(output: str, alg_name: str) -> Dict[str, float]:
     return result
 
 
-def write_log(alg_name: str, percentile: float, r_value: float, output: str) -> None:
+def write_log(dataset: str, alg_name: str, percentile: float, r_value: float, output: str) -> None:
     percent_str = ("%g" % percentile).replace(".", "_")
     r_str = ("%g" % r_value).replace(".", "_")
-    log_name = f"{alg_name}_p{percent_str}_r{r_str}.log"
+    log_name = f"{dataset}_{alg_name}_p{percent_str}_r{r_str}.log"
     log_path = LOGS_DIR / log_name
     header = [
-        f"Dataset: {DATASET_NAME}",
+        f"Dataset: {dataset}",
         f"Algorithm: {alg_name}",
         f"Percentile: {percentile}",
         f"r value: {r_value}",
@@ -182,8 +181,15 @@ def write_log(alg_name: str, percentile: float, r_value: float, output: str) -> 
         log_file.write(output)
 
 
-def run_algorithm(binary: Path, alg_code: int, alg_name: str, r_value: float, percentile: float) -> Dict[str, float]:
-    cmd = [str(binary), str(alg_code), f"./dataset/{DATASET_NAME}", str(r_value)]
+def run_algorithm(
+    binary: Path,
+    alg_code: int,
+    alg_name: str,
+    r_value: float,
+    percentile: float,
+    dataset: str,
+) -> Dict[str, float]:
+    cmd = [str(binary), str(alg_code), f"./dataset/{dataset}", str(r_value)]
     env = os.environ.copy()
     env["OMP_NUM_THREADS"] = str(OMP_THREADS)
     env["OMP_PROC_BIND"] = "close"
@@ -191,7 +197,7 @@ def run_algorithm(binary: Path, alg_code: int, alg_name: str, r_value: float, pe
 
     completed = subprocess.run(cmd, capture_output=True, text=True, cwd=PROJECT_ROOT, env=env)
     output = completed.stdout + completed.stderr
-    write_log(alg_name, percentile, r_value, output)
+    write_log(dataset, alg_name, percentile, r_value, output)
 
     metrics = parse_run_output(output, alg_name)
     metrics[f"{alg_name}_return_code"] = float(completed.returncode)
@@ -202,34 +208,40 @@ def main() -> None:
     ensure_directories()
     binary = ensure_binary()
 
-    r_map = compute_r_values(DATASET_NAME, DISTANCE_PERCENTILES)
-
     rows: List[Dict[str, float]] = []
-    for percentile in DISTANCE_PERCENTILES:
-        r_value = r_map.get(percentile, 0.0)
-        row: Dict[str, float] = {
-            "dataset": DATASET_NAME,
-            "percentile": float(percentile),
-            "r_value": float(r_value),
-        }
-        for alg_code, alg_name in ALGORITHMS:
-            print(f"Running {alg_name} (percentile={percentile}, r={r_value:.6f})...", flush=True)
-            metrics = run_algorithm(binary, alg_code, alg_name, r_value, percentile)
-            row.update(metrics)
-            print(f"  -> completed {alg_name}", flush=True)
-        rows.append(row)
+    for dataset in DATASETS:
+        print(f"Processing dataset {dataset}...", flush=True)
+        r_map = compute_r_values(dataset, DISTANCE_PERCENTILES)
+
+        for percentile in DISTANCE_PERCENTILES:
+            r_value = r_map.get(percentile, 0.0)
+            row: Dict[str, float] = {
+                "dataset": dataset,
+                "percentile": float(percentile),
+                "r_value": float(r_value),
+            }
+            for alg_code, alg_name in ALGORITHMS:
+                print(
+                    f"Running {alg_name} on {dataset} (percentile={percentile}, r={r_value:.6f})...",
+                    flush=True,
+                )
+                metrics = run_algorithm(binary, alg_code, alg_name, r_value, percentile, dataset)
+                row.update(metrics)
+                print(f"  -> completed {alg_name}", flush=True)
+            rows.append(row)
 
     df = pd.DataFrame(rows)
-    df.sort_values(by=["percentile"], inplace=True)
+    df.sort_values(by=["dataset", "percentile"], inplace=True)
 
-    results_path = RESULTS_DIR / "reddit_triangle_vs_hybrid.csv"
+    results_path = RESULTS_DIR / "triangle_results.csv"
     df.to_csv(results_path, index=False)
 
     summary_path = RESULTS_DIR / "summary.txt"
     with open(summary_path, "w", encoding="utf-8") as sf:
-        sf.write("Triangle vs Hybrid pruning (Reddit)\n")
+        sf.write("Triangle pruning experiments\n")
         sf.write(f"Generated: {_dt.datetime.now().isoformat()}\n")
         sf.write(f"Main binary: {binary}\n")
+        sf.write(f"Datasets: {', '.join(DATASETS)}\n")
         sf.write(f"Percentiles: {DISTANCE_PERCENTILES}\n")
         sf.write("prune_k: automatic (configured in main binary)\n")
         sf.write(f"Results CSV: {results_path}\n")
