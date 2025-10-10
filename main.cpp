@@ -65,21 +65,12 @@ int main(int argc, char** argv)
 	cout<<"-----------------------------------"<<endl;
 
 	double preprocessing_time=0;
-	if (algorithm==7||algorithm==12||algorithm==13||algorithm==14)
+	if (algorithm==7||algorithm==12||algorithm==13||algorithm==14||algorithm==15)
 	{
 		// Bipolar pruning preprocessing
-		const int prune_k = sqrt(g.n);
-		preprocessing_time = build_bipolar_pruning_index(g, dataset_path, prune_k);
+		preprocessing_time = build_bipolar_pruning_index(g, dataset_path, sqrt(g.n), 0);
 		cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
 	}
-else if (algorithm==15)
-{
-	const int prune_k = sqrt(g.n);
-	preprocessing_time = preprocess_kmeans_index(g, prune_k);
-	cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
-	// Reuse the bipolar preprocessing so triangle hybrid pruning has pivot bounds
-	build_bipolar_pruning_index(g, dataset_path, prune_k);
-}
 	totDisCal=0;
 	auto startMainAlg=timeNow();
 	switch(algorithm)
@@ -167,20 +158,6 @@ else if (algorithm==15)
 			cout<<"pp with Triangle Hybrid Pruning";
 			break;
 		}
-        case 16:
-        {
-            cout<<"!!!!!start pp with Triangle (KMeans centers)!!!!!"<<endl;
-            int k = 10;
-            if (const char* envk = std::getenv("PRUNE_K")) { try { k = std::max(1, std::stoi(envk)); } catch (...) {} }
-            double preprocessing_time = preprocess_kmeans_index(g, k);
-            cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
-            // Switch to bipolar computation logic while keeping KMeans preprocessing unchanged
-            // Build bipolar index without affecting the printed preprocessing time above
-            (void)build_bipolar_pruning_index(g, dataset_path, k);
-            louvain_pp(g,r,checkDisSqr_with_bipolar_pruning);
-            cout<<"pp with Triangle (KMeans) [bipolar compute]";
-            break;
-        }
 		case 20:
 		{
 			cout<<"!!!!!start pure Louvain!!!!!"<<endl;

@@ -3,51 +3,53 @@
 
 [algorithm_commands]
 # Map algorithm code to a short command name
-10 = "louvain"
-11 = "flm" # louvain with flm, without other optimizations
-8 = "plusplus"
+# 10 = "louvain"
+# 11 = "flm" # louvain with flm, without other optimizations
+# 8 = "plusplus"
+14 = "hybrid"
+# 15 = "triangle"
+
 # 12 = "both"
 # 13 = "bipolar"
-14 = "hybrid"
-# 15 = "tri_kmeans"
 
 [output_mapping]
 louvain = "louvain"
 flm = "flm"
 plusplus = "plusplus"
-# both = "both"
-# bipolar = "bipolar"
 hybrid = "hybrid"
 # tri_kmeans = "tri_kmeans"
 
+# both = "both"
+# bipolar = "bipolar"
+
+
 # Columns for timing results in the output table
 table_columns = [
-  "louvain_time",
-  "flm_cal_time",
-  "plusplus_cal_time",
+#  "louvain_time",
+#  "flm_cal_time",
+#  "plusplus_cal_time",
   # "both_preprocessing_time",
   # "both_cal_time",
   # "bipolar_preprocessing_time",
   # "bipolar_cal_time",
- "hybrid_preprocessing_time",
+  "hybrid_preprocessing_time",
   "hybrid_cal_time",
-  # "tri_kmeans_preprocessing_time",
   # "tri_kmeans_cal_time",
 ]
 
 # Datasets to run experiments on
 target_datasets = [
   "SinaNet",
-  "Cora",
-  "CiteSeer",
-  "CoauthorCS",
-  "CoauthorPhysics",
-  "PubMed",
-  "AmazonPhoto",
-  "AmazonComputers",
-  "Yelp",
+#  "Cora",
+#  "CiteSeer",
+#  "CoauthorCS",
+#  "CoauthorPhysics",
+#  "PubMed",
+#  "AmazonPhoto",
+#  "AmazonComputers",
   "Reddit",
-  "AmazonProducts",
+#  "AmazonProducts",
+#  "Yelp",
 ]
 
 # Percentiles used to derive distance constraints r
@@ -60,7 +62,7 @@ cache_distance_data = true
 
 [experiment_config]
 enable_timeout = true
-timeout_seconds = 100000
+timeout_seconds = 10000
 sleep_between_runs = 0.1
 main_program_path = "./main"
 compile_before_run = true

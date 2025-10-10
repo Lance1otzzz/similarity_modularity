@@ -132,9 +132,13 @@ class ExperimentConfig:
 class DistanceSampler:
     def __init__(self, config: ExperimentConfig):
         self.config = config
-        self.dataset_path = Path("../dataset")
+        base_dir = Path(__file__).resolve().parent
+        self.dataset_path = (base_dir / "../dataset").resolve()
         self.cache_path = Path(config.cache_dir)
-        self.cache_path.mkdir(exist_ok=True)
+        if not self.cache_path.is_absolute():
+            self.cache_path = (base_dir / self.cache_path).resolve()
+        self.cache_path.mkdir(parents=True, exist_ok=True)
+        self.rng = np.random.default_rng(19260817)
 
     def load_dataset(self, dataset_name: str) -> Tuple[np.ndarray, np.ndarray]:
         nodes_file = self.dataset_path / dataset_name / "nodes.txt"
@@ -171,7 +175,7 @@ class DistanceSampler:
         return node_features, np.array(edges, dtype=int)
 
     def sample_node_pairs(self, dataset_name: str) -> np.ndarray:
-        cache_file = Path(self.config.cache_dir) / f"{dataset_name}_distances.pkl"
+        cache_file = self.cache_path / f"{dataset_name}_distances.pkl"
         if self.config.cache_distance_data and cache_file.exists():
             with open(cache_file, 'rb') as f:
                 return pickle.load(f)
@@ -188,8 +192,8 @@ class DistanceSampler:
 
         n_random = min(self.config.max_samples, 50000)
         if n_nodes >= 2 and n_random > 0:
-            idx = np.random.default_rng().choice(n_nodes, size=(n_random, 2), replace=False)
-            for i, j in idx:
+            for _ in range(n_random):
+                i, j = self.rng.choice(n_nodes, size=2, replace=False)
                 d = float(np.linalg.norm(node_features[int(i)] - node_features[int(j)]))
                 all_distances.append(d)
 
@@ -270,6 +274,8 @@ def parse_output(
     elif command_name == "hybrid":
         time_results["hybrid_preprocessing_time"] = preprocessing_time
         time_results["hybrid_cal_time"] = main_time
+    elif command_name == "triangle":
+        time_results["triangle_cal_time"] = main_time
 
     modularity_results[f"{command_name}_modularity"] = modularity_val
 
@@ -322,7 +328,9 @@ def run_worker(
     omp_threads_per_proc: int,
 ) -> Tuple[str, Dict[str, float], Dict[str, float], Dict[str, float]]:
     """Run a single algorithm and parse time, modularity, and total distance metrics."""
-    cmd = [main_path, str(algorithm_code), f"../dataset/{dataset_name}", str(r_value)]
+    repo_root = Path(__file__).resolve().parent.parent
+    dataset_arg = str((repo_root / "dataset" / dataset_name).resolve())
+    cmd = [main_path, str(algorithm_code), dataset_arg, str(r_value)]
     try:
         env = dict(os.environ)
         if omp_threads_per_proc and int(omp_threads_per_proc) > 0:
@@ -330,10 +338,10 @@ def run_worker(
             env['OMP_PROC_BIND'] = 'close'
             env['OMP_PLACES'] = 'cores'
 
+        run_kwargs = dict(capture_output=True, text=True, env=env, cwd=str(repo_root))
         if enable_timeout:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_seconds, env=env)
-        else:
-            result = subprocess.run(cmd, capture_output=True, text=True, env=env)
+            run_kwargs['timeout'] = timeout_seconds
+        result = subprocess.run(cmd, **run_kwargs)
         output = result.stdout + result.stderr
     except subprocess.TimeoutExpired:
         output = "TIMEOUT"
@@ -374,9 +382,20 @@ def main():
 
     config = ExperimentConfig(str(cfg_path))
 
+    base_dir = Path(__file__).resolve().parent
+    repo_root = base_dir.parent
+
     # Prepare dirs
     results_dir = Path(config.results_dir)
-    results_dir.mkdir(exist_ok=True)
+    if not results_dir.is_absolute():
+        results_dir = (base_dir / results_dir).resolve()
+    results_dir.mkdir(parents=True, exist_ok=True)
+
+    logs_dir = Path(config.logs_dir)
+    if not logs_dir.is_absolute():
+        logs_dir = (base_dir / logs_dir).resolve()
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    logs_dir_str = str(logs_dir)
 
     print("Reminder: run `make` before executing this script to ensure the binary is up to date.")
 
@@ -391,7 +410,10 @@ def main():
     max_workers = config.max_workers or os.cpu_count() or 4
 
     # Build the main binary path used in child processes
-    main_path = "../" + config.main_program_path
+    main_binary = Path(config.main_program_path)
+    if not main_binary.is_absolute():
+        main_binary = (repo_root / main_binary).resolve()
+    main_path = str(main_binary)
 
     # Precompute modularity columns based on algorithms present
     algo_names = list(config.algorithm_commands.values())
@@ -399,6 +421,8 @@ def main():
 
     # Extend timing columns with total distance metrics placed after each algorithm's time columns
     time_columns: List[str] = list(config.table_columns)
+    if "triangle" in algo_names and "triangle_cal_time" not in time_columns:
+        time_columns.append("triangle_cal_time")
     for name in algo_names:
         insert_at = -1
         prefix = f"{name}_"
@@ -454,7 +478,7 @@ def main():
                     name,
                     float(r_val),
                     float(p),
-                    config.logs_dir,
+                    logs_dir_str,
                     config.enable_timeout,
                     config.timeout_seconds,
                     config.omp_threads_per_proc,

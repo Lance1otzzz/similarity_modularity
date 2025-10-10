@@ -81,7 +81,7 @@ bool checkDisSqr_with_triangle_hybrid(const Node& x, const Node& y, const double
 bool checkDisSqr_with_both_pruning(const Node& x, const Node& y, const double& rr);
 
 // Function to build bipolar pruning index and return preprocessing time
-double build_bipolar_pruning_index(const Graph<Node>& g, const std::string& dataset_path, int k = 10);
+double build_bipolar_pruning_index(const Graph<Node>& g, const std::string& dataset_path, int k, int iter);
 
 // Function to cleanup bipolar pruning index
 void cleanup_bipolar_pruning_index();

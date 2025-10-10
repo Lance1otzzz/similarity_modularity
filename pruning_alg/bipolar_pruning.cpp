@@ -37,12 +37,14 @@ std::string sanitize_for_filename(const std::string& input) {
 std::filesystem::path build_cache_path(const std::string& dataset_path,
                                        int effective_k,
                                        std::size_t node_count,
-                                       std::size_t att_dim) {
-    std::filesystem::path base_dir = std::filesystem::path("cache") / "bipolar";
+                                       std::size_t att_dim,
+                                       int max_iterations) {
+    std::filesystem::path base_dir = std::filesystem::path("cache");
     std::string dataset_key = sanitize_for_filename(dataset_path);
     std::string filename = dataset_key + "_k" + std::to_string(effective_k) +
                            "_n" + std::to_string(node_count) +
-                           "_d" + std::to_string(att_dim) + ".bin";
+                           "_d" + std::to_string(att_dim) +
+                           "_iter" + std::to_string(std::max(0, max_iterations)) + ".bin";
     return base_dir / filename;
 }
 }
@@ -737,19 +739,19 @@ bool checkDisSqr_with_both_pruning(const Node& x, const Node& y, const double& r
     return checkDisSqr(x,y,rr);
 }
 
-double build_bipolar_pruning_index(const Graph<Node>& g, const std::string& dataset_path, int k) {
+double build_bipolar_pruning_index(const Graph<Node>& g, const std::string& dataset_path, int k, int iter) {
     if (g_bipolar_pruning) {
         delete g_bipolar_pruning;
         g_bipolar_pruning = nullptr;
     }
 
-    g_bipolar_pruning = new BipolarPruning(k, 20);
+    g_bipolar_pruning = new BipolarPruning(k, iter);
 
     const int effective_k = std::min(k, g.n);
     const std::size_t node_count = static_cast<std::size_t>(g.n);
     const std::size_t att_dim = static_cast<std::size_t>(g.attnum);
 
-    const auto cache_path = build_cache_path(dataset_path, effective_k, node_count, att_dim);
+    const auto cache_path = build_cache_path(dataset_path, effective_k, node_count, att_dim, iter);
     double preprocessing_time = 0.0;
 
     if (node_count > 0 && att_dim > 0) {
