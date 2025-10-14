@@ -16,7 +16,7 @@ extern long long totDisCal,sucDisCal;
 
 namespace {
 constexpr std::uint32_t kBipolarCacheMagic = 0x4250524E; // 'BPRN'
-constexpr std::uint32_t kBipolarCacheVersion = 2;
+constexpr std::uint32_t kBipolarCacheVersion = 3;
 
 std::string sanitize_for_filename(const std::string& input) {
     std::string sanitized;
@@ -75,9 +75,9 @@ double BipolarPruning::build(const Graph<Node>& g) {
     
     // std::cout << "Building Bipolar Pruning index with k=" << k_ << "..." << std::endl;
     
-    // 1. Select pivots using farthest-point sampling
-    max_iterations_ = 0; // FPS is non-iterative but keep the field for cache compatibility
-    initialize_pivots_fps(g);
+    // 1. Select pivots using K-Means++ initialization followed by light refinement
+    max_iterations_ = 2; // Record refinement iterations for cache metadata
+    initialize_pivots_kmeanspp(g);
     
     size_t num_points = g.n;
     
@@ -523,6 +523,110 @@ bool BipolarPruning::query_distance_exceeds(int p_idx, int q_idx, double r_sq) {
     return res;//calc_distance_sqr(p.attributes, q.attributes) > r*r;
 }
 
+void BipolarPruning::initialize_pivots_kmeanspp(const Graph<Node>& g) {
+    const auto& nodes = g.nodes;
+    const std::size_t num_points = nodes.size();
+    const std::size_t dimensions = static_cast<std::size_t>(g.attnum);
+
+    pivots_.assign(k_, std::vector<double>(dimensions, 0.0));
+    point_to_pivot_map_.assign(num_points, 0);
+
+    if (num_points == 0 || k_ == 0) {
+        return;
+    }
+
+    std::uniform_int_distribution<std::size_t> first_dist(0, num_points - 1);
+    const std::size_t first_idx = first_dist(rng);
+    pivots_[0] = nodes[first_idx].attributes;
+
+    std::vector<double> min_dist_sq(num_points, std::numeric_limits<double>::max());
+    for (std::size_t i = 0; i < num_points; ++i) {
+        double dist_sq = calc_distance_sqr(nodes[i].attributes, pivots_[0]);
+        min_dist_sq[i] = dist_sq;
+    }
+    min_dist_sq[first_idx] = 0.0;
+
+    for (int pivot_idx = 1; pivot_idx < k_; ++pivot_idx) {
+        double weight_sum = std::accumulate(min_dist_sq.begin(), min_dist_sq.end(), 0.0);
+
+        if (weight_sum <= eps) {
+            // All points are effectively coincident with existing pivots.
+            pivots_[pivot_idx] = pivots_[pivot_idx - 1];
+            continue;
+        }
+
+        std::uniform_real_distribution<double> weight_dist(0.0, weight_sum);
+        double target = weight_dist(rng);
+        double cumulative = 0.0;
+        std::size_t chosen_idx = num_points - 1;
+
+        for (std::size_t i = 0; i < num_points; ++i) {
+            cumulative += min_dist_sq[i];
+            if (cumulative >= target) {
+                chosen_idx = i;
+                break;
+            }
+        }
+
+        pivots_[pivot_idx] = nodes[chosen_idx].attributes;
+
+        for (std::size_t i = 0; i < num_points; ++i) {
+            double dist_sq = calc_distance_sqr(nodes[i].attributes, pivots_[pivot_idx]);
+            if (dist_sq < min_dist_sq[i]) {
+                min_dist_sq[i] = dist_sq;
+            }
+        }
+    }
+
+    const int refinement_iters = 2;
+    for (int iter = 0; iter < refinement_iters; ++iter) {
+        std::vector<std::vector<double>> new_pivots(k_, std::vector<double>(dimensions, 0.0));
+        std::vector<int> cluster_counts(k_, 0);
+
+        for (std::size_t i = 0; i < num_points; ++i) {
+            double best_dist_sq = std::numeric_limits<double>::max();
+            int best_pivot_idx = 0;
+            for (int pivot_idx = 0; pivot_idx < k_; ++pivot_idx) {
+                double dist_sq = calc_distance_sqr(nodes[i].attributes, pivots_[pivot_idx]);
+                if (dist_sq < best_dist_sq) {
+                    best_dist_sq = dist_sq;
+                    best_pivot_idx = pivot_idx;
+                }
+            }
+            point_to_pivot_map_[i] = best_pivot_idx;
+            cluster_counts[best_pivot_idx]++;
+            auto& accum = new_pivots[best_pivot_idx];
+            for (std::size_t d = 0; d < dimensions; ++d) {
+                accum[d] += nodes[i].attributes[d];
+            }
+        }
+
+        for (int pivot_idx = 0; pivot_idx < k_; ++pivot_idx) {
+            if (cluster_counts[pivot_idx] > 0) {
+                const double inv = 1.0 / static_cast<double>(cluster_counts[pivot_idx]);
+                for (std::size_t d = 0; d < dimensions; ++d) {
+                    new_pivots[pivot_idx][d] *= inv;
+                }
+                pivots_[pivot_idx] = new_pivots[pivot_idx];
+            }
+        }
+    }
+
+    // Final assignment so the map matches the refined pivots
+    for (std::size_t i = 0; i < num_points; ++i) {
+        double best_dist_sq = std::numeric_limits<double>::max();
+        int best_pivot_idx = 0;
+        for (int pivot_idx = 0; pivot_idx < k_; ++pivot_idx) {
+            double dist_sq = calc_distance_sqr(nodes[i].attributes, pivots_[pivot_idx]);
+            if (dist_sq < best_dist_sq) {
+                best_dist_sq = dist_sq;
+                best_pivot_idx = pivot_idx;
+            }
+        }
+        point_to_pivot_map_[i] = best_pivot_idx;
+    }
+}
+
 void BipolarPruning::initialize_pivots_fps(const Graph<Node>& g) {
     const auto& nodes = g.nodes;
     const std::size_t num_points = nodes.size();
@@ -551,8 +655,6 @@ void BipolarPruning::initialize_pivots_fps(const Graph<Node>& g) {
     for (int pivot_idx = 1; pivot_idx < k_; ++pivot_idx) {
         auto farthest_it = std::max_element(min_dist_sq.begin(), min_dist_sq.end());
         const std::size_t farthest_idx = static_cast<std::size_t>(std::distance(min_dist_sq.begin(), farthest_it));
-
-		std::cout<<"farthest is:"<<*farthest_it<<std::endl;
 
         if (*farthest_it <= eps) {
             // Remaining points coincide with existing pivots; reuse previous centroid.
