@@ -6,6 +6,7 @@
 #include <random>
 #include <limits>
 #include <cmath>
+#include <numeric>
 #include <iostream>
 #include <fstream>
 #include <filesystem>
@@ -15,7 +16,7 @@ extern long long totDisCal,sucDisCal;
 
 namespace {
 constexpr std::uint32_t kBipolarCacheMagic = 0x4250524E; // 'BPRN'
-constexpr std::uint32_t kBipolarCacheVersion = 1;
+constexpr std::uint32_t kBipolarCacheVersion = 2;
 
 std::string sanitize_for_filename(const std::string& input) {
     std::string sanitized;
@@ -74,8 +75,9 @@ double BipolarPruning::build(const Graph<Node>& g) {
     
     // std::cout << "Building Bipolar Pruning index with k=" << k_ << "..." << std::endl;
     
-    // 1. Run K-means to find k pivots
-    run_kmeans(g);
+    // 1. Select pivots using farthest-point sampling
+    max_iterations_ = 0; // FPS is non-iterative but keep the field for cache compatibility
+    initialize_pivots_fps(g);
     
     size_t num_points = g.n;
     
@@ -519,6 +521,69 @@ bool BipolarPruning::query_distance_exceeds(int p_idx, int q_idx, double r_sq) {
 	bool res=calcDisSqr(p,q)>r_sq;
 	sucDisCal+=res^1;
     return res;//calc_distance_sqr(p.attributes, q.attributes) > r*r;
+}
+
+void BipolarPruning::initialize_pivots_fps(const Graph<Node>& g) {
+    const auto& nodes = g.nodes;
+    const std::size_t num_points = nodes.size();
+    const std::size_t dimensions = static_cast<std::size_t>(g.attnum);
+
+    pivots_.assign(k_, std::vector<double>(dimensions, 0.0));
+    point_to_pivot_map_.assign(num_points, 0);
+
+    if (num_points == 0 || k_ == 0) {
+        return;
+    }
+
+    std::uniform_int_distribution<std::size_t> sample_first(0, num_points - 1);
+    const std::size_t first_idx = sample_first(rng);
+    pivots_[0] = nodes[first_idx].attributes;
+
+    std::vector<double> min_dist_sq(num_points, std::numeric_limits<double>::max());
+    for (std::size_t i = 0; i < num_points; ++i) {
+        if (i == first_idx) {
+            min_dist_sq[i] = 0.0;
+        } else {
+            min_dist_sq[i] = calc_distance_sqr(nodes[i].attributes, pivots_[0]);
+        }
+    }
+
+    for (int pivot_idx = 1; pivot_idx < k_; ++pivot_idx) {
+        auto farthest_it = std::max_element(min_dist_sq.begin(), min_dist_sq.end());
+        const std::size_t farthest_idx = static_cast<std::size_t>(std::distance(min_dist_sq.begin(), farthest_it));
+
+		std::cout<<"farthest is:"<<*farthest_it<<std::endl;
+
+        if (*farthest_it <= eps) {
+            // Remaining points coincide with existing pivots; reuse previous centroid.
+            pivots_[pivot_idx] = pivots_[pivot_idx - 1];
+            min_dist_sq[farthest_idx] = 0.0;
+            continue;
+        }
+
+        pivots_[pivot_idx] = nodes[farthest_idx].attributes;
+        min_dist_sq[farthest_idx] = 0.0;
+
+        for (std::size_t i = 0; i < num_points; ++i) {
+            double dist_sq = calc_distance_sqr(nodes[i].attributes, pivots_[pivot_idx]);
+            if (dist_sq < min_dist_sq[i]) {
+                min_dist_sq[i] = dist_sq;
+            }
+        }
+    }
+
+    for (std::size_t i = 0; i < num_points; ++i) {
+        double best_dist_sq = std::numeric_limits<double>::max();
+        int best_pivot_idx = 0;
+        for (int pivot_idx = 0; pivot_idx < k_; ++pivot_idx) {
+            double dist_sq = calc_distance_sqr(nodes[i].attributes, pivots_[pivot_idx]);
+            if (dist_sq < best_dist_sq) {
+                best_dist_sq = dist_sq;
+                best_pivot_idx = pivot_idx;
+            }
+        }
+        point_to_pivot_map_[i] = best_pivot_idx;
+    }
 }
 
 void BipolarPruning::run_kmeans(const Graph<Node>& g) {

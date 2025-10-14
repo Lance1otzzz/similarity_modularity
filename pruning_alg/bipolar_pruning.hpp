@@ -40,8 +40,9 @@ private:
         double d_p1_p2
     ) const;
     
-    // K-means clustering to find pivots
+    // Initialize pivots via K-means or farthest-point sampling
     void run_kmeans(const Graph<Node>& g);
+    void initialize_pivots_fps(const Graph<Node>& g);
     
     // Calculate squared Euclidean distance between two attribute vectors
     double calc_distance_sqr(const std::vector<double>& a, const std::vector<double>& b) const;
