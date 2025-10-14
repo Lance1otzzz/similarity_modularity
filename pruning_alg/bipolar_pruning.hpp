@@ -44,6 +44,7 @@ private:
     void run_kmeans(const Graph<Node>& g);
     void initialize_pivots_kmeanspp(const Graph<Node>& g);
     void initialize_pivots_fps(const Graph<Node>& g);
+    void initialize_pivots_minibatch(const Graph<Node>& g, int batch_size = 256, int epochs = 20);
     
     // Calculate squared Euclidean distance between two attribute vectors
     double calc_distance_sqr(const std::vector<double>& a, const std::vector<double>& b) const;

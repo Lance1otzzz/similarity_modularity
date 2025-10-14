@@ -75,9 +75,11 @@ double BipolarPruning::build(const Graph<Node>& g) {
     
     // std::cout << "Building Bipolar Pruning index with k=" << k_ << "..." << std::endl;
     
-    // 1. Select pivots using K-Means++ initialization followed by light refinement
-    max_iterations_ = 2; // Record refinement iterations for cache metadata
-    initialize_pivots_kmeanspp(g);
+    // 1. Select pivots using mini-batch refinement after random seeding
+    if (max_iterations_ <= 0) {
+        max_iterations_ = 20;
+    }
+    initialize_pivots_minibatch(g, -1, max_iterations_);
     
     size_t num_points = g.n;
     
@@ -685,6 +687,104 @@ void BipolarPruning::initialize_pivots_fps(const Graph<Node>& g) {
             }
         }
         point_to_pivot_map_[i] = best_pivot_idx;
+    }
+}
+
+void BipolarPruning::initialize_pivots_minibatch(const Graph<Node>& g, int batch_size, int epochs) {
+    const auto& nodes = g.nodes;
+    const std::size_t num_points = nodes.size();
+    const std::size_t dimensions = static_cast<std::size_t>(g.attnum);
+
+    pivots_.assign(k_, std::vector<double>(dimensions, 0.0));
+    point_to_pivot_map_.assign(num_points, 0);
+
+    if (num_points == 0 || k_ == 0) {
+        return;
+    }
+
+    // Adaptive batch size: ~5% of data, clamped to [256, 20000]
+    if (batch_size <= 0) {
+        batch_size = static_cast<int>(
+            std::max<std::size_t>(256,
+                std::min<std::size_t>(20000,
+                    std::max<std::size_t>(1, num_points / 20))));
+    } else {
+        batch_size = std::min<int>(batch_size, static_cast<int>(num_points));
+    }
+    epochs = std::max(1, epochs);
+
+    // Initialize pivots by sampling k distinct nodes
+    std::vector<std::size_t> indices(num_points);
+    std::iota(indices.begin(), indices.end(), 0);
+    std::shuffle(indices.begin(), indices.end(), rng);
+
+    for (int i = 0; i < k_; ++i) {
+        const std::size_t idx = indices[i % num_points];
+        pivots_[i] = nodes[idx].attributes;
+    }
+
+    std::vector<int> cluster_visits(k_, 0);
+    std::vector<std::size_t> batch_indices(batch_size);
+
+    std::uniform_int_distribution<std::size_t> sample_dist(0, num_points - 1);
+
+    for (int epoch = 0; epoch < epochs; ++epoch) {
+        for (int b = 0; b < batch_size; ++b) {
+            batch_indices[b] = sample_dist(rng);
+        }
+
+        for (std::size_t idx : batch_indices) {
+            const auto& point = nodes[idx].attributes;
+
+            double best_dist_sq = std::numeric_limits<double>::max();
+            int best_pivot = 0;
+            for (int pivot_idx = 0; pivot_idx < k_; ++pivot_idx) {
+                double dist_sq = calc_distance_sqr(point, pivots_[pivot_idx]);
+                if (dist_sq < best_dist_sq) {
+                    best_dist_sq = dist_sq;
+                    best_pivot = pivot_idx;
+                }
+            }
+
+            cluster_visits[best_pivot] += 1;
+            double eta = std::max(1.0 / static_cast<double>(cluster_visits[best_pivot]), 0.05);
+            auto& center = pivots_[best_pivot];
+            for (std::size_t d = 0; d < dimensions; ++d) {
+                center[d] = (1.0 - eta) * center[d] + eta * point[d];
+            }
+        }
+    }
+
+    // Final full assignment and centroid recomputation for consistency
+    std::vector<std::vector<double>> accumulators(k_, std::vector<double>(dimensions, 0.0));
+    std::vector<int> counts(k_, 0);
+
+    for (std::size_t i = 0; i < num_points; ++i) {
+        double best_dist_sq = std::numeric_limits<double>::max();
+        int best_pivot_idx = 0;
+        for (int pivot_idx = 0; pivot_idx < k_; ++pivot_idx) {
+            double dist_sq = calc_distance_sqr(nodes[i].attributes, pivots_[pivot_idx]);
+            if (dist_sq < best_dist_sq) {
+                best_dist_sq = dist_sq;
+                best_pivot_idx = pivot_idx;
+            }
+        }
+        point_to_pivot_map_[i] = best_pivot_idx;
+        auto& accum = accumulators[best_pivot_idx];
+        for (std::size_t d = 0; d < dimensions; ++d) {
+            accum[d] += nodes[i].attributes[d];
+        }
+        counts[best_pivot_idx]++;
+    }
+
+    for (int pivot_idx = 0; pivot_idx < k_; ++pivot_idx) {
+        if (counts[pivot_idx] > 0) {
+            const double inv = 1.0 / static_cast<double>(counts[pivot_idx]);
+            for (std::size_t d = 0; d < dimensions; ++d) {
+                accumulators[pivot_idx][d] *= inv;
+            }
+            pivots_[pivot_idx] = accumulators[pivot_idx];
+        }
     }
 }
 
