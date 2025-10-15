@@ -1,6 +1,6 @@
 CC=g++
 #CC=clang++
-CFLAGS = -O3 -Wall -Wno-sign-compare -Wextra
+CFLAGS = -std=c++20 -O3 -Wall -Wno-sign-compare -Wextra
 DEBUGFLAGS = -O0 -g -Wall -Wextra -Wno-sign-compare -Ddebug
 
 # 定义源文件和头文件

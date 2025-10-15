@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-void louvain_pp(Graph<Node> &g, double r, bool (*checkDisSqr)(const Node&,const Node&,const double&)) //edge node to community
+void louvain_pp(Graph<Node> &g, double r, bool (*checkDisSqr)(const Node&,const Node&,const double&), bool output_final_partition = false) //edge node to community
 {
 	const double rr=r*r;
 	double mm=g.m;
@@ -317,5 +317,20 @@ void louvain_pp(Graph<Node> &g, double r, bool (*checkDisSqr)(const Node&,const 
 	//std::cout<<"calculated delta_Q: "<<cntCalDelta_Q<<" and skipped "<<skipped<<" times"<<std::endl;
 
 	std::cout<<"Louvain_heur Modularity = "<<calcModularity(g,hg.nodes)<<std::endl;
+	if (output_final_partition)
+	{
+		std::cout<<"Final partition:"<<std::endl;
+		for (size_t community_id = 0; community_id < hg.nodes.size(); ++community_id)
+		{
+			const auto &members = hg.nodes[community_id];
+			if (members.empty()) continue;
+			std::cout<<"Community "<<community_id<<":";
+			for (int node_id : members)
+			{
+				std::cout<<' '<<node_id;
+			}
+			std::cout<<std::endl;
+		}
+	}
 	//std::cout<<"check if graph similarity meets the restraint: "<<graphCheckDis(g,hg.nodes,rr)<<std::endl;
 }

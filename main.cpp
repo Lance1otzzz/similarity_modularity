@@ -154,7 +154,7 @@ int main(int argc, char** argv)
 		case 15:
 		{
 			cout<<"!!!!!start pp with Triangle Hybrid Pruning!!!!!"<<endl;
-			louvain_pp(g,r,checkDisSqr_with_triangle_hybrid);
+			louvain_pp(g,r,checkDisSqr_with_triangle_hybrid,true);
 			cout<<"pp with Triangle Hybrid Pruning";
 			break;
 		}
