@@ -40,11 +40,10 @@ private:
         double d_p1_p2
     ) const;
     
-    // Initialize pivots via K-means, K-Means++, or farthest-point sampling
+    // Initialize pivots via standard or specialized K-means heuristics
     void run_kmeans(const Graph<Node>& g);
-    void initialize_pivots_kmeanspp(const Graph<Node>& g);
-    void initialize_pivots_fps(const Graph<Node>& g);
-    void initialize_pivots_minibatch(const Graph<Node>& g, int batch_size = 256, int epochs = 20);
+    void run_kmeans_elkan(const Graph<Node>& g);
+    void initialize_pivots_top_degree(const Graph<Node>& g, int iterations);
     
     // Calculate squared Euclidean distance between two attribute vectors
     double calc_distance_sqr(const std::vector<double>& a, const std::vector<double>& b) const;
