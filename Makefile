@@ -5,14 +5,12 @@ DEBUGFLAGS = -O0 -g -Wall -Wextra -Wno-sign-compare -Ddebug
 
 # 定义源文件和头文件
 SRCS = main.cpp \
-       pruning_alg/kmeans_preprocessing.cpp \
        pruning_alg/triangle_pruning.cpp \
        pruning_alg/bipolar_pruning.cpp
 
 HEADERS = graph.hpp \
           defines.hpp \
           louvain.hpp \
-          pruning_alg/kmeans_preprocessing.hpp \
           pruning_alg/triangle_pruning.hpp \
           pruning_alg/bipolar_pruning.hpp \
 		  louvain_plus.hpp \

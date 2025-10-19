@@ -1,15 +1,21 @@
 #pragma once
 
 #include "../graph.hpp"
-#include "kmeans_preprocessing.hpp"
 #include <vector>
 #include <utility>
 #include <string>
 
+enum class BipolarKMeansVariant {
+    Lloyd,
+    Elkan,
+    Hamerly,
+    Yinyang
+};
+
 // Bipolar pruning algorithm using two-pivot bounds
 class BipolarPruning {
 public:
-    BipolarPruning(int k = 10, int max_iterations = 10);
+    BipolarPruning(int k = 10, int max_iterations = 5, BipolarKMeansVariant variant = BipolarKMeansVariant::Yinyang);
     
     // Build the bipolar pruning index
     double build(const Graph<Node>& g);
@@ -43,6 +49,8 @@ private:
     // Initialize pivots via standard or specialized K-means heuristics
     void run_kmeans(const Graph<Node>& g);
     void run_kmeans_elkan(const Graph<Node>& g);
+    void run_kmeans_hamerly(const Graph<Node>& g);
+    void run_kmeans_yinyang(const Graph<Node>& g);
     void initialize_pivots_top_degree(const Graph<Node>& g, int iterations);
     
     // Calculate squared Euclidean distance between two attribute vectors
@@ -65,6 +73,8 @@ private:
     mutable int pruning_count_;        // Number of successful prunings
     mutable int total_queries_;        // Total number of queries
     mutable int full_calculations_;    // Number of full distance calculations
+
+    BipolarKMeansVariant kmeans_variant_;
 };
 
 // Global bipolar pruning instance
@@ -83,7 +93,7 @@ bool checkDisSqr_with_triangle_hybrid(const Node& x, const Node& y, const double
 bool checkDisSqr_with_both_pruning(const Node& x, const Node& y, const double& rr);
 
 // Function to build bipolar pruning index and return preprocessing time
-double build_bipolar_pruning_index(const Graph<Node>& g, const std::string& dataset_path, int k, int iter);
+double build_bipolar_pruning_index(const Graph<Node>& g, const std::string& dataset_path, int k, int iter, BipolarKMeansVariant variant = BipolarKMeansVariant::Yinyang);
 
 // Function to cleanup bipolar pruning index
 void cleanup_bipolar_pruning_index();

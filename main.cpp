@@ -7,10 +7,11 @@
 #include "louvain_pp.hpp"
 //#include "louvain_pruning.hpp"
 #include "pure_louvain.hpp"
-#include "pruning_alg/kmeans_preprocessing.hpp"
 #include "pruning_alg/triangle_pruning.hpp"
 #include "pruning_alg/bipolar_pruning.hpp"
 // Removed S0/S1 variants (algorithms 17/18) per simplification request
+#include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <chrono>
 #include <cstdlib>
@@ -65,10 +66,22 @@ int main(int argc, char** argv)
 	cout<<"-----------------------------------"<<endl;
 
 	double preprocessing_time=0;
+	int bipolar_k = 0;
+	if (g.n > 0) {
+		const double avg_degree = (g.n > 0) ? (2.0 * static_cast<double>(g.m)) / static_cast<double>(g.n) : 0.0;
+		if (avg_degree > 0.0) {
+			const double scaled_nodes = static_cast<double>(g.n) * (avg_degree / (avg_degree + 20.0));
+			const double suggested_k = std::sqrt(scaled_nodes);
+			bipolar_k = static_cast<int>(std::round(suggested_k));
+			bipolar_k = std::max(1, std::min(bipolar_k, g.n));
+		} else {
+			bipolar_k = 1;
+		}
+	}
 	if (algorithm==7||algorithm==12||algorithm==13||algorithm==14||algorithm==15)
 	{
 		// Bipolar pruning preprocessing
-		preprocessing_time = build_bipolar_pruning_index(g, dataset_path, sqrt(g.n), 0);
+		preprocessing_time = build_bipolar_pruning_index(g, dataset_path, bipolar_k, 0, BipolarKMeansVariant::Yinyang);
 		cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
 	}
 	totDisCal=0;

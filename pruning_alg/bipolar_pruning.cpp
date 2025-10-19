@@ -16,7 +16,21 @@ extern long long totDisCal,sucDisCal;
 
 namespace {
 constexpr std::uint32_t kBipolarCacheMagic = 0x4250524E; // 'BPRN'
-constexpr std::uint32_t kBipolarCacheVersion = 3;
+constexpr std::uint32_t kBipolarCacheVersion = 4;
+
+const char* variant_tag(BipolarKMeansVariant variant) {
+    switch (variant) {
+        case BipolarKMeansVariant::Lloyd:
+            return "lloyd";
+        case BipolarKMeansVariant::Elkan:
+            return "elkan";
+        case BipolarKMeansVariant::Hamerly:
+            return "hamerly";
+        case BipolarKMeansVariant::Yinyang:
+            return "yinyang";
+    }
+    return "unknown";
+}
 
 std::string sanitize_for_filename(const std::string& input) {
     std::string sanitized;
@@ -39,13 +53,15 @@ std::filesystem::path build_cache_path(const std::string& dataset_path,
                                        int effective_k,
                                        std::size_t node_count,
                                        std::size_t att_dim,
-                                       int max_iterations) {
+                                       int max_iterations,
+                                       BipolarKMeansVariant variant) {
     std::filesystem::path base_dir = std::filesystem::path("cache");
     std::string dataset_key = sanitize_for_filename(dataset_path);
     std::string filename = dataset_key + "_k" + std::to_string(effective_k) +
                            "_n" + std::to_string(node_count) +
                            "_d" + std::to_string(att_dim) +
-                           "_iter" + std::to_string(std::max(0, max_iterations)) + ".bin";
+                           "_iter" + std::to_string(std::max(0, max_iterations)) +
+                           "_alg" + variant_tag(variant) + ".bin";
     return base_dir / filename;
 }
 }
@@ -53,9 +69,10 @@ std::filesystem::path build_cache_path(const std::string& dataset_path,
 // Global bipolar pruning instance
 BipolarPruning* g_bipolar_pruning = nullptr;
 
-BipolarPruning::BipolarPruning(int k, int max_iterations)
+BipolarPruning::BipolarPruning(int k, int max_iterations, BipolarKMeansVariant variant)
     : k_(k), max_iterations_(max_iterations), graph_(nullptr),
-      pruning_count_(0), total_queries_(0), full_calculations_(0) {
+      pruning_count_(0), total_queries_(0), full_calculations_(0),
+      kmeans_variant_(variant) {
 }
 
 double BipolarPruning::build(const Graph<Node>& g) {
@@ -75,10 +92,23 @@ double BipolarPruning::build(const Graph<Node>& g) {
     
     // std::cout << "Building Bipolar Pruning index with k=" << k_ << "..." << std::endl;
     
-    // 1. Run Elkan-accelerated K-means over all points
-    int iterations = (max_iterations_ > 0) ? max_iterations_ : 20;
+    // 1. Run K-means using the selected acceleration strategy
+    int iterations = (max_iterations_ > 0) ? max_iterations_ : 5;
     max_iterations_ = iterations;
-    run_kmeans_elkan(g);
+    switch (kmeans_variant_) {
+        case BipolarKMeansVariant::Lloyd:
+            run_kmeans(g);
+            break;
+        case BipolarKMeansVariant::Elkan:
+            run_kmeans_elkan(g);
+            break;
+        case BipolarKMeansVariant::Hamerly:
+            run_kmeans_hamerly(g);
+            break;
+        case BipolarKMeansVariant::Yinyang:
+            run_kmeans_yinyang(g);
+            break;
+    }
     
     size_t num_points = g.n;
     
@@ -125,6 +155,7 @@ bool BipolarPruning::load_from_cache(const Graph<Node>& g, const std::string& ca
         std::uint32_t version;
         std::int32_t k;
         std::int32_t max_iterations;
+        std::int32_t variant;
         std::uint64_t node_count;
         std::uint64_t att_dim;
         double preprocessing_time;
@@ -138,6 +169,19 @@ bool BipolarPruning::load_from_cache(const Graph<Node>& g, const std::string& ca
 
     if (header.magic != kBipolarCacheMagic || header.version != kBipolarCacheVersion) {
         std::cout << "[Bipolar] Cache load failed (magic/version mismatch): " << cache_path << std::endl;
+        return false;
+    }
+
+    if (header.variant < static_cast<std::int32_t>(BipolarKMeansVariant::Lloyd) ||
+        header.variant > static_cast<std::int32_t>(BipolarKMeansVariant::Yinyang)) {
+        std::cout << "[Bipolar] Cache load failed (invalid variant id): " << cache_path << std::endl;
+        return false;
+    }
+
+    if (header.variant != static_cast<std::int32_t>(kmeans_variant_)) {
+        std::cout << "[Bipolar] Cache load skipped (variant mismatch). cached variant="
+                  << header.variant << ", requested="
+                  << static_cast<int>(kmeans_variant_) << std::endl;
         return false;
     }
 
@@ -160,6 +204,7 @@ bool BipolarPruning::load_from_cache(const Graph<Node>& g, const std::string& ca
 
     k_ = header.k;
     max_iterations_ = header.max_iterations;
+    kmeans_variant_ = static_cast<BipolarKMeansVariant>(header.variant);
 
     point_to_pivot_map_.assign(node_count, 0);
     std::vector<std::int32_t> pivot_map_buffer(node_count);
@@ -246,6 +291,7 @@ void BipolarPruning::save_to_cache(const Graph<Node>& g, const std::string& cach
         std::uint32_t version;
         std::int32_t k;
         std::int32_t max_iterations;
+        std::int32_t variant;
         std::uint64_t node_count;
         std::uint64_t att_dim;
         double preprocessing_time;
@@ -255,6 +301,7 @@ void BipolarPruning::save_to_cache(const Graph<Node>& g, const std::string& cach
     header.version = kBipolarCacheVersion;
     header.k = static_cast<std::int32_t>(k_);
     header.max_iterations = max_iterations_;
+    header.variant = static_cast<std::int32_t>(kmeans_variant_);
     header.node_count = static_cast<std::uint64_t>(g.n);
     header.att_dim = static_cast<std::uint64_t>(g.attnum);
     header.preprocessing_time = preprocessing_time;
@@ -583,6 +630,382 @@ void BipolarPruning::run_kmeans(const Graph<Node>& g) {
             }
         }
     }
+}
+
+void BipolarPruning::run_kmeans_hamerly(const Graph<Node>& g) {
+    const auto& nodes = g.nodes;
+    const std::size_t num_points = nodes.size();
+    const std::size_t dimensions = static_cast<std::size_t>(g.attnum);
+
+    pivots_.assign(k_, std::vector<double>(dimensions, 0.0));
+    point_to_pivot_map_.assign(num_points, 0);
+
+    if (num_points == 0 || k_ == 0) {
+        return;
+    }
+
+    std::vector<std::size_t> indices(num_points);
+    std::iota(indices.begin(), indices.end(), 0);
+    std::shuffle(indices.begin(), indices.end(), rng);
+    for (int i = 0; i < k_; ++i) {
+        pivots_[i] = nodes[indices[i % num_points]].attributes;
+    }
+
+    std::vector<int> assignments(num_points, 0);
+    std::vector<double> upper_bounds(num_points, 0.0);
+    std::vector<double> lower_bounds(num_points, 0.0);
+
+    for (std::size_t i = 0; i < num_points; ++i) {
+        double best = std::numeric_limits<double>::max();
+        double second = std::numeric_limits<double>::max();
+        int best_idx = 0;
+        for (int j = 0; j < k_; ++j) {
+            double dist = std::sqrt(calc_distance_sqr(nodes[i].attributes, pivots_[j]));
+            if (dist < best) {
+                second = best;
+                best = dist;
+                best_idx = j;
+            } else if (dist < second) {
+                second = dist;
+            }
+        }
+        assignments[i] = best_idx;
+        upper_bounds[i] = best;
+        lower_bounds[i] = (k_ > 1) ? second : 0.0;
+    }
+
+    std::vector<std::vector<double>> new_centroids(k_, std::vector<double>(dimensions, 0.0));
+    std::vector<int> cluster_counts(k_, 0);
+    std::vector<double> centroid_shifts(k_, 0.0);
+    std::vector<double> min_half_dist(k_, 0.0);
+
+    const int iterations = std::max(1, max_iterations_);
+    bool converged = false;
+
+    for (int iter = 0; iter < iterations; ++iter) {
+        std::cout << "[Bipolar::Hamerly] Iteration " << (iter + 1) << "/" << iterations << std::endl;
+
+        for (int c = 0; c < k_; ++c) {
+            double min_dist = std::numeric_limits<double>::infinity();
+            for (int other = 0; other < k_; ++other) {
+                if (c == other) continue;
+                double dist = std::sqrt(calc_distance_sqr(pivots_[c], pivots_[other]));
+                if (dist < min_dist) {
+                    min_dist = dist;
+                }
+            }
+            min_half_dist[c] = 0.5 * min_dist;
+        }
+
+        bool any_change = false;
+        for (std::size_t i = 0; i < num_points; ++i) {
+            int assign = assignments[i];
+            double ub = upper_bounds[i];
+            double lb = lower_bounds[i];
+            double bound = std::max(lb, min_half_dist[assign]);
+
+            if (ub <= bound) {
+                continue;
+            }
+
+            ub = std::sqrt(calc_distance_sqr(nodes[i].attributes, pivots_[assign]));
+            upper_bounds[i] = ub;
+            if (ub <= bound) {
+                continue;
+            }
+
+            double new_lower = std::numeric_limits<double>::infinity();
+            for (int c = 0; c < k_; ++c) {
+                if (c == assign) continue;
+                double dist = std::sqrt(calc_distance_sqr(nodes[i].attributes, pivots_[c]));
+                if (dist < ub) {
+                    new_lower = ub;
+                    ub = dist;
+                    assign = c;
+                    any_change = true;
+                } else if (dist < new_lower) {
+                    new_lower = dist;
+                }
+            }
+
+            assignments[i] = assign;
+            upper_bounds[i] = ub;
+            if (k_ > 1) {
+                lower_bounds[i] = std::isfinite(new_lower) ? new_lower : lb;
+                if (lower_bounds[i] < 0.0) lower_bounds[i] = 0.0;
+            } else {
+                lower_bounds[i] = 0.0;
+            }
+        }
+
+        for (int c = 0; c < k_; ++c) {
+            std::fill(new_centroids[c].begin(), new_centroids[c].end(), 0.0);
+            cluster_counts[c] = 0;
+        }
+
+        for (std::size_t i = 0; i < num_points; ++i) {
+            int assign = assignments[i];
+            cluster_counts[assign] += 1;
+            const auto& attrs = nodes[i].attributes;
+            for (std::size_t d = 0; d < dimensions; ++d) {
+                new_centroids[assign][d] += attrs[d];
+            }
+        }
+
+        for (int c = 0; c < k_; ++c) {
+            if (cluster_counts[c] > 0) {
+                double inv = 1.0 / static_cast<double>(cluster_counts[c]);
+                for (std::size_t d = 0; d < dimensions; ++d) {
+                    new_centroids[c][d] *= inv;
+                }
+            } else {
+                new_centroids[c] = pivots_[c];
+            }
+        }
+
+        double max_shift = 0.0;
+        for (int c = 0; c < k_; ++c) {
+            double shift = std::sqrt(calc_distance_sqr(pivots_[c], new_centroids[c]));
+            centroid_shifts[c] = shift;
+            if (shift > max_shift) {
+                max_shift = shift;
+            }
+        }
+
+        pivots_ = new_centroids;
+
+        for (std::size_t i = 0; i < num_points; ++i) {
+            int assign = assignments[i];
+            upper_bounds[i] += centroid_shifts[assign];
+            double updated_lower = lower_bounds[i] - max_shift;
+            lower_bounds[i] = (updated_lower > 0.0) ? updated_lower : 0.0;
+        }
+
+        if (!any_change && max_shift <= 1e-6) {
+            std::cout << "[Bipolar::Hamerly] Converged after " << (iter + 1)
+                      << " iterations (stable assignments, max centroid shift = " << max_shift << ")" << std::endl;
+            converged = true;
+            break;
+        }
+        if (max_shift <= 1e-8) {
+            std::cout << "[Bipolar::Hamerly] Converged after " << (iter + 1)
+                      << " iterations (max centroid shift = " << max_shift << ")" << std::endl;
+            converged = true;
+            break;
+        }
+    }
+
+    if (!converged) {
+        std::cout << "[Bipolar::Hamerly] Reached iteration limit (" << iterations
+                  << ") without full convergence." << std::endl;
+    }
+
+    point_to_pivot_map_.assign(assignments.begin(), assignments.end());
+}
+
+void BipolarPruning::run_kmeans_yinyang(const Graph<Node>& g) {
+    const auto& nodes = g.nodes;
+    const std::size_t num_points = nodes.size();
+    const std::size_t dimensions = static_cast<std::size_t>(g.attnum);
+
+    pivots_.assign(k_, std::vector<double>(dimensions, 0.0));
+    point_to_pivot_map_.assign(num_points, 0);
+
+    if (num_points == 0 || k_ == 0) {
+        return;
+    }
+
+    std::vector<std::size_t> indices(num_points);
+    std::iota(indices.begin(), indices.end(), 0);
+    std::shuffle(indices.begin(), indices.end(), rng);
+    for (int i = 0; i < k_; ++i) {
+        pivots_[i] = nodes[indices[i % num_points]].attributes;
+    }
+
+    int num_groups = std::min(k_, 10);
+    if (num_groups <= 0) num_groups = 1;
+
+    std::vector<int> center_to_group(k_, 0);
+    std::vector<std::vector<int>> group_to_centers(num_groups);
+    for (int c = 0; c < k_; ++c) {
+        int group_idx = c % num_groups;
+        center_to_group[c] = group_idx;
+        group_to_centers[group_idx].push_back(c);
+    }
+
+    std::vector<int> assignments(num_points, 0);
+    std::vector<double> upper_bounds(num_points, 0.0);
+    std::vector<std::vector<double>> group_bounds(
+        num_points, std::vector<double>(num_groups, std::numeric_limits<double>::infinity()));
+    std::vector<std::vector<float>> center_lower_bounds(
+        num_points, std::vector<float>(k_, 0.0f));
+
+    for (std::size_t i = 0; i < num_points; ++i) {
+        const auto& attrs = nodes[i].attributes;
+        double best = std::numeric_limits<double>::infinity();
+        int best_center = 0;
+        for (int c = 0; c < k_; ++c) {
+            double dist = std::sqrt(calc_distance_sqr(attrs, pivots_[c]));
+            center_lower_bounds[i][c] = static_cast<float>(dist);
+            int group_idx = center_to_group[c];
+            if (dist < group_bounds[i][group_idx]) {
+                group_bounds[i][group_idx] = dist;
+            }
+            if (dist < best) {
+                best = dist;
+                best_center = c;
+            }
+        }
+        assignments[i] = best_center;
+        upper_bounds[i] = best;
+    }
+
+    std::vector<std::vector<double>> new_centroids(k_, std::vector<double>(dimensions, 0.0));
+    std::vector<int> cluster_counts(k_, 0);
+    std::vector<double> centroid_shifts(k_, 0.0);
+
+    const int iterations = std::max(1, max_iterations_);
+    bool converged = false;
+
+    for (int iter = 0; iter < iterations; ++iter) {
+        std::cout << "[Bipolar::Yinyang] Iteration " << (iter + 1) << "/" << iterations << std::endl;
+
+        for (int c = 0; c < k_; ++c) {
+            std::fill(new_centroids[c].begin(), new_centroids[c].end(), 0.0);
+            cluster_counts[c] = 0;
+        }
+
+        bool any_change = false;
+
+        for (std::size_t i = 0; i < num_points; ++i) {
+            int assign = assignments[i];
+            const auto& attrs = nodes[i].attributes;
+
+            double best_dist = std::sqrt(calc_distance_sqr(attrs, pivots_[assign]));
+            center_lower_bounds[i][assign] = static_cast<float>(best_dist);
+            int best_center = assign;
+            int best_group = center_to_group[best_center];
+
+            upper_bounds[i] = best_dist;
+
+            for (int g_idx = 0; g_idx < num_groups; ++g_idx) {
+                if (g_idx != best_group) {
+                    double group_lb = group_bounds[i][g_idx];
+                    if (best_dist <= group_lb) {
+                        continue;
+                    }
+                }
+
+                for (int center : group_to_centers[g_idx]) {
+                    if (center == best_center && g_idx == best_group) {
+                        continue;
+                    }
+
+                    double lower = static_cast<double>(center_lower_bounds[i][center]);
+                    if (best_dist <= lower) continue;
+
+                    double dist = std::sqrt(calc_distance_sqr(attrs, pivots_[center]));
+                    center_lower_bounds[i][center] = static_cast<float>(dist);
+                    if (dist < group_bounds[i][g_idx]) {
+                        group_bounds[i][g_idx] = dist;
+                    }
+                    if (dist + 1e-12 < best_dist) {
+                        best_dist = dist;
+                        best_center = center;
+                        best_group = center_to_group[best_center];
+                    }
+                }
+            }
+
+            if (best_center != assign) {
+                any_change = true;
+            }
+
+            assignments[i] = best_center;
+            upper_bounds[i] = best_dist;
+            group_bounds[i][best_group] = std::min(group_bounds[i][best_group], best_dist);
+
+            for (int g_idx = 0; g_idx < num_groups; ++g_idx) {
+                if (group_to_centers[g_idx].empty()) {
+                    group_bounds[i][g_idx] = 0.0;
+                    continue;
+                }
+                double min_bound = std::numeric_limits<double>::infinity();
+                for (int center : group_to_centers[g_idx]) {
+                    double bound_val = static_cast<double>(center_lower_bounds[i][center]);
+                    if (bound_val < min_bound) {
+                        min_bound = bound_val;
+                    }
+                }
+                group_bounds[i][g_idx] = min_bound;
+            }
+
+            cluster_counts[assignments[i]] += 1;
+            auto& accum = new_centroids[assignments[i]];
+            for (std::size_t d = 0; d < dimensions; ++d) {
+                accum[d] += attrs[d];
+            }
+        }
+
+        double max_shift = 0.0;
+        for (int c = 0; c < k_; ++c) {
+            if (cluster_counts[c] > 0) {
+                double inv = 1.0 / static_cast<double>(cluster_counts[c]);
+                for (std::size_t d = 0; d < dimensions; ++d) {
+                    new_centroids[c][d] *= inv;
+                }
+            } else {
+                new_centroids[c] = pivots_[c];
+            }
+            double shift = std::sqrt(calc_distance_sqr(pivots_[c], new_centroids[c]));
+            centroid_shifts[c] = shift;
+            if (shift > max_shift) {
+                max_shift = shift;
+            }
+        }
+
+        pivots_ = new_centroids;
+
+        for (std::size_t i = 0; i < num_points; ++i) {
+            upper_bounds[i] += centroid_shifts[assignments[i]];
+            for (int g_idx = 0; g_idx < num_groups; ++g_idx) {
+                if (group_to_centers[g_idx].empty()) {
+                    group_bounds[i][g_idx] = 0.0;
+                    continue;
+                }
+                double min_bound = std::numeric_limits<double>::infinity();
+                for (int center : group_to_centers[g_idx]) {
+                    double updated = static_cast<double>(center_lower_bounds[i][center]) - centroid_shifts[center];
+                    if (updated < 0.0) updated = 0.0;
+                    center_lower_bounds[i][center] = static_cast<float>(updated);
+                    if (updated < min_bound) {
+                        min_bound = updated;
+                    }
+                }
+                group_bounds[i][g_idx] = min_bound;
+            }
+        }
+
+        if (!any_change && max_shift <= 1e-6) {
+            std::cout << "[Bipolar::Yinyang] Converged after " << (iter + 1)
+                      << " iterations (stable assignments, max centroid shift = " << max_shift << ")" << std::endl;
+            converged = true;
+            break;
+        }
+        if (max_shift <= 1e-8) {
+            std::cout << "[Bipolar::Yinyang] Converged after " << (iter + 1)
+                      << " iterations (max centroid shift = " << max_shift << ")" << std::endl;
+            converged = true;
+            break;
+        }
+    }
+
+    if (!converged) {
+        std::cout << "[Bipolar::Yinyang] Reached iteration limit (" << iterations
+                  << ") without full convergence." << std::endl;
+    }
+
+    point_to_pivot_map_.assign(assignments.begin(), assignments.end());
 }
 
 void BipolarPruning::run_kmeans_elkan(const Graph<Node>& g) {
@@ -1063,21 +1486,21 @@ bool checkDisSqr_with_both_pruning(const Node& x, const Node& y, const double& r
     return checkDisSqr(x,y,rr);
 }
 
-double build_bipolar_pruning_index(const Graph<Node>& g, const std::string& dataset_path, int k, int iter) {
+double build_bipolar_pruning_index(const Graph<Node>& g, const std::string& dataset_path, int k, int iter, BipolarKMeansVariant variant) {
     if (g_bipolar_pruning) {
         delete g_bipolar_pruning;
         g_bipolar_pruning = nullptr;
     }
 
-    const int effective_iter = (iter > 0) ? iter : 20;
+    const int effective_iter = (iter > 0) ? iter : 5;
 
-    g_bipolar_pruning = new BipolarPruning(k, effective_iter);
+    g_bipolar_pruning = new BipolarPruning(k, effective_iter, variant);
 
     const int effective_k = std::min(k, g.n);
     const std::size_t node_count = static_cast<std::size_t>(g.n);
     const std::size_t att_dim = static_cast<std::size_t>(g.attnum);
 
-    const auto cache_path = build_cache_path(dataset_path, effective_k, node_count, att_dim, effective_iter);
+    const auto cache_path = build_cache_path(dataset_path, effective_k, node_count, att_dim, effective_iter, variant);
     double preprocessing_time = 0.0;
 
     if (node_count > 0 && att_dim > 0) {
