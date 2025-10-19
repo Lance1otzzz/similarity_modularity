@@ -4,6 +4,7 @@
 #include <iostream>
 #include <chrono>
 #include <random>
+#include <stdexcept>
 
 inline std::chrono::high_resolution_clock::time_point timeNow(){return std::chrono::high_resolution_clock::now();}
 inline double timeElapsed(std::chrono::high_resolution_clock::time_point start, std::chrono::high_resolution_clock::time_point end)
@@ -85,4 +86,16 @@ inline std::vector<double>& operator-=(std::vector<double>& a, const std::vector
     for (size_t i = 0; i < a.size(); ++i)
         a[i] -= b[i];
     return a;
+}
+
+inline double calc_distance_sqr(const std::vector<double>& a, const std::vector<double>& b) {
+    if (a.size() != b.size()) {
+        throw std::invalid_argument("Vector sizes must match for calc_distance_sqr");
+    }
+    double dist_sqr = 0.0;
+    for (size_t i = 0; i < a.size(); ++i) {
+        double diff = a[i] - b[i];
+        dist_sqr += diff * diff;
+    }
+    return dist_sqr;
 }

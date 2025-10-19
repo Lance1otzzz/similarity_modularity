@@ -7,8 +7,6 @@
 
 enum class BipolarKMeansVariant {
     Lloyd,
-    Elkan,
-    Hamerly,
     Yinyang
 };
 
@@ -48,15 +46,11 @@ private:
     
     // Initialize pivots via standard or specialized K-means heuristics
     void run_kmeans(const Graph<Node>& g);
-    void run_kmeans_elkan(const Graph<Node>& g);
-    void run_kmeans_hamerly(const Graph<Node>& g);
     void run_kmeans_yinyang(const Graph<Node>& g);
     void run_kmeans_yinyang_jl(const Graph<Node>& g, int projected_dim = 48, int projected_iterations = 20);
     void initialize_pivots_top_degree(const Graph<Node>& g, int iterations);
     
     // Calculate squared Euclidean distance between two attribute vectors
-    double calc_distance_sqr(const std::vector<double>& a, const std::vector<double>& b) const;
-
     // Parameters
     int k_;                    // Number of clusters/pivots
     int max_iterations_;       // Max K-means iterations

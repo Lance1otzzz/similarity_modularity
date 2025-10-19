@@ -5,15 +5,6 @@
 
 DistanceIndex* g_distance_index = nullptr;
 
-double calc_distance_sqr(const std::vector<double>& a, const std::vector<double>& b) {
-    double dist_sqr = 0.0;
-    for (size_t i = 0; i < a.size(); ++i) {
-        const double diff = a[i] - b[i];
-        dist_sqr += diff * diff;
-    }
-    return dist_sqr;
-}
-
 // Global counters for pruning statistics are defined in graph.hpp
 
 // Function to check distance with triangle inequality pruning

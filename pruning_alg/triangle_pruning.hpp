@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include "../defines.hpp"
 
 // Forward declarations
 struct Node;
@@ -30,6 +31,3 @@ extern DistanceIndex* g_distance_index;
 
 // Function to check distance with triangle inequality pruning
 bool checkDisSqr_with_pruning(const Node& x, const Node& y, const double& rr);
-
-// Helper function to calculate squared Euclidean distance between two attribute vectors
-double calc_distance_sqr(const std::vector<double>& a, const std::vector<double>& b);
