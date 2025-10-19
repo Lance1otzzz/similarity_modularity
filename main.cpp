@@ -158,7 +158,7 @@ int main(int argc, char** argv)
 			// Main algorithm
 			//louvain_with_heap_and_flm_hybrid_pruning(g,r);
 			
-			louvain_pp(g,r,checkDisSqr_with_hybrid_pruning);
+			louvain_pp(g,r,checkDisSqr_with_hybrid_pruning,true);
 			// Cleanup
 			//cleanup_bipolar_pruning_index();
 			cout<<"pp with Hybrid Pruning";
@@ -167,7 +167,7 @@ int main(int argc, char** argv)
 		case 15:
 		{
 			cout<<"!!!!!start pp with Triangle Hybrid Pruning!!!!!"<<endl;
-			louvain_pp(g,r,checkDisSqr_with_triangle_hybrid,true);
+			louvain_pp(g,r,checkDisSqr_with_triangle_hybrid);
 			cout<<"pp with Triangle Hybrid Pruning";
 			break;
 		}
