@@ -27,7 +27,7 @@ const char* variant_tag(BipolarKMeansVariant variant) {
         case BipolarKMeansVariant::Hamerly:
             return "hamerly";
         case BipolarKMeansVariant::Yinyang:
-            return "yinyang";
+            return "yinyang_jl";
     }
     return "unknown";
 }
@@ -106,7 +106,8 @@ double BipolarPruning::build(const Graph<Node>& g) {
             run_kmeans_hamerly(g);
             break;
         case BipolarKMeansVariant::Yinyang:
-            run_kmeans_yinyang(g);
+            max_iterations_ = std::max(max_iterations_, 20);
+            run_kmeans_yinyang_jl(g);
             break;
     }
     
@@ -803,6 +804,287 @@ void BipolarPruning::run_kmeans_hamerly(const Graph<Node>& g) {
     point_to_pivot_map_.assign(assignments.begin(), assignments.end());
 }
 
+void BipolarPruning::run_kmeans_yinyang_jl(const Graph<Node>& g, int projected_dim, int projected_iterations) {
+    const auto& nodes = g.nodes;
+    const std::size_t num_points = nodes.size();
+    const int original_dim = g.attnum;
+
+    if (num_points == 0 || k_ == 0 || original_dim == 0) {
+        pivots_.assign(k_, std::vector<double>(original_dim, 0.0));
+        point_to_pivot_map_.assign(num_points, 0);
+        return;
+    }
+
+    const int proj_dim = std::max(1, projected_dim);
+    const int yinyang_iters = std::max(1, projected_iterations);
+
+    std::normal_distribution<double> normal_dist(0.0, 1.0);
+    std::vector<std::vector<double>> projection(proj_dim, std::vector<double>(original_dim, 0.0));
+    for (int d = 0; d < proj_dim; ++d) {
+        for (int j = 0; j < original_dim; ++j) {
+            projection[d][j] = normal_dist(rng);
+        }
+    }
+
+    const double scaling = 1.0 / std::sqrt(static_cast<double>(proj_dim));
+    std::vector<std::vector<double>> projected_nodes(num_points, std::vector<double>(proj_dim, 0.0));
+    for (std::size_t i = 0; i < num_points; ++i) {
+        const auto& attrs = nodes[i].attributes;
+        for (int d = 0; d < proj_dim; ++d) {
+            double sum = 0.0;
+            for (int j = 0; j < original_dim; ++j) {
+                sum += projection[d][j] * attrs[j];
+            }
+            projected_nodes[i][d] = sum * scaling;
+        }
+    }
+
+    auto run_yinyang_dataset = [&](const std::vector<std::vector<double>>& data,
+                                   int dims,
+                                   int iterations,
+                                   std::vector<int>& assignments,
+                                   std::vector<std::vector<double>>& centroids) {
+        const std::size_t n = data.size();
+        assignments.assign(n, 0);
+        centroids.assign(k_, std::vector<double>(dims, 0.0));
+        if (n == 0 || k_ == 0) {
+            return;
+        }
+
+        std::vector<std::size_t> indices(n);
+        std::iota(indices.begin(), indices.end(), 0);
+        std::shuffle(indices.begin(), indices.end(), rng);
+        for (int c = 0; c < k_; ++c) {
+            centroids[c] = data[indices[c % n]];
+        }
+
+        int num_groups = std::min(k_, 10);
+        if (num_groups <= 0) num_groups = 1;
+        std::vector<int> center_to_group(k_, 0);
+        std::vector<std::vector<int>> group_to_centers(num_groups);
+        for (int c = 0; c < k_; ++c) {
+            int group_idx = c % num_groups;
+            center_to_group[c] = group_idx;
+            group_to_centers[group_idx].push_back(c);
+        }
+
+        std::vector<double> upper_bounds(n, 0.0);
+        std::vector<std::vector<double>> group_bounds(
+            n, std::vector<double>(num_groups, std::numeric_limits<double>::infinity()));
+        std::vector<std::vector<float>> center_lower_bounds(n, std::vector<float>(k_, 0.0f));
+
+        auto euclidean_dist = [&](const std::vector<double>& a, const std::vector<double>& b) {
+            double sum = 0.0;
+            for (int d = 0; d < dims; ++d) {
+                double diff = a[d] - b[d];
+                sum += diff * diff;
+            }
+            return std::sqrt(sum);
+        };
+
+        for (std::size_t i = 0; i < n; ++i) {
+            const auto& point = data[i];
+            double best = std::numeric_limits<double>::infinity();
+            int best_center = 0;
+            for (int c = 0; c < k_; ++c) {
+                double dist = euclidean_dist(point, centroids[c]);
+                center_lower_bounds[i][c] = static_cast<float>(dist);
+                int group_idx = center_to_group[c];
+                if (dist < group_bounds[i][group_idx]) {
+                    group_bounds[i][group_idx] = dist;
+                }
+                if (dist < best) {
+                    best = dist;
+                    best_center = c;
+                }
+            }
+            assignments[i] = best_center;
+            upper_bounds[i] = best;
+        }
+
+        std::vector<std::vector<double>> new_centroids(k_, std::vector<double>(dims, 0.0));
+        std::vector<int> cluster_counts(k_, 0);
+        std::vector<double> centroid_shifts(k_, 0.0);
+
+        const int effective_iters = std::max(1, iterations);
+        bool converged = false;
+
+        for (int iter = 0; iter < effective_iters; ++iter) {
+            std::cout << "[Bipolar::Yinyang-JL] Reduced iteration " << (iter + 1)
+                      << "/" << effective_iters << std::endl;
+            for (int c = 0; c < k_; ++c) {
+                std::fill(new_centroids[c].begin(), new_centroids[c].end(), 0.0);
+                cluster_counts[c] = 0;
+            }
+
+            bool any_change = false;
+
+            for (std::size_t i = 0; i < n; ++i) {
+                int assign = assignments[i];
+                const auto& point = data[i];
+
+                double best_dist = euclidean_dist(point, centroids[assign]);
+                center_lower_bounds[i][assign] = static_cast<float>(best_dist);
+                int best_center = assign;
+                int best_group = center_to_group[best_center];
+                upper_bounds[i] = best_dist;
+
+                for (int g_idx = 0; g_idx < num_groups; ++g_idx) {
+                    if (g_idx != best_group) {
+                        double group_lb = group_bounds[i][g_idx];
+                        if (best_dist <= group_lb) {
+                            continue;
+                        }
+                    }
+
+                    for (int center : group_to_centers[g_idx]) {
+                        if (center == best_center && g_idx == best_group) {
+                            continue;
+                        }
+
+                        double lower = static_cast<double>(center_lower_bounds[i][center]);
+                        if (best_dist <= lower) continue;
+
+                        double dist = euclidean_dist(point, centroids[center]);
+                        center_lower_bounds[i][center] = static_cast<float>(dist);
+                        if (dist < group_bounds[i][g_idx]) {
+                            group_bounds[i][g_idx] = dist;
+                        }
+                        if (dist + 1e-12 < best_dist) {
+                            best_dist = dist;
+                            best_center = center;
+                            best_group = center_to_group[best_center];
+                        }
+                    }
+                }
+
+                if (best_center != assign) {
+                    any_change = true;
+                }
+
+                assignments[i] = best_center;
+                upper_bounds[i] = best_dist;
+                group_bounds[i][best_group] = std::min(group_bounds[i][best_group], best_dist);
+
+                for (int g_idx = 0; g_idx < num_groups; ++g_idx) {
+                    if (group_to_centers[g_idx].empty()) {
+                        group_bounds[i][g_idx] = 0.0;
+                        continue;
+                    }
+                    double min_bound = std::numeric_limits<double>::infinity();
+                    for (int center : group_to_centers[g_idx]) {
+                        double bound_val = static_cast<double>(center_lower_bounds[i][center]);
+                        if (bound_val < min_bound) {
+                            min_bound = bound_val;
+                        }
+                    }
+                    group_bounds[i][g_idx] = min_bound;
+                }
+
+                cluster_counts[assignments[i]] += 1;
+                auto& accum = new_centroids[assignments[i]];
+                for (int d = 0; d < dims; ++d) {
+                    accum[d] += point[d];
+                }
+            }
+
+            double max_shift = 0.0;
+            for (int c = 0; c < k_; ++c) {
+                if (cluster_counts[c] > 0) {
+                    double inv = 1.0 / static_cast<double>(cluster_counts[c]);
+                    for (int d = 0; d < dims; ++d) {
+                        new_centroids[c][d] *= inv;
+                    }
+                } else {
+                    new_centroids[c] = centroids[c];
+                }
+                double shift = euclidean_dist(centroids[c], new_centroids[c]);
+                centroid_shifts[c] = shift;
+                if (shift > max_shift) {
+                    max_shift = shift;
+                }
+            }
+
+            centroids = new_centroids;
+
+            for (std::size_t i = 0; i < n; ++i) {
+                upper_bounds[i] += centroid_shifts[assignments[i]];
+                for (int g_idx = 0; g_idx < num_groups; ++g_idx) {
+                    if (group_to_centers[g_idx].empty()) {
+                        group_bounds[i][g_idx] = 0.0;
+                        continue;
+                    }
+                    double min_bound = std::numeric_limits<double>::infinity();
+                    for (int center : group_to_centers[g_idx]) {
+                        double updated = static_cast<double>(center_lower_bounds[i][center]) - centroid_shifts[center];
+                        if (updated < 0.0) updated = 0.0;
+                        center_lower_bounds[i][center] = static_cast<float>(updated);
+                        if (updated < min_bound) {
+                            min_bound = updated;
+                        }
+                    }
+                    group_bounds[i][g_idx] = min_bound;
+                }
+            }
+
+            if (!any_change && max_shift <= 1e-6) {
+                std::cout << "[Bipolar::Yinyang-JL] Reduced converged after "
+                          << (iter + 1) << " iterations (stable assignments, max centroid shift = "
+                          << max_shift << ")" << std::endl;
+                converged = true;
+                break;
+            }
+            if (max_shift <= 1e-8) {
+                std::cout << "[Bipolar::Yinyang-JL] Reduced converged after "
+                          << (iter + 1) << " iterations (max centroid shift = "
+                          << max_shift << ")" << std::endl;
+                converged = true;
+                break;
+            }
+        }
+
+        if (!converged) {
+            std::cout << "[Bipolar::Yinyang-JL] Reduced reached iteration limit ("
+                      << effective_iters << ") without full convergence." << std::endl;
+        }
+    };
+
+    std::vector<int> projected_assignments;
+    std::vector<std::vector<double>> projected_centroids;
+    run_yinyang_dataset(projected_nodes, proj_dim, yinyang_iters, projected_assignments, projected_centroids);
+
+    pivots_.assign(k_, std::vector<double>(original_dim, 0.0));
+    point_to_pivot_map_.assign(num_points, 0);
+    std::vector<int> cluster_counts(k_, 0);
+
+    for (std::size_t i = 0; i < num_points; ++i) {
+        int assign = projected_assignments.empty() ? 0 : projected_assignments[i];
+        if (assign < 0 || assign >= k_) assign = assign % k_;
+        cluster_counts[assign]++;
+        const auto& attrs = nodes[i].attributes;
+        for (int d = 0; d < original_dim; ++d) {
+            pivots_[assign][d] += attrs[d];
+        }
+        point_to_pivot_map_[i] = assign;
+    }
+
+    if (num_points > 0) {
+        std::uniform_int_distribution<std::size_t> pick_dist(0, num_points - 1);
+        for (int c = 0; c < k_; ++c) {
+            if (cluster_counts[c] > 0) {
+                double inv = 1.0 / static_cast<double>(cluster_counts[c]);
+                for (int d = 0; d < original_dim; ++d) {
+                    pivots_[c][d] *= inv;
+                }
+            } else {
+                const auto& attrs = nodes[pick_dist(rng)].attributes;
+                pivots_[c] = attrs;
+            }
+        }
+    }
+
+}
+
 void BipolarPruning::run_kmeans_yinyang(const Graph<Node>& g) {
     const auto& nodes = g.nodes;
     const std::size_t num_points = nodes.size();
@@ -1492,7 +1774,10 @@ double build_bipolar_pruning_index(const Graph<Node>& g, const std::string& data
         g_bipolar_pruning = nullptr;
     }
 
-    const int effective_iter = (iter > 0) ? iter : 5;
+    int effective_iter = (iter > 0) ? iter : 5;
+    if (variant == BipolarKMeansVariant::Yinyang && iter <= 0) {
+        effective_iter = 20;
+    }
 
     g_bipolar_pruning = new BipolarPruning(k, effective_iter, variant);
 

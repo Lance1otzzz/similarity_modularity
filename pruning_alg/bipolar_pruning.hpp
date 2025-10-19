@@ -51,6 +51,7 @@ private:
     void run_kmeans_elkan(const Graph<Node>& g);
     void run_kmeans_hamerly(const Graph<Node>& g);
     void run_kmeans_yinyang(const Graph<Node>& g);
+    void run_kmeans_yinyang_jl(const Graph<Node>& g, int projected_dim = 48, int projected_iterations = 20);
     void initialize_pivots_top_degree(const Graph<Node>& g, int iterations);
     
     // Calculate squared Euclidean distance between two attribute vectors
