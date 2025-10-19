@@ -69,20 +69,16 @@ int main(int argc, char** argv)
     int bipolar_k = 0;
     if (g.n > 0) {
         const double avg_degree = (g.n > 0) ? (2.0 * static_cast<double>(g.m)) / static_cast<double>(g.n) : 0.0;
+        cout << "average degree = " << avg_degree << endl;
         if (avg_degree > 0.0) {
-            const double scaled_nodes = static_cast<double>(g.n) * (avg_degree / (avg_degree + 20.0));
-            double suggested_k = std::sqrt(scaled_nodes);
-            if (g.attnum > 0) {
-                const int projected_dim_target = 48;
-                const int effective_proj_dim = std::min(projected_dim_target, g.attnum);
-                const double dim_ratio = static_cast<double>(effective_proj_dim) / static_cast<double>(g.attnum);
-                suggested_k *= std::sqrt(dim_ratio);
-            }
+            double suggested_k = std::sqrt(static_cast<double>(g.n));
+            suggested_k *= (avg_degree / (avg_degree + 20.0));
             bipolar_k = static_cast<int>(std::round(suggested_k));
             bipolar_k = std::max(1, std::min(bipolar_k, g.n));
         } else {
             bipolar_k = 1;
         }
+        cout << "bipolar k = " << bipolar_k << endl;
     }
 	if (algorithm==7||algorithm==12||algorithm==13||algorithm==14||algorithm==15)
 	{
@@ -164,7 +160,7 @@ int main(int argc, char** argv)
 			// Main algorithm
 			//louvain_with_heap_and_flm_hybrid_pruning(g,r);
 			
-			louvain_pp(g,r,checkDisSqr_with_hybrid_pruning,true);
+			louvain_pp(g,r,checkDisSqr_with_hybrid_pruning,false);
 			// Cleanup
 			//cleanup_bipolar_pruning_index();
 			cout<<"pp with Hybrid Pruning";
