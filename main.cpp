@@ -174,7 +174,7 @@ int main(int argc, char** argv)
 		case 20:
 		{
 			cout<<"!!!!!start pure Louvain!!!!!"<<endl;
-			louvain_pure(g);
+			louvain_pure(g,true);
 			cout<<"louvain_pure";
 			break;
 		}
