@@ -65,19 +65,25 @@ int main(int argc, char** argv)
 	cout<<"LoadGraph time: "<<timeElapsed(startLoadingGraph,endLoadingGraph)<<endl;
 	cout<<"-----------------------------------"<<endl;
 
-	double preprocessing_time=0;
-	int bipolar_k = 0;
-	if (g.n > 0) {
-		const double avg_degree = (g.n > 0) ? (2.0 * static_cast<double>(g.m)) / static_cast<double>(g.n) : 0.0;
-		if (avg_degree > 0.0) {
-			const double scaled_nodes = static_cast<double>(g.n) * (avg_degree / (avg_degree + 20.0));
-			const double suggested_k = std::sqrt(scaled_nodes);
-			bipolar_k = static_cast<int>(std::round(suggested_k));
-			bipolar_k = std::max(1, std::min(bipolar_k, g.n));
-		} else {
-			bipolar_k = 1;
-		}
-	}
+    double preprocessing_time=0;
+    int bipolar_k = 0;
+    if (g.n > 0) {
+        const double avg_degree = (g.n > 0) ? (2.0 * static_cast<double>(g.m)) / static_cast<double>(g.n) : 0.0;
+        if (avg_degree > 0.0) {
+            const double scaled_nodes = static_cast<double>(g.n) * (avg_degree / (avg_degree + 20.0));
+            double suggested_k = std::sqrt(scaled_nodes);
+            if (g.attnum > 0) {
+                const int projected_dim_target = 48;
+                const int effective_proj_dim = std::min(projected_dim_target, g.attnum);
+                const double dim_ratio = static_cast<double>(effective_proj_dim) / static_cast<double>(g.attnum);
+                suggested_k *= std::sqrt(dim_ratio);
+            }
+            bipolar_k = static_cast<int>(std::round(suggested_k));
+            bipolar_k = std::max(1, std::min(bipolar_k, g.n));
+        } else {
+            bipolar_k = 1;
+        }
+    }
 	if (algorithm==7||algorithm==12||algorithm==13||algorithm==14||algorithm==15)
 	{
 		// Bipolar pruning preprocessing

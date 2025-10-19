@@ -634,7 +634,16 @@ void BipolarPruning::run_kmeans_yinyang_jl(const Graph<Node>& g, int projected_d
         return;
     }
 
-    const int proj_dim = std::max(1, projected_dim);
+    if (original_dim <= projected_dim) {
+        auto yinyang_start = timeNow();
+        run_kmeans_yinyang(g);
+        auto yinyang_end = timeNow();
+        std::cout << "[Bipolar::Yinyang] Stage time: "
+                  << timeElapsed(yinyang_start, yinyang_end) << "s" << std::endl;
+        return;
+    }
+
+    const int proj_dim = std::max(1, std::min(projected_dim, original_dim));
     const int yinyang_iters = std::max(1, projected_iterations);
 
     std::normal_distribution<double> normal_dist(0.0, 1.0);
@@ -870,7 +879,11 @@ void BipolarPruning::run_kmeans_yinyang_jl(const Graph<Node>& g, int projected_d
 
     std::vector<int> projected_assignments;
     std::vector<std::vector<double>> projected_centroids;
+    auto reduced_start = timeNow();
     run_yinyang_dataset(projected_nodes, proj_dim, yinyang_iters, projected_assignments, projected_centroids);
+    auto reduced_end = timeNow();
+    std::cout << "[Bipolar::Yinyang-JL] Reduced stage time: "
+              << timeElapsed(reduced_start, reduced_end) << "s" << std::endl;
 
     pivots_.assign(k_, std::vector<double>(original_dim, 0.0));
     point_to_pivot_map_.assign(num_points, 0);
@@ -905,6 +918,7 @@ void BipolarPruning::run_kmeans_yinyang_jl(const Graph<Node>& g, int projected_d
 }
 
 void BipolarPruning::run_kmeans_yinyang(const Graph<Node>& g) {
+    auto stage_start = timeNow();
     const auto& nodes = g.nodes;
     const std::size_t num_points = nodes.size();
     const std::size_t dimensions = static_cast<std::size_t>(g.attnum);
@@ -1107,6 +1121,10 @@ void BipolarPruning::run_kmeans_yinyang(const Graph<Node>& g) {
     }
 
     point_to_pivot_map_.assign(assignments.begin(), assignments.end());
+
+    auto stage_end = timeNow();
+    std::cout << "[Bipolar::Yinyang] Stage time: "
+              << timeElapsed(stage_start, stage_end) << "s" << std::endl;
 }
 
 void BipolarPruning::initialize_pivots_top_degree(const Graph<Node>& g, int iterations) {
