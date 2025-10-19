@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-void louvain_pure(Graph<Node> &g) 
+void louvain_pure(Graph<Node> &g, bool output_final_partition = false) 
 {
 	double mm=g.m;
 
@@ -140,4 +140,19 @@ void louvain_pure(Graph<Node> &g)
 	std::cout<<"totally "<<cnt_it<<" iterations"<<std::endl;
 
 	std::cout<<"Louvain Modularity = "<<calcModularity(g,hg.nodes)<<std::endl;
+	if (output_final_partition)
+	{
+		std::cout<<"Final partition:"<<std::endl;
+		for (size_t community_id = 0; community_id < hg.nodes.size(); ++community_id)
+		{
+			const auto &members = hg.nodes[community_id];
+			if (members.empty()) continue;
+			std::cout<<"Community "<<community_id<<":";
+			for (int node_id : members)
+			{
+				std::cout<<' '<<node_id;
+			}
+			std::cout<<std::endl;
+		}
+	}
 }
