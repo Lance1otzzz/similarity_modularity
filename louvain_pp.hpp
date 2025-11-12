@@ -6,7 +6,6 @@
 #include <stdexcept>
 #include <vector>
 #include <queue>
-#include <unordered_map>
 #include <absl/container/flat_hash_map.h>
 
 void louvain_pp(Graph<Node> &g, double r, bool (*checkDisSqr)(const Node&,const Node&,const double&), bool output_final_partition = false) //edge node to community
@@ -255,7 +254,7 @@ void louvain_pp(Graph<Node> &g, double r, bool (*checkDisSqr)(const Node&,const 
 		// initialize community, communityAssignments & Hypernode
 		//Graph<std::vector<int>> newhg(numNew,std::move(newAttrSum));
 		Graph<std::vector<int>> newhg(numNew);
-		std::unordered_map<std::pair<int,int>,std::tuple<int,double,Flag>,pair_hash> toAdd; // weight, max distance, Flag
+		absl::flat_hash_map<std::pair<int,int>,std::tuple<int,double,Flag>,pair_hash> toAdd; // weight, max distance, Flag
 		for (int u=0;u<hg.n;u++) // every hypernode now
 		{
 			int uu=idToNewid[u],cu=communityAssignments[u]; // u is going to be added in the new hypernode uu

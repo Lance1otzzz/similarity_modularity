@@ -1,3 +1,6 @@
+#pragma once
+// !!!!!! hash 
+
 #include "graph.hpp"
 #include "defines.hpp"
 #include <algorithm>
