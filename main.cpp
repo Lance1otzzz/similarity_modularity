@@ -93,7 +93,7 @@ int main(int argc, char** argv)
 		case 8:
 		{
 			cout<<"!!!!!start louvain plus plus!!!!!"<<endl;
-			louvain_pp(g,r,checkDisSqr);
+			louvain_pp(g,r,checkDisSqr,true);
 			cout<<"plus plus";
 			break;
 		}

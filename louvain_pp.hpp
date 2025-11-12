@@ -7,7 +7,7 @@
 #include <vector>
 #include <queue>
 #include <unordered_map>
-#include <unordered_set>
+#include <absl/container/flat_hash_map.h>
 
 void louvain_pp(Graph<Node> &g, double r, bool (*checkDisSqr)(const Node&,const Node&,const double&), bool output_final_partition = false) //edge node to community
 {
@@ -49,7 +49,7 @@ void louvain_pp(Graph<Node> &g, double r, bool (*checkDisSqr)(const Node&,const 
 
         improvement=false;
 
-		std::vector<std::unordered_map<int,nodeToComEdge>> eToOtherC(hg.n);//id,edge weight. sum edges from hypernodes to other communtiy
+		std::vector<absl::flat_hash_map<int,nodeToComEdge>> eToOtherC(hg.n);//id,edge weight. sum edges from hypernodes to other communtiy
 		for (int u=0;u<hg.n;u++)
 		{
 			for (const Edge& edge:hg.edges[u]) if (u!=edge.v)
