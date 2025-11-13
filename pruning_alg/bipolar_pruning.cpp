@@ -1437,7 +1437,7 @@ double build_bipolar_pruning_index(const Graph<Node>& g, const std::string& data
 
     int effective_iter = (iter > 0) ? iter : 5;
     if (variant == BipolarKMeansVariant::Yinyang && iter <= 0) {
-        effective_iter = 20;
+        effective_iter = 10;
     }
 
     g_bipolar_pruning = new BipolarPruning(k, effective_iter, variant);
