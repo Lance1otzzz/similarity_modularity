@@ -4,9 +4,8 @@
 #include "defines.hpp"
 #include <vector>
 #include <queue>
-#include <unordered_map>
-#include <unordered_set>
-#include "pruning_alg/bipolar_pruning.hpp"
+#include <absl/container/flat_hash_map.h>
+#include <absl/container/flat_hash_set.h>
 
 void louvain(Graph<Node> &g, double r) 
 {
@@ -16,7 +15,7 @@ void louvain(Graph<Node> &g, double r)
 	std::vector<int> communityAssignments(g.n);  // stores the community of each hypernode
 	for (int i=0;i<g.n;++i) communityAssignments[i]=i; // Initialize: each hypernode is its own community
 	
-	std::vector<std::unordered_set<int>> community(g.n); // the community contains which hypernodes
+	std::vector<absl::flat_hash_set<int>> community(g.n); // the community contains which hypernodes
 	for (int i=0;i<g.n;i++) community[i].insert(i);
 
 	Graph<std::vector<int>> hg(g); //hypernode graph
@@ -46,7 +45,7 @@ void louvain(Graph<Node> &g, double r)
 				int bestCommunity=cu;
 				
 				// Try to move the node to a neighboring community
-				std::unordered_map<int,long long> uToCom;
+				absl::flat_hash_map<int,long long> uToCom;
 				long long uDegreeSum=hg.degree[u];// just normal degree
 				for (const Edge& edge:hg.edges[u]) if (edge.v!=u)
 				{
@@ -132,7 +131,7 @@ void louvain(Graph<Node> &g, double r)
 
 		// initialize community, communityAssignments & Hypernode
 		Graph<std::vector<int>> newhg(numNew);
-		std::unordered_map<std::pair<int,int>,int,pair_hash> toAdd;
+		absl::flat_hash_map<std::pair<int,int>,int,pair_hash> toAdd;
 		for (int u=0;u<hg.n;u++)
 		{
 			int uu=idToNewid[u];
@@ -172,7 +171,7 @@ void louvain_with_flm(Graph<Node> &g, double r)
     std::vector<int> communityAssignments(g.n);  // stores the community of each hypernode
     for (int i=0;i<g.n;++i) communityAssignments[i]=i; // Initialize: each hypernode is its own community
 	
-	std::vector<std::unordered_set<int>> community(g.n); // the community contains which hypernodes
+	std::vector<absl::flat_hash_set<int>> community(g.n); // the community contains which hypernodes
 	for (int i=0;i<g.n;i++) community[i].insert(i);
 
 	Graph<std::vector<int>> hg(g); //hypernode graph
@@ -217,7 +216,7 @@ void louvain_with_flm(Graph<Node> &g, double r)
 			int bestCommunity=cu;
 			
 			// Try to move the node to a neighboring community
-			std::unordered_map<int,long long> uToCom;//first: id; second: from i to com degree
+			absl::flat_hash_map<int,long long> uToCom;//first: id; second: from i to com degree
 			long long uDegreeSum=hg.degree[u];// just normal degree
 			for (const Edge& edge:hg.edges[u]) if (u!=edge.v)
 			{
@@ -335,7 +334,7 @@ void louvain_with_flm(Graph<Node> &g, double r)
 
 		// initialize community, communityAssignments & Hypernode
 		Graph<std::vector<int>> newhg(numNew);
-		std::unordered_map<std::pair<int,int>,int,pair_hash> toAdd;
+		absl::flat_hash_map<std::pair<int,int>,int,pair_hash> toAdd;
 		for (int u=0;u<hg.n;u++)
 		{
 			int uu=idToNewid[u];

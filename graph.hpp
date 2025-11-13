@@ -9,6 +9,7 @@
 #include <unordered_set>
 #include <limits>
 #include <cmath>
+#include <absl/container/flat_hash_set.h>
 
 inline long long totchecknode=0,notpruned=0;
 
@@ -566,7 +567,7 @@ struct nodeToComEdge
 
 struct infoCom
 {
-	std::unordered_set<int> elements;
+	absl::flat_hash_set<int> elements;
 	int comeTimeStamp,leaveTimeStamp;
 };
 
