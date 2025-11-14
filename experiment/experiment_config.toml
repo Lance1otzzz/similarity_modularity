@@ -83,3 +83,23 @@ results_dir = "experiment_results"
 cache_dir = "distance_cache"
 save_intermediate = true
 logs_dir = "experiment_logs"
+
+# ----------------------------------------------------
+# VARY-K 和 VARY-R 实验模式的参数
+# ----------------------------------------------------
+
+# --- 模式一: "Vary-K" 实验 ---
+# 如果 k_values 和 fixed_r_percentile 都被定义, 则脚本会运行此模式.
+# ----------------------------------------------------
+# 要遍历的 k 值列表
+k_values = [10, 20, 30, 40, 50]
+
+# 固定 r 值所用的距离百分位 (例如，使用所有距离的 50% 分位点作为固定的 r 值)
+fixed_r_percentile = 50
+
+
+# --- 模式二: "Vary-R" 实验 (回退模式) ---
+# 如果上面的 k_values 或 fixed_r_percentile 未定义, 则脚本会运行此模式.
+# ----------------------------------------------------
+# 在 "Vary-R" 模式下, 使用的固定的 k 值
+fixed_k_for_vary_r = 10

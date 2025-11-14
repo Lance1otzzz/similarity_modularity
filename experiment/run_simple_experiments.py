@@ -35,7 +35,8 @@ class ExperimentConfig:
             raise FileNotFoundError(f"Config TOML not found: {cfg_path}")
         data = load_toml(cfg_path)
         # Promote expected root keys if a user put them inside a table
-        root_keys = ("table_columns", "target_datasets", "distance_percentiles")
+        root_keys = ("table_columns", "target_datasets", "distance_percentiles", 
+                     "k_values", "fixed_r_percentile", "fixed_k_for_vary_r") # ADDED new keys
         for section_name, section in list(data.items()):
             if isinstance(section, dict):
                 for key in root_keys:
@@ -58,7 +59,26 @@ class ExperimentConfig:
 
     @property
     def distance_percentiles(self) -> List[float]:
-        return list(self.config["distance_percentiles"])  # copy
+        # If we are running a vary-k experiment, we only need one r-value.
+        if self.fixed_r_percentile is not None and self.k_values:
+            return [self.fixed_r_percentile]
+        return list(self.config.get("distance_percentiles", []))  # copy
+
+    # --- NEW: Properties for k-variation and r-variation experiments ---
+    @property
+    def k_values(self) -> List[int]:
+        return list(self.config.get("k_values", []))
+
+    @property
+    def fixed_r_percentile(self) -> Optional[float]:
+        val = self.config.get("fixed_r_percentile")
+        return float(val) if val is not None else None
+
+    @property
+    def fixed_k_for_vary_r(self) -> int:
+        # The fixed k to use in vary-r mode. Defaults to 0 if not specified.
+        return int(self.config.get("fixed_k_for_vary_r", 0))
+    # --- End of NEW ---
 
     # sampling_config
     @property
@@ -321,16 +341,19 @@ def run_worker(
     algorithm_code: int,
     command_name: str,
     r_value: float,
-    percentile: float,
+    k_value: int,
+    log_key: str,
     logs_dir: str,
     enable_timeout: bool,
     timeout_seconds: int,
     omp_threads_per_proc: int,
-) -> Tuple[str, Dict[str, float], Dict[str, float], Dict[str, float]]:
+) -> Tuple[str, str, Dict[str, float], Dict[str, float], Dict[str, float]]:
     """Run a single algorithm and parse time, modularity, and total distance metrics."""
     repo_root = Path(__file__).resolve().parent.parent
     dataset_arg = str((repo_root / "dataset" / dataset_name).resolve())
-    cmd = [main_path, str(algorithm_code), dataset_arg, str(r_value)]
+    
+    cmd = [main_path, str(algorithm_code), dataset_arg, str(r_value), str(k_value)]
+    
     try:
         env = dict(os.environ)
         if omp_threads_per_proc and int(omp_threads_per_proc) > 0:
@@ -354,38 +377,43 @@ def run_worker(
         import datetime as _dt
         ds_dir = _Path(logs_dir) / dataset_name
         ds_dir.mkdir(parents=True, exist_ok=True)
-        p_str = ("%g" % float(percentile)).replace('.', '_')
+        
         r_str = ("%g" % float(r_value)).replace('.', '_')
-        log_name = f"{command_name}_p{p_str}_r{r_str}.log"
+        k_str = str(k_value)
+        log_name = f"{command_name}_k{k_str}_r{r_str}.log"
+        
         log_path = ds_dir / log_name
         timestamp = _dt.datetime.now().isoformat()
         with open(log_path, 'w', encoding='utf-8') as f:
             f.write(f"# Dataset: {dataset_name}\n")
             f.write(f"# Command: {command_name} (code {algorithm_code})\n")
-            f.write(f"# Percentile: {percentile}\n")
+            f.write(f"# k value: {k_value}\n")
             f.write(f"# r value: {r_value}\n")
             f.write(f"# Timestamp: {timestamp}\n\n")
             f.write(output)
     except Exception:
-        # Do not fail the computation on logging errors
         pass
 
     time_parsed, modularity_parsed, distance_parsed = parse_output(output, command_name)
-    return command_name, time_parsed, modularity_parsed, distance_parsed
+    return command_name, log_key, time_parsed, modularity_parsed, distance_parsed
 
 
 def main():
-    # Always read the local TOML (ignore any *.server.toml)
     cfg_path = Path(__file__).parent / "experiment_config.toml"
     if not cfg_path.exists():
         raise FileNotFoundError(f"Config not found: {cfg_path}")
 
     config = ExperimentConfig(str(cfg_path))
 
+    is_vary_k_experiment = config.k_values and config.fixed_r_percentile is not None
+    if is_vary_k_experiment:
+        print("Running in 'vary-k' mode.")
+    else:
+        print("Running in 'vary-r' mode.")
+
     base_dir = Path(__file__).resolve().parent
     repo_root = base_dir.parent
 
-    # Prepare dirs
     results_dir = Path(config.results_dir)
     if not results_dir.is_absolute():
         results_dir = (base_dir / results_dir).resolve()
@@ -399,27 +427,18 @@ def main():
 
     print("Reminder: run `make` before executing this script to ensure the binary is up to date.")
 
-    # Compile if requested
     if config.compile_before_run:
         ensure_compiled_simple(config)
 
-    # Sampler for r percentiles
     sampler = DistanceSampler(config)
-
-    # Determine workers
     max_workers = config.max_workers or os.cpu_count() or 4
-
-    # Build the main binary path used in child processes
     main_binary = Path(config.main_program_path)
     if not main_binary.is_absolute():
         main_binary = (repo_root / main_binary).resolve()
     main_path = str(main_binary)
 
-    # Precompute modularity columns based on algorithms present
     algo_names = list(config.algorithm_commands.values())
     modularity_columns: List[str] = [f"{name}_modularity" for name in algo_names]
-
-    # Extend timing columns with total distance metrics placed after each algorithm's time columns
     time_columns: List[str] = list(config.table_columns)
     if "triangle" in algo_names and "triangle_cal_time" not in time_columns:
         time_columns.append("triangle_cal_time")
@@ -430,8 +449,7 @@ def main():
             if column.startswith(prefix):
                 insert_at = idx
         distance_column = f"{name}_total_distance"
-        if distance_column in time_columns:
-            continue
+        if distance_column in time_columns: continue
         if insert_at >= 0:
             time_columns.insert(insert_at + 1, distance_column)
         else:
@@ -439,108 +457,83 @@ def main():
 
     all_results: Dict[str, pd.DataFrame] = {}
 
-    print("Running simplified experiments:")
+    print("Running experiments:")
     print(f"Datasets: {config.target_datasets}")
     print(f"Algorithms: {config.algorithm_commands}")
-    print(f"Time columns: {time_columns}")
-    print(f"Modularity columns: {modularity_columns}")
 
     for dataset in config.target_datasets:
         print(f"\nDataset: {dataset}")
-        percentiles = sampler.get_distance_percentiles(dataset, config.distance_percentiles)
-        print(f"r percentiles: {percentiles}")
-
-        # Prepare rows per percentile
-        rows_by_p: Dict[float, Dict[str, object]] = {}
-        for p, r_val in percentiles.items():
-            row: Dict[str, object] = {'r': f'{p}%'}
-            for col in time_columns:
-                row[col] = None
-            for col in modularity_columns:
-                row[col] = None
-            rows_by_p[p] = row
-
-        # Build tasks (percentile, r, algo_code, algo_name)
+        
+        rows_by_key: Dict[object, Dict[str, object]] = {}
         tasks = []
-        for p, r_val in percentiles.items():
-            for code, name in config.algorithm_commands.items():
-                tasks.append((p, r_val, int(code), name))
+        varying_param_name = ""
+        varying_param_list: list = []
 
-        # Run tasks (sequentially if only one worker is requested)
-        if max_workers == 1:
-            for p, r_val, code, name in tasks:
+        if is_vary_k_experiment:
+            varying_param_name = "k"
+            r_percentiles = sampler.get_distance_percentiles(dataset, [config.fixed_r_percentile])
+            fixed_r_value = r_percentiles[config.fixed_r_percentile]
+            varying_param_list = config.k_values
+            print(f"Fixed r-value (at {config.fixed_r_percentile}% percentile): {fixed_r_value}")
+            print(f"Varying k-values: {varying_param_list}")
+
+            for k in varying_param_list:
+                rows_by_key[k] = {'k': k, 'fixed_r': fixed_r_value}
+                for col in time_columns + modularity_columns: rows_by_key[k][col] = None
+                for code, name in config.algorithm_commands.items():
+                    tasks.append((fixed_r_value, int(k), int(code), name))
+        else: # Original vary-r logic
+            varying_param_name = "r"
+            percentiles = sampler.get_distance_percentiles(dataset, config.distance_percentiles)
+            varying_param_list = sorted(percentiles.keys())
+            fixed_k_value = config.fixed_k_for_vary_r # Use configured fixed k
+            print(f"Varying r percentiles: {[f'{p}%' for p in varying_param_list]}")
+            print(f"Fixed k-value: {fixed_k_value}")
+
+            for p in varying_param_list:
+                rows_by_key[p] = {'r': f'{p}%', 'fixed_k': fixed_k_value}
+                for col in time_columns + modularity_columns: rows_by_key[p][col] = None
+                r_val = percentiles[p]
+                for code, name in config.algorithm_commands.items():
+                    tasks.append((float(r_val), fixed_k_value, int(code), name))
+
+        with ProcessPoolExecutor(max_workers=max_workers) as pool:
+            future_map = {}
+            for i, (r_val, k_val, code, name) in enumerate(tasks):
+                key = varying_param_list[i // len(config.algorithm_commands)]
+                fut = pool.submit(
+                    run_worker, main_path, dataset, code, name, r_val, k_val, str(key),
+                    logs_dir_str, config.enable_timeout, config.timeout_seconds,
+                    config.omp_threads_per_proc,
+                )
+                future_map[fut] = key
+
+            for fut in as_completed(future_map):
+                key = future_map[fut]
                 try:
-                    name, time_vals, mod_vals, distance_vals = run_worker(
-                        main_path,
-                        dataset,
-                        code,
-                        name,
-                        float(r_val),
-                        float(p),
-                        logs_dir_str,
-                        config.enable_timeout,
-                        config.timeout_seconds,
-                        config.omp_threads_per_proc,
-                    )
-                    row = rows_by_p[p]
+                    name, result_key, time_vals, mod_vals, distance_vals = fut.result()
+                    row = rows_by_key[key]
                     for k, v in time_vals.items():
-                        if k in row:
-                            row[k] = v
+                        if k in row: row[k] = v
                     for k, v in mod_vals.items():
-                        if k in row:
-                            row[k] = v
+                        if k in row: row[k] = v
                     for k, v in distance_vals.items():
-                        if k in row:
-                            row[k] = v
+                        if k in row: row[k] = v
                 except Exception as e:
-                    print(f"Task error at percentile {p}: {e}")
-        else:
-            # Run in parallel without any NUMA/core pinning
-            with ProcessPoolExecutor(max_workers=max_workers) as pool:
-                future_map = {}
-                for p, r_val, code, name in tasks:
-                    fut = pool.submit(
-                        run_worker,
-                        main_path,
-                        dataset,
-                        code,
-                        name,
-                        float(r_val),
-                        float(p),
-                        logs_dir_str,
-                        config.enable_timeout,
-                        config.timeout_seconds,
-                        config.omp_threads_per_proc,
-                    )
-                    future_map[fut] = p
+                    print(f"Task error at {varying_param_name}={key}: {e}")
 
-                for fut in as_completed(future_map):
-                    p = future_map[fut]
-                    try:
-                        name, time_vals, mod_vals, distance_vals = fut.result()
-                        row = rows_by_p[p]
-                        for k, v in time_vals.items():
-                            if k in row:
-                                row[k] = v
-                        for k, v in mod_vals.items():
-                            if k in row:
-                                row[k] = v
-                        for k, v in distance_vals.items():
-                            if k in row:
-                                row[k] = v
-                    except Exception as e:
-                        print(f"Task error at percentile {p}: {e}")
-
-        df = pd.DataFrame([rows_by_p[p] for p in sorted(rows_by_p.keys())])
-        out_csv = results_dir / f"{dataset}_combined_results.csv"
+        df = pd.DataFrame([rows_by_key[key] for key in sorted(rows_by_key.keys())])
+        
+        mode_str = "vary_k" if is_vary_k_experiment else "vary_r"
+        out_csv = results_dir / f"{dataset}_{mode_str}_results.csv"
+        
         df.to_csv(out_csv, index=False)
         print(f"Saved: {out_csv}")
         all_results[dataset] = df
 
-    # Save a lightweight summary (no pruning fields)
     summary_md = results_dir / "combined_results_summary.md"
     with open(summary_md, 'w', encoding='utf-8') as f:
-        f.write("# Combined Results Summary (simple)\n\n")
+        f.write("# Combined Results Summary\n\n")
         for dataset, df in all_results.items():
             f.write(f"## {dataset}\n\n")
             try:
