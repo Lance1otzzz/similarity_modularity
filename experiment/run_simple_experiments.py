@@ -1,6 +1,7 @@
 import os
 import json
 import pickle
+import argparse
 import subprocess
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from decimal import Decimal
@@ -399,7 +400,16 @@ def run_worker(
 
 
 def main():
-    cfg_path = Path(__file__).parent / "experiment_config.toml"
+    # Parse command-line arguments to get the config file path
+    parser = argparse.ArgumentParser(description="Run clustering experiments.")
+    parser.add_argument(
+        '-c', '--config',
+        default=str(Path(__file__).parent / "experiment_config.toml"),
+        help="Path to the experiment configuration TOML file."
+    )
+    args = parser.parse_args()
+
+    cfg_path = Path(args.config)
     if not cfg_path.exists():
         raise FileNotFoundError(f"Config not found: {cfg_path}")
 
