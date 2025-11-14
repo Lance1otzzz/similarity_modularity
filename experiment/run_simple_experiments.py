@@ -466,29 +466,22 @@ def main():
             for code, name in config.algorithm_commands.items():
                 tasks.append((p, r_val, int(code), name))
 
-        # Run in parallel without any NUMA/core pinning
-        with ProcessPoolExecutor(max_workers=max_workers) as pool:
-            future_map = {}
+        # Run tasks (sequentially if only one worker is requested)
+        if max_workers == 1:
             for p, r_val, code, name in tasks:
-                fut = pool.submit(
-                    run_worker,
-                    main_path,
-                    dataset,
-                    code,
-                    name,
-                    float(r_val),
-                    float(p),
-                    logs_dir_str,
-                    config.enable_timeout,
-                    config.timeout_seconds,
-                    config.omp_threads_per_proc,
-                )
-                future_map[fut] = p
-
-            for fut in as_completed(future_map):
-                p = future_map[fut]
                 try:
-                    name, time_vals, mod_vals, distance_vals = fut.result()
+                    name, time_vals, mod_vals, distance_vals = run_worker(
+                        main_path,
+                        dataset,
+                        code,
+                        name,
+                        float(r_val),
+                        float(p),
+                        logs_dir_str,
+                        config.enable_timeout,
+                        config.timeout_seconds,
+                        config.omp_threads_per_proc,
+                    )
                     row = rows_by_p[p]
                     for k, v in time_vals.items():
                         if k in row:
@@ -501,6 +494,42 @@ def main():
                             row[k] = v
                 except Exception as e:
                     print(f"Task error at percentile {p}: {e}")
+        else:
+            # Run in parallel without any NUMA/core pinning
+            with ProcessPoolExecutor(max_workers=max_workers) as pool:
+                future_map = {}
+                for p, r_val, code, name in tasks:
+                    fut = pool.submit(
+                        run_worker,
+                        main_path,
+                        dataset,
+                        code,
+                        name,
+                        float(r_val),
+                        float(p),
+                        logs_dir_str,
+                        config.enable_timeout,
+                        config.timeout_seconds,
+                        config.omp_threads_per_proc,
+                    )
+                    future_map[fut] = p
+
+                for fut in as_completed(future_map):
+                    p = future_map[fut]
+                    try:
+                        name, time_vals, mod_vals, distance_vals = fut.result()
+                        row = rows_by_p[p]
+                        for k, v in time_vals.items():
+                            if k in row:
+                                row[k] = v
+                        for k, v in mod_vals.items():
+                            if k in row:
+                                row[k] = v
+                        for k, v in distance_vals.items():
+                            if k in row:
+                                row[k] = v
+                    except Exception as e:
+                        print(f"Task error at percentile {p}: {e}")
 
         df = pd.DataFrame([rows_by_p[p] for p in sorted(rows_by_p.keys())])
         out_csv = results_dir / f"{dataset}_combined_results.csv"

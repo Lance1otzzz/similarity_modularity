@@ -3,9 +3,9 @@
 
 [algorithm_commands]
 # Map algorithm code to a short command name
-# 10 = "louvain"
-# 11 = "flm" # louvain with flm, without other optimizations
-# 8 = "plusplus"
+#10 = "louvain"
+11 = "flm" # louvain with flm, without other optimizations
+8 = "plusplus"
 14 = "hybrid"
 # 15 = "triangle"
 
@@ -26,8 +26,8 @@ hybrid = "hybrid"
 # Columns for timing results in the output table
 table_columns = [
 #  "louvain_time",
-#  "flm_cal_time",
-#  "plusplus_cal_time",
+  "flm_cal_time",
+  "plusplus_cal_time",
   # "both_preprocessing_time",
   # "both_cal_time",
   # "bipolar_preprocessing_time",
@@ -39,21 +39,24 @@ table_columns = [
 
 # Datasets to run experiments on
 target_datasets = [
-  "SinaNet",
 #  "Cora",
 #  "CiteSeer",
-#  "CoauthorCS",
-#  "CoauthorPhysics",
-#  "PubMed",
+#  "SinaNet",
 #  "AmazonPhoto",
+#  "WikiCS",
 #  "AmazonComputers",
-  "Reddit",
-#  "AmazonProducts",
+#  "CoauthorCS",
+#  "PubMed",
+#  "CoauthorPhysics",
+#  "ogbn-arxiv",
+#  "ogbn-mag",
+#  "Reddit",
 #  "Yelp",
+  "AmazonProducts",
 ]
 
 # Percentiles used to derive distance constraints r
-distance_percentiles = [5, 10, 20, 40, 80]
+distance_percentiles = [20, 40, 60, 80]
 
 [sampling_config]
 max_samples = 10000

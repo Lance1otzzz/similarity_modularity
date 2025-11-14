@@ -123,7 +123,7 @@ double BipolarPruning::build(const Graph<Node>& g) {
             precomputed_pivots_dists_[j][i] = dist_sq;
         }
     }
-    
+
     // std::cout << "Bipolar Pruning build finished." << std::endl;
     
     auto end_time = timeNow();
@@ -352,7 +352,7 @@ void BipolarPruning::save_to_cache(const Graph<Node>& g, const std::string& cach
 }
 
 int BipolarPruning::query_distance_exceeds_1(int p_idx, int q_idx, double r_sq) {
-    total_queries_++;
+    //total_queries_++;
     
     int pivot_p_idx = point_to_pivot_map_[p_idx];
     int pivot_q_idx = point_to_pivot_map_[q_idx];
@@ -480,7 +480,7 @@ int BipolarPruning::triangle_prune(int p_idx, int q_idx, double r_sq) const {
     return 2;
 }
 bool BipolarPruning::query_distance_exceeds(int p_idx, int q_idx, double r_sq) {
-    total_queries_++;
+    //total_queries_++;
     
     int pivot_p_idx = point_to_pivot_map_[p_idx];
     int pivot_q_idx = point_to_pivot_map_[q_idx];
@@ -492,7 +492,7 @@ bool BipolarPruning::query_distance_exceeds(int p_idx, int q_idx, double r_sq) {
         const auto& q_dists = precomputed_point_to_pivots_dists_[q_idx];
 		if (sqr(std::sqrt(p_dists[pivot_p_idx])-std::sqrt(q_dists[pivot_p_idx]))>r_sq) 
 		{
-			pruning_count_++;
+			//pruning_count_++;
 			return true;
 		}
 //        // Use triangle inequality with all pivots
@@ -553,12 +553,12 @@ bool BipolarPruning::query_distance_exceeds(int p_idx, int q_idx, double r_sq) {
 	}
     
     // Pruning failed, perform exact calculation
-    full_calculations_++;
+    //full_calculations_++;
     const auto& p = graph_->nodes[p_idx];
     const auto& q = graph_->nodes[q_idx];
 	//notpruned++;
 	bool res=calcDisSqr(p,q)>r_sq;
-	sucDisCal+=res^1;
+	//sucDisCal+=res^1;
     return res;//calc_distance_sqr(p.attributes, q.attributes) > r*r;
 }
 
@@ -634,7 +634,7 @@ void BipolarPruning::run_kmeans_yinyang_jl(const Graph<Node>& g, int projected_d
         return;
     }
 
-    if (original_dim <= projected_dim) {
+    if (original_dim <= std::max(128,projected_dim)) {
         auto yinyang_start = timeNow();
         run_kmeans_yinyang(g);
         auto yinyang_end = timeNow();

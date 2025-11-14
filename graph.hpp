@@ -367,7 +367,7 @@ struct Graph<Node>:public GraphBase<Node> //graph with simple node (not hypernod
 		n=0;m=0;
 
 		std::string base = ensureFolderSeparator(folder);
-		if (alg==10)
+		if (alg==10||alg==11)
 		{
 			std::cout<<"start readNodes baseline"<<std::endl;
 			readNodes_baseline(base + "nodes.txt");
