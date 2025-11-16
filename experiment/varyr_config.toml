@@ -3,7 +3,7 @@
 
 [algorithm_commands]
 # Map algorithm code to a short command name
-#10 = "louvain"
+10 = "louvain"
 11 = "flm"     # louvain with flm, without other optimizations
 8 = "plusplus"
 14 = "hybrid"
@@ -25,13 +25,13 @@ hybrid = "hybrid"
 
 # Columns for timing results in the output table
 table_columns = [
-  #  "louvain_time",
-  #"flm_cal_time",
-  #  "plusplus_cal_time",
+  "louvain_time",
+  "flm_cal_time",
+  "plusplus_cal_time",
   # "both_preprocessing_time",
   # "both_cal_time",
-  # "bipolar_preprocessing_time",
-  # "bipolar_cal_time",
+  "bipolar_preprocessing_time",
+  "bipolar_cal_time",
   "hybrid_preprocessing_time",
   "hybrid_cal_time",
   # "tri_kmeans_cal_time",
@@ -50,8 +50,8 @@ target_datasets = [
   "CoauthorPhysics",
   "ogbn-arxiv",
   "ogbn-mag",
-  "Reddit",
-  "Yelp",
+  #  "Reddit",
+  #"Yelp",
   "AmazonProducts",
 ]
 
@@ -79,10 +79,10 @@ use_numactl = false # bind CPU+memory to NUMA node(s) using numactl, if availabl
 # numa_nodes = [0]  # optional list of NUMA nodes per slot (cycled). Alternatively: numa_socket = 0
 
 [output_config]
-results_dir = "experiment_results_varyk"
+results_dir = "experiment_results_varyr"
 cache_dir = "distance_cache"
 save_intermediate = true
-logs_dir = "experiment_logs_varyk"
+logs_dir = "experiment_logs_varyr"
 
 # ----------------------------------------------------
 # VARY-K 和 VARY-R 实验模式的参数
@@ -102,4 +102,4 @@ logs_dir = "experiment_logs_varyk"
 # 如果上面的 k_values 或 fixed_r_percentile 未定义, 则脚本会运行此模式.
 # ----------------------------------------------------
 # 在 "Vary-R" 模式下, 使用的固定的 k 值
-fixed_k_for_vary_r = 10
+fixed_k_for_vary_r = 50
