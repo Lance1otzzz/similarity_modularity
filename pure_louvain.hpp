@@ -3,8 +3,7 @@
 #include "graph.hpp"
 #include "defines.hpp"
 #include <vector>
-#include <unordered_map>
-#include <unordered_set>
+#include <absl/container/flat_hash_map.h>
 
 void louvain_pure(Graph<Node> &g, bool output_final_partition = false) 
 {
@@ -13,7 +12,7 @@ void louvain_pure(Graph<Node> &g, bool output_final_partition = false)
 	std::vector<int> communityAssignments(g.n);  // stores the community of each hypernode
 	for (int i=0;i<g.n;++i) communityAssignments[i]=i; // Initialize: each hypernode is its own community
 	
-	std::vector<std::unordered_set<int>> community(g.n); // the community contains which hypernodes
+	std::vector<absl::flat_hash_set<int>> community(g.n); // the community contains which hypernodes
 	for (int i=0;i<g.n;i++) community[i].insert(i);
 
 	Graph<std::vector<int>> hg(g); //hypernode graph
@@ -24,7 +23,6 @@ void louvain_pure(Graph<Node> &g, bool output_final_partition = false)
 	while (improvement) 
 	{
 		cnt_it++;
-
 
 		std::vector<long long> communityDegreeSum(hg.degree); // The degree sum of every node in community (not just degree of hypernodes)
 		improvement=false;
@@ -43,7 +41,7 @@ void louvain_pure(Graph<Node> &g, bool output_final_partition = false)
 				int bestCommunity=cu;
 				
 				// Try to move the node to a neighboring community
-				std::unordered_map<int,long long> uToCom;
+				absl::flat_hash_map<int,long long> uToCom;
 				long long uDegreeSum=hg.degree[u];// just normal degree
 				for (const Edge& edge:hg.edges[u]) if (edge.v!=u)
 				{
@@ -110,7 +108,7 @@ void louvain_pure(Graph<Node> &g, bool output_final_partition = false)
 
 		// initialize community, communityAssignments & Hypernode
 		Graph<std::vector<int>> newhg(numNew);
-		std::unordered_map<std::pair<int,int>,int,pair_hash> toAdd;
+		absl::flat_hash_map<std::pair<int,int>,int,pair_hash> toAdd;
 		for (int u=0;u<hg.n;u++)
 		{
 			int uu=idToNewid[u];

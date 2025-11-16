@@ -1,6 +1,6 @@
 CC=g++
 #CC=clang++
-CFLAGS = -std=c++20 -O3 -Wall -Wno-sign-compare -Wextra -labsl_base -labsl_raw_hash_set -labsl_hash -labsl_raw_logging_internal
+CFLAGS = -std=c++20 -g -O3 -Wall -Wno-sign-compare -Wextra -labsl_base -labsl_raw_hash_set -labsl_hash -labsl_raw_logging_internal
 DEBUGFLAGS = -O0 -g -Wall -Wextra -Wno-sign-compare -Ddebug
 
 # 定义源文件和头文件

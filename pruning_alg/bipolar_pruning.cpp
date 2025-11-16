@@ -15,18 +15,9 @@
 extern long long totDisCal,sucDisCal;
 
 namespace {
-constexpr std::uint32_t kBipolarCacheMagic = 0x4250524E; // 'BPRN'
+constexpr std::uint32_t kBipolarCacheMagic = 0x114514AA; // 
 constexpr std::uint32_t kBipolarCacheVersion = 4;
 
-const char* variant_tag(BipolarKMeansVariant variant) {
-    switch (variant) {
-        case BipolarKMeansVariant::Lloyd:
-            return "lloyd";
-        case BipolarKMeansVariant::Yinyang:
-            return "yinyang_jl";
-    }
-    return "unknown";
-}
 
 std::string sanitize_for_filename(const std::string& input) {
     std::string sanitized;
@@ -49,15 +40,14 @@ std::filesystem::path build_cache_path(const std::string& dataset_path,
                                        int effective_k,
                                        std::size_t node_count,
                                        std::size_t att_dim,
-                                       int max_iterations,
-                                       BipolarKMeansVariant variant) {
+                                       int max_iterations) {
     std::filesystem::path base_dir = std::filesystem::path("cache");
     std::string dataset_key = sanitize_for_filename(dataset_path);
     std::string filename = dataset_key + "_k" + std::to_string(effective_k) +
                            "_n" + std::to_string(node_count) +
                            "_d" + std::to_string(att_dim) +
-                           "_iter" + std::to_string(std::max(0, max_iterations)) +
-                           "_alg" + variant_tag(variant) + ".bin";
+                           "_iter" + std::to_string(max_iterations) +
+                           ".bin";
     return base_dir / filename;
 }
 }
@@ -65,11 +55,10 @@ std::filesystem::path build_cache_path(const std::string& dataset_path,
 // Global bipolar pruning instance
 BipolarPruning* g_bipolar_pruning = nullptr;
 
-BipolarPruning::BipolarPruning(int k, int max_iterations, BipolarKMeansVariant variant)
+BipolarPruning::BipolarPruning(int k, int max_iterations)
     : k_(k), max_iterations_(max_iterations), graph_(nullptr),
-      pruning_count_(0), total_queries_(0), full_calculations_(0),
-      kmeans_variant_(variant) {
-}
+      pruning_count_(0), total_queries_(0), full_calculations_(0)
+      {}
 
 double BipolarPruning::build(const Graph<Node>& g) {
     auto start_time = timeNow();
@@ -89,17 +78,7 @@ double BipolarPruning::build(const Graph<Node>& g) {
     // std::cout << "Building Bipolar Pruning index with k=" << k_ << "..." << std::endl;
     
     // 1. Run K-means using the selected acceleration strategy
-    int iterations = (max_iterations_ > 0) ? max_iterations_ : 5;
-    max_iterations_ = iterations;
-    switch (kmeans_variant_) {
-        case BipolarKMeansVariant::Lloyd:
-            run_kmeans(g);
-            break;
-        case BipolarKMeansVariant::Yinyang:
-            max_iterations_ = std::max(max_iterations_, 20);
-            run_kmeans_yinyang_jl(g);
-            break;
-    }
+	run_kmeans_yinyang_jl(g);
     
     size_t num_points = g.n;
     
@@ -146,7 +125,6 @@ bool BipolarPruning::load_from_cache(const Graph<Node>& g, const std::string& ca
         std::uint32_t version;
         std::int32_t k;
         std::int32_t max_iterations;
-        std::int32_t variant;
         std::uint64_t node_count;
         std::uint64_t att_dim;
         double preprocessing_time;
@@ -160,19 +138,6 @@ bool BipolarPruning::load_from_cache(const Graph<Node>& g, const std::string& ca
 
     if (header.magic != kBipolarCacheMagic || header.version != kBipolarCacheVersion) {
         std::cout << "[Bipolar] Cache load failed (magic/version mismatch): " << cache_path << std::endl;
-        return false;
-    }
-
-    if (header.variant < static_cast<std::int32_t>(BipolarKMeansVariant::Lloyd) ||
-        header.variant > static_cast<std::int32_t>(BipolarKMeansVariant::Yinyang)) {
-        std::cout << "[Bipolar] Cache load failed (invalid variant id): " << cache_path << std::endl;
-        return false;
-    }
-
-    if (header.variant != static_cast<std::int32_t>(kmeans_variant_)) {
-        std::cout << "[Bipolar] Cache load skipped (variant mismatch). cached variant="
-                  << header.variant << ", requested="
-                  << static_cast<int>(kmeans_variant_) << std::endl;
         return false;
     }
 
@@ -195,7 +160,6 @@ bool BipolarPruning::load_from_cache(const Graph<Node>& g, const std::string& ca
 
     k_ = header.k;
     max_iterations_ = header.max_iterations;
-    kmeans_variant_ = static_cast<BipolarKMeansVariant>(header.variant);
 
     point_to_pivot_map_.assign(node_count, 0);
     std::vector<std::int32_t> pivot_map_buffer(node_count);
@@ -282,7 +246,6 @@ void BipolarPruning::save_to_cache(const Graph<Node>& g, const std::string& cach
         std::uint32_t version;
         std::int32_t k;
         std::int32_t max_iterations;
-        std::int32_t variant;
         std::uint64_t node_count;
         std::uint64_t att_dim;
         double preprocessing_time;
@@ -292,7 +255,6 @@ void BipolarPruning::save_to_cache(const Graph<Node>& g, const std::string& cach
     header.version = kBipolarCacheVersion;
     header.k = static_cast<std::int32_t>(k_);
     header.max_iterations = max_iterations_;
-    header.variant = static_cast<std::int32_t>(kmeans_variant_);
     header.node_count = static_cast<std::uint64_t>(g.n);
     header.att_dim = static_cast<std::uint64_t>(g.attnum);
     header.preprocessing_time = preprocessing_time;
@@ -562,68 +524,8 @@ bool BipolarPruning::query_distance_exceeds(int p_idx, int q_idx, double r_sq) {
     return res;//calc_distance_sqr(p.attributes, q.attributes) > r*r;
 }
 
-void BipolarPruning::run_kmeans(const Graph<Node>& g) {
-    const auto& nodes = g.nodes;
-    size_t num_points = nodes.size();
-    size_t dimensions = g.attnum;
-    
-    // Initialize pivots with random node selection
-    pivots_.clear();
-    pivots_.resize(k_, std::vector<double>(dimensions, 0.0));
-    
-    std::vector<int> initial_indices(num_points);
-    std::iota(initial_indices.begin(), initial_indices.end(), 0);
-    std::shuffle(initial_indices.begin(), initial_indices.end(), rng);
-    
-    for (int i = 0; i < k_; ++i) {
-        pivots_[i] = nodes[initial_indices[i]].attributes;
-    }
-    
-    point_to_pivot_map_.assign(num_points, 0);
-    
-    // K-means iterations
-    for (int iter = 0; iter < max_iterations_; ++iter) {
-        std::cout << "[Bipolar::KMeans] Iteration " << (iter + 1)
-                  << "/" << max_iterations_ << std::endl;
-        // Assignment step: assign each point to closest pivot
-        for (size_t i = 0; i < num_points; ++i) {
-            double min_dist_sq = std::numeric_limits<double>::max();
-            int best_pivot_idx = 0;
-            
-            for (int j = 0; j < k_; ++j) {
-                double dist_sq = calc_distance_sqr(nodes[i].attributes, pivots_[j]);
-                if (dist_sq < min_dist_sq) {
-                    min_dist_sq = dist_sq;
-                    best_pivot_idx = j;
-                }
-            }
-            point_to_pivot_map_[i] = best_pivot_idx;
-        }
-        
-        // Update step: recalculate centroids
-        std::vector<std::vector<double>> new_pivots(k_, std::vector<double>(dimensions, 0.0));
-        std::vector<int> cluster_counts(k_, 0);
-        
-        for (size_t i = 0; i < num_points; ++i) {
-            int pivot_idx = point_to_pivot_map_[i];
-            for (size_t d = 0; d < dimensions; ++d) {
-                new_pivots[pivot_idx][d] += nodes[i].attributes[d];
-            }
-            cluster_counts[pivot_idx]++;
-        }
-        
-        for (int j = 0; j < k_; ++j) {
-            if (cluster_counts[j] > 0) {
-                for (size_t d = 0; d < dimensions; ++d) {
-                    new_pivots[j][d] /= cluster_counts[j];
-                }
-                pivots_[j] = new_pivots[j];
-            }
-        }
-    }
-}
 
-void BipolarPruning::run_kmeans_yinyang_jl(const Graph<Node>& g, int projected_dim, int projected_iterations) {
+void BipolarPruning::run_kmeans_yinyang_jl(const Graph<Node>& g, int projected_dim) {
     const auto& nodes = g.nodes;
     const std::size_t num_points = nodes.size();
     const int original_dim = g.attnum;
@@ -634,8 +536,10 @@ void BipolarPruning::run_kmeans_yinyang_jl(const Graph<Node>& g, int projected_d
         return;
     }
 
-    if (original_dim <= std::max(128,projected_dim)) {
+    if (original_dim <= projected_dim) {
         auto yinyang_start = timeNow();
+		//////NOTE///!!!///////////////HERE if <= projected dim how many iters
+		//max_iterations_=5;
         run_kmeans_yinyang(g);
         auto yinyang_end = timeNow();
         std::cout << "[Bipolar::Yinyang] Stage time: "
@@ -644,7 +548,6 @@ void BipolarPruning::run_kmeans_yinyang_jl(const Graph<Node>& g, int projected_d
     }
 
     const int proj_dim = std::max(1, std::min(projected_dim, original_dim));
-    const int yinyang_iters = std::max(1, projected_iterations);
 
     std::normal_distribution<double> normal_dist(0.0, 1.0);
     std::vector<std::vector<double>> projection(proj_dim, std::vector<double>(original_dim, 0.0));
@@ -734,12 +637,11 @@ void BipolarPruning::run_kmeans_yinyang_jl(const Graph<Node>& g, int projected_d
         std::vector<int> cluster_counts(k_, 0);
         std::vector<double> centroid_shifts(k_, 0.0);
 
-        const int effective_iters = std::max(1, iterations);
         bool converged = false;
 
-        for (int iter = 0; iter < effective_iters; ++iter) {
+        for (int iter = 0; iter < iterations; ++iter) {
             std::cout << "[Bipolar::Yinyang-JL] Reduced iteration " << (iter + 1)
-                      << "/" << effective_iters << std::endl;
+                      << "/" << iterations << std::endl;
             for (int c = 0; c < k_; ++c) {
                 std::fill(new_centroids[c].begin(), new_centroids[c].end(), 0.0);
                 cluster_counts[c] = 0;
@@ -873,14 +775,14 @@ void BipolarPruning::run_kmeans_yinyang_jl(const Graph<Node>& g, int projected_d
 
         if (!converged) {
             std::cout << "[Bipolar::Yinyang-JL] Reduced reached iteration limit ("
-                      << effective_iters << ") without full convergence." << std::endl;
+                      << iterations << ") without full convergence." << std::endl;
         }
     };
 
     std::vector<int> projected_assignments;
     std::vector<std::vector<double>> projected_centroids;
     auto reduced_start = timeNow();
-    run_yinyang_dataset(projected_nodes, proj_dim, yinyang_iters, projected_assignments, projected_centroids);
+    run_yinyang_dataset(projected_nodes, proj_dim, max_iterations_, projected_assignments, projected_centroids);
     auto reduced_end = timeNow();
     std::cout << "[Bipolar::Yinyang-JL] Reduced stage time: "
               << timeElapsed(reduced_start, reduced_end) << "s" << std::endl;
@@ -979,11 +881,10 @@ void BipolarPruning::run_kmeans_yinyang(const Graph<Node>& g) {
     std::vector<int> cluster_counts(k_, 0);
     std::vector<double> centroid_shifts(k_, 0.0);
 
-    const int iterations = std::max(1, max_iterations_);
     bool converged = false;
 
-    for (int iter = 0; iter < iterations; ++iter) {
-        std::cout << "[Bipolar::Yinyang] Iteration " << (iter + 1) << "/" << iterations << std::endl;
+    for (int iter = 0; iter < max_iterations_; ++iter) {
+        std::cout << "[Bipolar::Yinyang] Iteration " << (iter + 1) << "/" << max_iterations_ << std::endl;
 
         for (int c = 0; c < k_; ++c) {
             std::fill(new_centroids[c].begin(), new_centroids[c].end(), 0.0);
@@ -1116,7 +1017,7 @@ void BipolarPruning::run_kmeans_yinyang(const Graph<Node>& g) {
     }
 
     if (!converged) {
-        std::cout << "[Bipolar::Yinyang] Reached iteration limit (" << iterations
+        std::cout << "[Bipolar::Yinyang] Reached iteration limit (" << max_iterations_
                   << ") without full convergence." << std::endl;
     }
 
@@ -1175,7 +1076,7 @@ void BipolarPruning::initialize_pivots_top_degree(const Graph<Node>& g, int iter
         pivots_[i] = nodes[node_idx].attributes;
     }
 
-    const int kIterations = std::max(1, iterations);
+    const int kIterations = iterations;
     for (int iter = 0; iter < kIterations; ++iter) {
         std::cout << "[Bipolar::TopDegree] Iteration "
                   << (iter + 1) << "/" << kIterations
@@ -1429,24 +1330,19 @@ bool checkDisSqr_with_both_pruning(const Node& x, const Node& y, const double& r
     return checkDisSqr(x,y,rr);
 }
 
-double build_bipolar_pruning_index(const Graph<Node>& g, const std::string& dataset_path, int k, int iter, BipolarKMeansVariant variant) {
+double build_bipolar_pruning_index(const Graph<Node>& g, const std::string& dataset_path, int k, int iter) {
     if (g_bipolar_pruning) {
         delete g_bipolar_pruning;
         g_bipolar_pruning = nullptr;
     }
 
-    int effective_iter = (iter > 0) ? iter : 5;
-    if (variant == BipolarKMeansVariant::Yinyang && iter <= 0) {
-        effective_iter = 10;
-    }
-
-    g_bipolar_pruning = new BipolarPruning(k, effective_iter, variant);
+    g_bipolar_pruning = new BipolarPruning(k, iter);
 
     const int effective_k = std::min(k, g.n);
     const std::size_t node_count = static_cast<std::size_t>(g.n);
     const std::size_t att_dim = static_cast<std::size_t>(g.attnum);
 
-    const auto cache_path = build_cache_path(dataset_path, effective_k, node_count, att_dim, effective_iter, variant);
+    const auto cache_path = build_cache_path(dataset_path, effective_k, node_count, att_dim, iter);
     double preprocessing_time = 0.0;
 
     if (node_count > 0 && att_dim > 0) {

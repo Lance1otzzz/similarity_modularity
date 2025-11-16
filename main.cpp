@@ -71,7 +71,10 @@ int main(int argc, char** argv)
 	if (algorithm==7||algorithm==12||algorithm==13||algorithm==14||algorithm==15)
 	{
 		// Bipolar pruning preprocessing
-		preprocessing_time = build_bipolar_pruning_index(g, dataset_path, bipolar_k, 0, BipolarKMeansVariant::Yinyang);
+		preprocessing_time = build_bipolar_pruning_index(g, dataset_path, bipolar_k, 10); 
+		// 10 is the yinyang iteration after jl project 
+		// if <32 see bipolar_pruning.cpp line 541 
+		// now iter 10 as the main setting
 		cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
 	}
 	totDisCal=0;
@@ -123,7 +126,7 @@ int main(int argc, char** argv)
 			
 			// Main algorithm
 			//louvain_with_heap_and_flm_pruning(g,r);
-			louvain_pp(g,r,checkDisSqr_with_bipolar_pruning);
+//			louvain_pp(g,r,checkDisSqr_with_bipolar_pruning);
 
 			cout<<"pp with Both Pruning";
 			break;
@@ -135,7 +138,7 @@ int main(int argc, char** argv)
 			
 			// Main algorithm
 			//pure_louvain_with_bipolar_pruning(g,r);//it's baseline louvain,not pure louvain
-			louvain_pp(g,r,checkDisSqr_with_both_pruning);
+//			louvain_pp(g,r,checkDisSqr_with_both_pruning);
 			
 			// Cleanup
 			//cleanup_bipolar_pruning_index();
@@ -164,7 +167,7 @@ int main(int argc, char** argv)
 		case 20:
 		{
 			cout<<"!!!!!start pure Louvain!!!!!"<<endl;
-			louvain_pure(g,true);
+			louvain_pure(g);
 			cout<<"louvain_pure";
 			break;
 		}
