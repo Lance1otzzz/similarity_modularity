@@ -71,10 +71,11 @@ int main(int argc, char** argv)
 	if (algorithm==7||algorithm==12||algorithm==13||algorithm==14||algorithm==15)
 	{
 		// Bipolar pruning preprocessing
-		preprocessing_time = build_bipolar_pruning_index(g, dataset_path, bipolar_k, 10); 
-		// 10 is the yinyang iteration after jl project 
+		preprocessing_time = build_bipolar_pruning_index(g, dataset_path, bipolar_k, 8); 
+		// project to 32 dim, set in bipolar_pruning.hpp, line 45
+		// 8 is the yinyang iteration after jl project 
 		// if <32 see bipolar_pruning.cpp line 541 
-		// now iter 10 as the main setting
+		// now iter 8 as the main setting
 		cout<<"pruning preprocessing time: "<<preprocessing_time<<endl;
 	}
 	totDisCal=0;
