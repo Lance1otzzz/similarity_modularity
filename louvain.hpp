@@ -4,8 +4,6 @@
 #include "defines.hpp"
 #include <vector>
 #include <queue>
-#include <absl/container/flat_hash_map.h>
-#include <absl/container/flat_hash_set.h>
 
 void louvain(Graph<Node> &g, double r) 
 {

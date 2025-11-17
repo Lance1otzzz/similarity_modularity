@@ -9,7 +9,6 @@
 #include <unordered_set>
 #include <limits>
 #include <cmath>
-#include <absl/container/flat_hash_set.h>
 
 inline long long totchecknode=0,notpruned=0;
 

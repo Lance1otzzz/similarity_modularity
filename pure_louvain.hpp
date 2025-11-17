@@ -3,7 +3,7 @@
 #include "graph.hpp"
 #include "defines.hpp"
 #include <vector>
-#include <absl/container/flat_hash_map.h>
+//#include <absl/container/flat_hash_map.h>
 
 void louvain_pure(Graph<Node> &g, bool output_final_partition = false) 
 {

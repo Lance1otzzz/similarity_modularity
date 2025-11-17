@@ -6,7 +6,6 @@
 #include <stdexcept>
 #include <vector>
 #include <queue>
-#include <absl/container/flat_hash_map.h>
 
 void louvain_pp(Graph<Node> &g, double r, bool (*checkDisSqr)(const Node&,const Node&,const double&), bool output_final_partition = false) //edge node to community
 {

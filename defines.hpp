@@ -5,6 +5,26 @@
 #include <chrono>
 #include <random>
 #include <stdexcept>
+#include <unordered_map>
+#include <unordered_set>
+namespace absl{
+	template<
+        class K,
+        class V,
+        class Hash = std::hash<K>,
+        class Eq = std::equal_to<K>,
+        class Alloc = std::allocator<std::pair<const K, V>>
+    >
+    using flat_hash_map = std::unordered_map<K, V, Hash, Eq, Alloc>;
+
+	template<
+        class T,
+        class Hash = std::hash<T>,
+        class Eq = std::equal_to<T>,
+        class Alloc = std::allocator<T>
+    >
+    using flat_hash_set = std::unordered_set<T, Hash, Eq, Alloc>;
+}
 
 inline std::chrono::high_resolution_clock::time_point timeNow(){return std::chrono::high_resolution_clock::now();}
 inline double timeElapsed(std::chrono::high_resolution_clock::time_point start, std::chrono::high_resolution_clock::time_point end)
