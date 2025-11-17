@@ -433,8 +433,9 @@ int BipolarPruning::triangle_prune(int p_idx, int q_idx, double r_sq) const {
         return 1;
     }
 
-    const double centroid_dist = std::sqrt(std::max(0.0, precomputed_pivots_dists_[cluster_x][cluster_y]));
-    const double upper_bound = dist_x_to_cx + centroid_dist + dist_y_to_cy;
+    const double upper_bound_via_cx = dist_x_to_cx + dist_y_to_cx;
+    const double upper_bound_via_cy = dist_x_to_cy + dist_y_to_cy;
+    const double upper_bound = std::min(upper_bound_via_cx, upper_bound_via_cy);
     if (upper_bound <= r) {
         return 0;
     }
